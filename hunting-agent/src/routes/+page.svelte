@@ -148,7 +148,7 @@
 
 <main class="console-index">
   <section class="hero">
-    <span class="eyebrow">AntiSyphon Workshop</span>
+    <span class="eyebrow">AntiSyphon Course (Threat Hunting Summit)</span>
     <h1>Interactive Lab Console</h1>
     <div class="hero-links" aria-label="Workshop links">
       <a class="repo-link" href="https://github.com/faanross/antisyphon_workshop_12062026" target="_blank" rel="noreferrer">
