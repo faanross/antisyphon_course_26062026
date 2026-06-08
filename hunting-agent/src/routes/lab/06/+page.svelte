@@ -117,7 +117,7 @@
   let findingUsage = $state<Record<string, unknown> | null>(null);
 
   // Active tab within the glass cards that hold more than one peer view.
-  let activeTab = $state<"lab" | "targeting" | "code" | "author">("lab");
+  let activeTab = $state<"instructions" | "lab" | "targeting" | "code" | "author">("instructions");
   let skillTab = $state<"frontmatter" | "procedure" | "reference">("frontmatter");
   let promptTab = $state<"system" | "user">("system");
 
@@ -314,13 +314,128 @@
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "targeting"} onclick={() => (activeTab = "targeting")}>Targeting</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
     <button class="tab-btn-top" class:active={activeTab === "author"} onclick={() => (activeTab = "author")}>Author</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 06 · Walkthrough</span>
+          <h2>Run a detection skill — a procedure written in Markdown</h2>
+          <p>
+            This is where <strong>skills</strong> arrive. A detection skill is just a Markdown
+            file with a YAML header: the header declares what it targets and how it scores, and
+            the body is the step-by-step procedure the model follows. You pick one, see exactly
+            what it instructs, run it against the distilled candidates, and watch it emit a
+            structured <strong>DetectionFinding</strong> — a verdict with evidence.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><FileMdIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Pick a detection skill</span>
+                <span class="flow-where">Lab tab · step 01</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab and choose a skill from the catalog (start with
+                <code>hunt-c2-over-https</code>). Each card is a real <code>.md</code> file the
+                harness discovered on disk — nothing is hard-coded.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><BracketsCurlyIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Read the skill contract</span>
+                <span class="flow-where">Frontmatter · Procedure · Reference</span>
+              </div>
+              <p>
+                Inspect the three sub-tabs. <strong>Frontmatter</strong> is the YAML header — what
+                the skill targets and how it scores. <strong>Procedure</strong> is the actual
+                step-by-step the model is told to follow. <strong>Reference</strong> is supporting
+                detail. This <em>is</em> the detection logic, in plain text.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Run it</span>
+                <span class="flow-where">Run Detection Skill</span>
+              </div>
+              <p>
+                Hit <strong>Run Detection Skill</strong>. The harness picks the target candidate
+                automatically, parses the skill into a <strong>system + user prompt</strong> (step
+                02 — a real model call), and the model works the procedure. Watch the
+                <strong>DetectionFinding</strong> stream out in step 03.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><CheckCircleIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Read the finding (and the receipts)</span>
+                <span class="flow-where">DetectionFinding · Execution Detail</span>
+              </div>
+              <p>
+                The <strong>DetectionFinding</strong> is a structured result — verdict, composite
+                score, and the evidence behind it. Expand <strong>Execution Detail</strong> below
+                to see the trace and the exact evidence bundle the finding was built from.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><TargetIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · Go deeper</span>
+                <span class="flow-where">Targeting · Author · Code</span>
+              </div>
+              <p>
+                Three more tabs when you're ready: <strong>Targeting</strong> shows how the
+                candidate gets chosen (you never pick it — the skill and harness do),
+                <strong>Author</strong> walks you through writing your own skill, and
+                <strong>Code</strong> covers the architecture.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <FileMdIcon size={22} weight="duotone" />
+          <p>
+            <strong>Why this is the heart of the system:</strong> detection logic lives in
+            version-controlled Markdown, not buried in code. The agent <em>executes a written
+            procedure</em> rather than improvising — so detections are reviewable, shareable, and
+            improvable by anyone who can edit a text file.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   {#if error}
     <section class="error-panel">{error}</section>
   {/if}

@@ -12,6 +12,9 @@
   import HardDrivesIcon from "phosphor-svelte/lib/HardDrivesIcon";
   import FloppyDiskIcon from "phosphor-svelte/lib/FloppyDiskIcon";
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
+  import ChatCircleTextIcon from "phosphor-svelte/lib/ChatCircleTextIcon";
+  import MagnifyingGlassIcon from "phosphor-svelte/lib/MagnifyingGlassIcon";
+  import CodeIcon from "phosphor-svelte/lib/CodeIcon";
 
   type Trace = {
     id?: string;
@@ -144,13 +147,57 @@
 
 
   let sessionId = $state(`lab03-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  let activeTab = $state<"chat" | "trace" | "code">("chat");
+  let activeTab = $state<"instructions" | "chat" | "trace" | "code">("instructions");
   let message = $state("");
   let turns = $state<Turn[]>([]);
   let availableTools = $state<ToolDefinition[]>(initialTools);
   let statusText = $state("");
   let busy = $state(false);
   let toolsOpen = $state(false);
+  let wiringOpen = $state(true);
+
+  // Faithful (lightly trimmed) view of the two prompts the TAO loop sends the model
+  // each decision step. The tool catalog is part of the USER prompt — see WIRE_CATALOG.
+  const WIRE_SYS = `You are a threat-hunting triage analyst inside an agentic hunting harness.
+You operate in a bounded TAO loop: Thought, Action, Observation.
+The harness exposes read-only tools. Choose one useful tool action at a time.
+The harness validates and executes the selected tool; you reason over the observation.
+… triage method, LOTS guidance, verdict vocabulary …`;
+
+  const WIRE_U1 = `TOOL_SELECTION_REQUEST
+
+Choose the next best action for this investigation.
+
+`;
+  const WIRE_CATALOG = `Available tools:
+- query_candidates
+  purpose: Find candidates by type, score, host, destination, process, or id.
+  args: type?, minBeaconScore?, host?, destIp?, candidateIds?
+  returns: Compact candidate rows sorted by score.
+- get_candidate_detail
+  purpose: Open one candidate for attribution, enrichment, and evidence ids.
+  args: candidateId
+  returns: Detailed candidate record.
+  … all six tools, in the same format, exactly as listed in Available Tools above …`;
+  const WIRE_U2 = `
+
+Return ONLY one JSON object. Do not wrap it in markdown.
+
+`;
+  const WIRE_EXAMPLES = `To call a tool:
+{"thought":"…","action":"call_tool","tool":"query_candidates","args":{"type":"beacon","minBeaconScore":0.7}}
+
+To stop when you have enough evidence:
+{"thought":"…","action":"finish","finalAnswer":"…"}`;
+  const WIRE_U3 = `
+
+Current user message:
+`;
+  const WIRE_PH = `{ the analyst's message goes here }`;
+  const WIRE_U4 = `
+
+Observations already returned this turn:
+None yet.`;
 
   function createId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -371,7 +418,7 @@
   </header>
 
   <section class="workspace">
-    <section class="console panel" class:bare={activeTab === "code"}>
+    <section class="console panel" class:bare={activeTab === "code" || activeTab === "instructions"}>
       <div class="panel-title">
         <h2>Agent Console</h2>
         <div class="panel-actions">
@@ -380,6 +427,15 @@
         </div>
       </div>
       <div class="tabs" role="tablist" aria-label="Lab 04 view">
+        <button
+          type="button"
+          role="tab"
+          class:active={activeTab === "instructions"}
+          aria-selected={activeTab === "instructions"}
+          onclick={() => activeTab = "instructions"}
+        >
+          Instructions
+        </button>
         <button
           type="button"
           role="tab"
@@ -409,7 +465,121 @@
         </button>
       </div>
 
-      {#if activeTab === "chat"}
+      {#if activeTab === "instructions"}
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <div class="code-view">
+          <div class="code-inner">
+            <header class="cv-hero">
+              <span class="cv-eyebrow">Lab 04 · Walkthrough</span>
+              <h2>Run a real triage — and watch how the agent works</h2>
+              <p>
+                This is a genuine triage: you investigate the distilled candidates, follow the
+                evidence, and reach conclusions about what's actually going on. <strong>The hunt
+                and your findings are the job.</strong> But there's a second thing worth watching
+                while you do it — we hand the agent a <strong>toolbox</strong> (six tools, each
+                described) and give it a goal <em>without</em> saying which tool to use. So as you
+                work, also notice whether it <strong>reaches for the right tool</strong> for each
+                question.
+              </p>
+            </header>
+
+            <ol class="flow">
+              <!-- Step 1 -->
+              <li class="flow-step" style="--d: 0ms">
+                <span class="flow-rail"><ToolboxIcon size={22} weight="duotone" /></span>
+                <div class="flow-body">
+                  <div class="flow-top">
+                    <span class="flow-title">1 · See what's in the toolbox</span>
+                    <span class="flow-where">Available Tools panel</span>
+                  </div>
+                  <p>
+                    First, expand <strong>Available Tools</strong> below the console. These six are
+                    what the agent can reach, each with a one-line purpose. Read them so you know
+                    what a <em>correct</em> choice looks like before you start asking.
+                  </p>
+                </div>
+              </li>
+
+              <!-- Step 2 -->
+              <li class="flow-step" style="--d: 110ms">
+                <span class="flow-rail"><ChatCircleTextIcon size={22} weight="duotone" /></span>
+                <div class="flow-body">
+                  <div class="flow-top">
+                    <span class="flow-title">2 · Start investigating</span>
+                    <span class="flow-where">Chat tab</span>
+                  </div>
+                  <p>
+                    Ask real questions about the candidates and read the answers — this is the
+                    actual hunt. Phrase requests as <strong>outcomes</strong>, the way you'd brief
+                    a junior analyst, rather than naming a tool. The prompts below are just
+                    <strong>suggestions</strong> to get you started — and each happens to call for a
+                    <em>different</em> tool, so you can also predict which one the agent should
+                    reach for:
+                  </p>
+                  <div class="gd-match">
+                    <div class="gd-match-row"><span class="gd-q">"Which beacons scored above 0.8?"</span><span class="gd-tool">query_candidates</span></div>
+                    <div class="gd-match-row"><span class="gd-q">"Open up the top candidate — give me the full record."</span><span class="gd-tool">get_candidate_detail</span></div>
+                    <div class="gd-match-row"><span class="gd-q">"Show me the raw events behind it."</span><span class="gd-tool">get_related_events</span></div>
+                    <div class="gd-match-row"><span class="gd-q">"Whose machine is this, and what runs on it?"</span><span class="gd-tool">lookup_asset</span></div>
+                    <div class="gd-match-row"><span class="gd-q">"Is that destination IP known-bad?"</span><span class="gd-tool">lookup_threat_intel</span></div>
+                    <div class="gd-match-row"><span class="gd-q">"Why did it score so high?"</span><span class="gd-tool">explain_score</span></div>
+                  </div>
+                </div>
+              </li>
+
+              <!-- Step 3 -->
+              <li class="flow-step" style="--d: 220ms">
+                <span class="flow-rail"><MagnifyingGlassIcon size={22} weight="duotone" /></span>
+                <div class="flow-body">
+                  <div class="flow-top">
+                    <span class="flow-title">3 · Read the trace behind the answer</span>
+                    <span class="flow-where">Execution Trace tab</span>
+                  </div>
+                  <p>
+                    Open <strong>Execution Trace</strong> to see how each answer was built. For
+                    every turn you get the <strong>Tool Action</strong>: the <em>Selection Note</em>
+                    (its reasoning), the <em>Action</em> — <code>tool(args)</code> it ran — and the
+                    <em>Observation</em> it got back. Two things to judge here: did the
+                    <strong>conclusion hold up</strong> given that evidence, and did it
+                    <strong>pick the right tool</strong>, with sensible arguments, to find it?
+                  </p>
+                </div>
+              </li>
+
+              <!-- Step 4 -->
+              <li class="flow-step" style="--d: 330ms">
+                <span class="flow-rail"><ArrowsClockwiseIcon size={22} weight="duotone" /></span>
+                <div class="flow-body">
+                  <div class="flow-top">
+                    <span class="flow-title">4 · Make it chain tools</span>
+                    <span class="flow-where">the hard case</span>
+                  </div>
+                  <p>
+                    Now ask something no single tool can answer, so it has to combine several and
+                    decide the order itself — e.g. <em>"Give me the full picture of the most
+                    suspicious host: who's on it, what it's talking to, and whether that
+                    destination is known-bad."</em> Watch the trace: each pass it picks the next
+                    tool based on what the last one returned.
+                  </p>
+                </div>
+              </li>
+            </ol>
+
+            <aside class="cv-callout">
+              <CodeIcon size={22} weight="duotone" />
+              <p>
+                <strong>What this lab adds:</strong> the agent stops just answering and starts
+                <em>doing the legwork</em> — gathering its own evidence to triage the candidates.
+                Judge it on both fronts: the quality of the investigation and conclusions, and
+                whether it chose the right tools to get there. The optional <strong>Code</strong>
+                tab shows how the toolbox and the JSON tool-decision contract are wired up.
+              </p>
+            </aside>
+          </div>
+        </div>
+      {:else if activeTab === "chat"}
         <div class="messages">
           {#if turns.length === 0}
             <article class="agent placeholder">
@@ -703,7 +873,7 @@
         </div>
       {/if}
 
-      {#if activeTab !== "code"}
+      {#if activeTab === "chat" || activeTab === "trace"}
       <form onsubmit={(event) => { event.preventDefault(); send(); }}>
         <input bind:value={message} aria-label="Message" disabled={busy} />
         <button disabled={busy || !message.trim()}>{busy ? statusText || "Working" : "Send"}</button>
@@ -711,7 +881,7 @@
       {/if}
     </section>
 
-    {#if activeTab !== "code"}
+    {#if activeTab === "chat" || activeTab === "trace"}
     <details class="panel tools-panel" bind:open={toolsOpen}>
       <summary>
         <div class="panel-title">
@@ -728,6 +898,51 @@
               <small>{tool.args.join(", ")}</small>
             </article>
           {/each}
+        </div>
+      {/if}
+    </details>
+
+    <details class="panel wiring-panel" bind:open={wiringOpen}>
+      <summary>
+        <div class="panel-title">
+          <h2>How the model is told about these tools</h2>
+          <span>{wiringOpen ? "collapse" : "expand"}</span>
+        </div>
+      </summary>
+      {#if wiringOpen}
+        <div class="wiring">
+          <p class="wire-lead">
+            Every decision step, the harness sends the model <strong>two</strong> prompts. The
+            <strong>system prompt</strong> sets the role and the TAO loop. The
+            <strong>user prompt</strong> is where the harness actually <em>injects the tool
+            catalog</em> — each tool's name, arguments, and return shape — together with worked
+            examples of how to call one. So the answer to "where do the tools live?" is:
+            <strong>in the user prompt, rebuilt and re-sent on every single step</strong> — not
+            baked into the system prompt.
+          </p>
+
+          <div class="wire-prompts">
+            <article class="wire-card">
+              <div class="wire-head">
+                <span class="wire-tag sys">systemPrompt</span>
+                <span class="wire-sub">role + loop · mentions tools, never lists them</span>
+              </div>
+              <pre class="wire-pre">{WIRE_SYS}</pre>
+            </article>
+
+            <article class="wire-card">
+              <div class="wire-head">
+                <span class="wire-tag usr">userPrompt</span>
+                <span class="wire-sub">rebuilt every decision step</span>
+              </div>
+              <pre class="wire-pre">{WIRE_U1}<span class="wire-inject">{WIRE_CATALOG}</span>{WIRE_U2}<span class="wire-ex">{WIRE_EXAMPLES}</span>{WIRE_U3}<span class="wire-ph">{WIRE_PH}</span>{WIRE_U4}</pre>
+              <p class="wire-foot">
+                <span class="dot inject"></span> the injected tool catalog
+                <span class="dot ex"></span> call / finish examples
+                <span class="dot ph"></span> your input slots in here
+              </p>
+            </article>
+          </div>
         </div>
       {/if}
     </details>
@@ -1102,6 +1317,21 @@
     font-size: .78rem;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+
+  /* Inline code inside the Instructions/Code prose must stay inline
+     (the global `code { display: block }` above is for the trace cards;
+     real code blocks live in <pre class="cv-code/cv-tree">, not <p>). */
+  .code-view p code {
+    display: inline;
+    overflow: visible;
+    white-space: normal;
+    font-size: 0.86em;
+    color: #f1fa8c;
+    background: rgba(241, 250, 140, 0.07);
+    border: 1px solid rgba(241, 250, 140, 0.12);
+    border-radius: 3px;
+    padding: 0.05em 0.35em;
   }
 
   @media (max-width: 1100px) {
@@ -1482,6 +1712,60 @@
     font-size: 0.92rem;
     line-height: 1.7;
   }
+
+  /* Question → expected-tool matching rows */
+  .gd-match {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.85rem;
+  }
+  .gd-match-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #1c1c30;
+    border-radius: 7px;
+    background: rgba(18, 18, 26, 0.6);
+  }
+  .gd-q { color: #d6d6e2; font-size: 0.86rem; }
+  .gd-tool {
+    flex-shrink: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.78rem;
+    color: #50fa7b;
+    background: rgba(80, 250, 123, 0.1);
+    border: 1px solid rgba(80, 250, 123, 0.32);
+    border-radius: 5px;
+    padding: 0.18rem 0.5rem;
+  }
+  .gd-tool::before { content: "→ "; color: #6f6f86; }
+
+  /* ── Tool-wiring deconstruction card ── */
+  .wiring { padding: 0.25rem 0 0.1rem; }
+  .wire-lead { margin: 0 0 1rem; max-width: 92ch; color: #aeaebe; font-size: 0.92rem; line-height: 1.62; }
+  .wire-lead strong { color: #e8e8f0; }
+  .wire-lead em { color: #bd93f9; font-style: normal; }
+  .wire-prompts { display: flex; flex-direction: column; gap: 0.8rem; }
+  .wire-card { border: 1px solid rgba(189, 147, 249, 0.22); border-radius: 8px; background: rgba(13, 13, 20, 0.6); padding: 0.85rem 1rem; }
+  .wire-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 0.6rem; }
+  .wire-tag { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; }
+  .wire-tag.sys { color: #bd93f9; background: rgba(189, 147, 249, 0.12); border: 1px solid rgba(189, 147, 249, 0.35); }
+  .wire-tag.usr { color: #50fa7b; background: rgba(80, 250, 123, 0.10); border: 1px solid rgba(80, 250, 123, 0.32); }
+  .wire-sub { color: #6f6f86; font-size: 0.78rem; }
+  .wire-pre { margin: 0; padding: 0.8rem 0.9rem; background: #0b0b11; border: 1px solid #1a1a2e; border-radius: 6px; overflow-x: auto; color: #b6b6c6; font-family: "JetBrains Mono", monospace; font-size: 0.8rem; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+  .wire-inject, .wire-ex, .wire-ph { border-radius: 3px; padding: 0.02em 0.25em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .wire-inject { background: rgba(245, 230, 99, 0.12); color: #e9dfa6; }
+  .wire-ex { background: rgba(139, 233, 253, 0.10); color: #bfe9f3; }
+  .wire-ph { background: rgba(80, 250, 123, 0.14); color: #9affc0; }
+  .wire-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1.1rem; margin: 0.6rem 0 0; color: #8a8a9a; font-size: 0.78rem; }
+  .dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; margin-right: 0.3rem; vertical-align: -1px; }
+  .dot.inject { background: rgba(245, 230, 99, 0.5); }
+  .dot.ex { background: rgba(139, 233, 253, 0.5); }
+  .dot.ph { background: rgba(80, 250, 123, 0.55); }
 
   @keyframes cvRise {
     from { opacity: 0; transform: translateY(14px); }

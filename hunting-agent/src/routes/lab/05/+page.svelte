@@ -12,6 +12,7 @@
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
   import RobotIcon from "phosphor-svelte/lib/RobotIcon";
   import BracketsCurlyIcon from "phosphor-svelte/lib/BracketsCurlyIcon";
+  import ChatCircleTextIcon from "phosphor-svelte/lib/ChatCircleTextIcon";
 
   type StepName = "connect" | "discover" | "decide" | "call" | "done";
   type StepStatus = "start" | "ok" | "error";
@@ -39,7 +40,7 @@
     model?: string;
   };
 
-  let activeTab = $state<"live" | "code">("live");
+  let activeTab = $state<"instructions" | "live" | "code">("instructions");
   let query = $state("Look up the IP 185.225.73.217 on VirusTotal");
   let events = $state<LifecycleEvent[]>([]);
   let discoveredTools = $state<ToolSummary[]>([]);
@@ -108,24 +109,35 @@
     return new Date(value * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC";
   }
 
-  function renderedFields(): Array<{ label: string; value: string }> {
+  type Field = { label: string; value: string };
+  const keepFields = (fields: Array<{ label: string; value: string | null }>): Field[] =>
+    fields.filter((f): f is Field => Boolean(f.value));
+
+  // Neutral identity / metadata (not a verdict either way).
+  function metaFields(): Field[] {
     const root = asRecord(parsedJson);
     const attributes = resultAttributes();
     const rdap = asRecord(attributes?.rdap);
-    const votes = asRecord(attributes?.total_votes);
-
-    return [
+    return keepFields([
       { label: "GTI type", value: scalar(root?.type) },
-      { label: "Reputation", value: scalar(attributes?.reputation) },
       { label: "Country", value: scalar(attributes?.country ?? rdap?.country ?? attributes?.continent) },
       { label: "Registry", value: scalar(attributes?.regional_internet_registry) },
       { label: "Network", value: scalar(rdap?.name ?? rdap?.handle) },
       { label: "Range", value: scalar(rdap?.start_address && rdap?.end_address ? `${rdap.start_address} - ${rdap.end_address}` : null) },
-      { label: "Malicious votes", value: scalar(votes?.malicious) },
-      { label: "Harmless votes", value: scalar(votes?.harmless) },
       { label: "Last analysis", value: epochDate(attributes?.last_analysis_date) },
       { label: "Last modified", value: epochDate(attributes?.last_modification_date) },
-    ].filter((field): field is { label: string; value: string } => Boolean(field.value));
+    ]);
+  }
+
+  // Community signals: crowd votes + reputation. Opinions, not scans.
+  function communityFields(): Field[] {
+    const attributes = resultAttributes();
+    const votes = asRecord(attributes?.total_votes);
+    return keepFields([
+      { label: "Reputation", value: scalar(attributes?.reputation) },
+      { label: "Malicious votes", value: scalar(votes?.malicious) },
+      { label: "Harmless votes", value: scalar(votes?.harmless) },
+    ]);
   }
 
   function renderedTags(): string[] {
@@ -212,11 +224,124 @@
   </header>
 
   <div class="tab-bar">
+    <button class="tab-btn" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn" class:active={activeTab === "live"} onclick={() => (activeTab = "live")}>Live</button>
     <button class="tab-btn" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "live"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 05 · Walkthrough</span>
+          <h2>Reach a real external tool over MCP</h2>
+          <p>
+            Until now, every tool the agent used lived inside our own harness. Here it connects
+            to a tool server we <strong>didn't write</strong> — Google Threat Intelligence —
+            using <strong>MCP</strong>, the open protocol for plugging external tools into
+            agents. You ask in plain language; the agent <strong>discovers</strong> what the
+            server offers, <strong>chooses</strong> a tool, and makes a <strong>real, live</strong>
+            lookup. You're watching two things at once: actual threat intel coming back, and the
+            agent wiring itself up to a tool it only learned about at runtime.
+          </p>
+        </header>
+
+        <div class="gd-note">
+          <TerminalWindowIcon size={18} weight="duotone" />
+          <span>
+            <strong>This is the one lab with prerequisites</strong> — it makes a genuine call out
+            to VirusTotal / GTI. You need <code>uv</code> installed and a free
+            <strong>VirusTotal API key</strong> in your <code>.env</code> (<code>VT_APIKEY=…</code>).
+            The first run may pause a few seconds while <code>uv</code> fetches the server's
+            dependencies — that's normal, and only happens once.
+          </span>
+        </div>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><ChatCircleTextIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Ask about an indicator, in plain language</span>
+                <span class="flow-where">Live tab · Ask the Agent</span>
+              </div>
+              <p>
+                On the <strong>Live</strong> tab, type what you want to know about an indicator —
+                an IP, a domain, or a file hash. Describe the goal; don't name a GTI tool. The box
+                comes pre-filled with an IP lookup, but these are just <strong>suggestions</strong>
+                (different kinds of indicator tend to pull different GTI tools):
+              </p>
+              <div class="gd-egs">
+                <span class="gd-eg">Look up the IP 185.225.73.217 on VirusTotal. <em>(comes back quiet — a clean result is still a real answer)</em></span>
+                <span class="gd-eg">Is the file with hash 44d88612fea8a8f36de82e1278abb02f malicious? <em>(EICAR test file — a guaranteed hit, and 100% safe)</em></span>
+              </div>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><PlugsConnectedIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Watch the lifecycle stream</span>
+                <span class="flow-where">Event Log</span>
+              </div>
+              <p>
+                Hit <strong>Ask the Agent</strong> and watch the <strong>Event Log</strong> stream
+                the four stages: <strong>connect</strong> (handshake with the GTI server),
+                <strong>discover</strong> (<code>listTools()</code> — ask the server what it can do),
+                <strong>decide</strong> (the <em>agent</em> reads that list and picks a tool), and
+                <strong>call</strong> (<code>callTool()</code> runs the live lookup). Only
+                <em>decide</em> is the model thinking — the rest is the protocol.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · See what it found, and what it chose</span>
+                <span class="flow-where">Discovered Tools · Agent Decision</span>
+              </div>
+              <p>
+                The <strong>Discovered Tools</strong> panel is the menu the server advertised at
+                runtime — nothing hard-coded on our side. The <strong>Agent Decision</strong>
+                panel shows which tool the model picked, its reasoning, and the exact arguments it
+                passed. This is the same select-the-right-tool skill as Lab 04, but now over a
+                live, third-party tool server.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><GlobeHemisphereWestIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Read the real result</span>
+                <span class="flow-where">GTI Result · Raw MCP Result</span>
+              </div>
+              <p>
+                The <strong>GTI Result</strong> card lays the intelligence out in two clearly
+                separated parts: <strong>AV engine detections</strong> (how many scanners flagged
+                it — the closest thing to a verdict) and <strong>community signals</strong> (votes
+                and reputation — opinions, which can disagree with the engines). <strong>Raw MCP
+                Result</strong> is the full payload off the wire. Real Google Threat Intelligence
+                data you can fold into an investigation.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+      </div>
+    </div>
+  {:else if activeTab === "live"}
   <details class="panel" open>
     <summary class="panel-title">
         <h2>Ask the Agent</h2>
@@ -242,20 +367,23 @@
 
   <details class="panel" open>
     <summary class="panel-title">
-        <h2>MCP Lifecycle</h2>
-        <span>{events.length} events</span>
+        <h2>Event Log</h2>
+        <span>NDJSON stream · connect → discover → decide → call</span>
     </summary>
 
-    <div class="steps">
-        {#each ["connect", "discover", "decide", "call"] as step}
-          {@const event = latest(step as StepName)}
-          <article class:active={event?.status === "start"} class:ok={event?.status === "ok"} class:failed={event?.status === "error"}>
-            <strong>{step}</strong>
-            <span>{statusLabel(step as StepName)}{event?.durationMs !== undefined ? ` | ${event.durationMs}ms` : ""}</span>
-            <p>{event?.message ?? "Not started yet."}</p>
-          </article>
-        {/each}
-    </div>
+      {#if events.length > 0}
+        <div class="event-log">
+          {#each events as event, index}
+            <article class={event.status}>
+              <strong>{index + 1}. {event.step}</strong>
+              <span>{event.status}{event.durationMs !== undefined ? ` · ${event.durationMs}ms` : ""}</span>
+              <p>{event.message}</p>
+            </article>
+          {/each}
+        </div>
+      {:else}
+        <p class="empty">Ask the agent — each lifecycle step (connect, discover, decide, call) streams in here as the server emits it.</p>
+      {/if}
   </details>
 
   <details class="panel" open>
@@ -309,83 +437,49 @@
       {/if}
   </details>
 
-  <details class="panel" open>
-    <summary class="panel-title">
-        <h2>Result Summary</h2>
-        <span>{parsedJson ? "parsed" : textResult ? "text" : "waiting"}</span>
-    </summary>
-
-      {#if parsedJson}
-        {@const attributes = resultAttributes()}
-        {@const stats = resultStats()}
-        <div class="summary">
-          <strong>{String(asRecord(parsedJson)?.type ?? agentDecision?.toolName ?? "GTI result")}</strong>
-          {#if attributes}
-            <p>Reputation: {String(attributes.reputation ?? "n/a")}</p>
-            <p>Country: {String(attributes.country ?? attributes.continent ?? "n/a")}</p>
-          {/if}
-          {#if stats}
-            <div class="stats">
-              {#each Object.entries(stats) as [name, count]}
-                <span>{name}: {String(count)}</span>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      {:else if textResult}
-        <pre>{textResult}</pre>
-      {:else}
-        <p class="empty">No GTI result yet.</p>
-      {/if}
-  </details>
-
-  <details class="panel" open>
-    <summary class="panel-title">
-        <h2>Event Log</h2>
-        <span>NDJSON stream</span>
-    </summary>
-
-      {#if events.length > 0}
-        <div class="event-log">
-          {#each events as event, index}
-            <article class={event.status}>
-              <strong>{index + 1}. {event.step}</strong>
-              <span>{event.status}</span>
-              <p>{event.message}</p>
-            </article>
-          {/each}
-        </div>
-      {:else}
-        <p class="empty">Lifecycle events will appear as the server streams them.</p>
-      {/if}
-  </details>
-
   <details class="panel rendered" open>
     <summary class="panel-title">
-      <h2>Rendered GTI Result</h2>
+      <h2>GTI Result</h2>
       <span>{parsedJson ? "analyst view" : "waiting"}</span>
     </summary>
 
     {#if parsedJson}
-      {@const fields = renderedFields()}
+      {@const meta = metaFields()}
+      {@const community = communityFields()}
       {@const stats = resultStats()}
       {@const tags = renderedTags()}
       <div class="rendered-layout">
-        <div class="field-grid">
-          {#each fields as field}
-            <article class="field-card">
-              <span>{field.label}</span>
-              <strong>{field.value}</strong>
-            </article>
-          {/each}
-        </div>
+        {#if meta.length > 0}
+          <div class="field-grid">
+            {#each meta as field}
+              <article class="field-card">
+                <span>{field.label}</span>
+                <strong>{field.value}</strong>
+              </article>
+            {/each}
+          </div>
+        {/if}
 
         {#if stats}
-          <section class="mini-section">
-            <h3>Detection Stats</h3>
+          <section class="mini-section src-engines">
+            <h3>AV engine detections</h3>
             <div class="stats large">
               {#each Object.entries(stats) as [name, count]}
                 <span>{name}: {String(count)}</span>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if community.length > 0}
+          <section class="mini-section src-community">
+            <h3>Community signals</h3>
+            <div class="field-grid">
+              {#each community as field}
+                <article class="field-card">
+                  <span>{field.label}</span>
+                  <strong>{field.value}</strong>
+                </article>
               {/each}
             </div>
           </section>
@@ -405,7 +499,7 @@
     {:else if textResult}
       <pre>{textResult}</pre>
     {:else}
-      <p class="empty">Run the lifecycle to render GTI result fields here.</p>
+      <p class="empty">Ask the agent to see the GTI result here.</p>
     {/if}
   </details>
 
@@ -912,6 +1006,17 @@
     overflow-wrap: anywhere;
   }
 
+  /* Source split inside the GTI Result card */
+  .mini-section.src-engines,
+  .mini-section.src-community {
+    padding-left: 0.85rem;
+    border-left: 2px solid;
+  }
+  .mini-section.src-engines { border-left-color: rgba(255, 121, 121, 0.55); }
+  .mini-section.src-community { border-left-color: rgba(139, 233, 253, 0.5); }
+  .mini-section.src-engines h3 { color: #ff9b9b; }
+  .mini-section.src-community h3 { color: var(--dracula-cyan); }
+
   .stats.large span,
   .tags span {
     padding: .32rem .58rem;
@@ -1335,6 +1440,37 @@
     color: #c2c2d2;
     font-size: 0.92rem;
     line-height: 1.7;
+  }
+
+  /* Instructions-specific bits */
+  .gd-note {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    margin-top: 1.4rem;
+    padding: 0.75rem 0.95rem;
+    border: 1px solid rgba(245, 230, 99, 0.28);
+    border-left: 3px solid #f5e663;
+    border-radius: 6px;
+    background: rgba(245, 230, 99, 0.05);
+  }
+  .gd-note :global(svg) { color: #f5e663; flex-shrink: 0; margin-top: 1px; }
+  .gd-note span { color: #c2c2d2; font-size: 0.88rem; line-height: 1.65; }
+
+  .gd-egs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.8rem;
+  }
+  .gd-eg {
+    align-self: flex-start;
+    font-size: 0.84rem;
+    color: #d0d0da;
+    background: rgba(80, 250, 123, 0.07);
+    border: 1px solid rgba(80, 250, 123, 0.22);
+    border-radius: 999px;
+    padding: 0.3rem 0.75rem;
   }
 
   @keyframes cvRise {

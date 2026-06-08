@@ -42,29 +42,42 @@
 
   const references = [
     {
-      label: "Anthropic - Building Effective Agents",
+      label: "Anthropic — Building Effective Agents",
       url: "https://www.anthropic.com/engineering/building-effective-agents",
       note: "Harness patterns, bounded autonomy, and practical agent design.",
     },
     {
-      label: "Anthropic - Demystifying Evals for AI Agents",
+      label: "Anthropic — Demystifying Evals for AI Agents",
       url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
       note: "Task, dataset, scorer, and the eval improvement loop.",
     },
     {
-      label: "Google MCP Security - GTI MCP Server",
-      url: "https://google.github.io/mcp-security/servers/gti_mcp.html",
-      note: "A real security MCP server for threat-intelligence lookups.",
-    },
-    {
       label: "Detection at Scale",
       url: "https://www.detectionatscale.com/",
-      note: "Detection engineering, security operations, and AI-assisted SOC thinking.",
+      note: "Jack Naglieri's newsletter on detection engineering, security operations, and AI-assisted SOC work.",
     },
     {
-      label: "Omar Santos - AI Agents for Cybersecurity",
-      url: "https://github.com/The-Art-of-Hacking/h4cker/tree/master/ai_research/AI-agents",
-      note: "Security-agent research links and implementation references.",
+      label: "Omar Santos — h4cker: AI & AI-security resources",
+      url: "https://github.com/The-Art-of-Hacking/h4cker/tree/master/ai",
+      note: "Curated AI-security, LLM-engineering, and incident-response references.",
+    },
+  ];
+
+  const videos = [
+    {
+      label: "An AI Agent for Timesketch (Black Hat USA 2025)",
+      url: "https://youtu.be/9EA7kz4bGvQ",
+      note: "Autonomous timeline analysis and threat hunting, driven by an AI agent.",
+    },
+    {
+      label: "AI Agents & Jupyter for Security Data Analysis",
+      url: "https://www.youtube.com/watch?v=VJPWZGhQe4A",
+      note: "Roberto Rodriguez (Cyb3rWard0g) — hands-on agents for security data analysis.",
+    },
+    {
+      label: "AI Engineer — YouTube channel",
+      url: "https://www.youtube.com/@aiDotEngineer",
+      note: "Not security-specific, but a deep, high-quality library on building with agents and LLMs — very relevant.",
     },
   ];
 
@@ -137,6 +150,19 @@
           <strong>{reference.label}</strong>
           <span>{reference.note}</span>
           <code>{reference.url}</code>
+        </a>
+      {/each}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Watch &amp; Follow</h2>
+    <div class="references">
+      {#each videos as video}
+        <a href={video.url} target="_blank" rel="noreferrer">
+          <strong>{video.label}</strong>
+          <span>{video.note}</span>
+          <code>{video.url}</code>
         </a>
       {/each}
     </div>

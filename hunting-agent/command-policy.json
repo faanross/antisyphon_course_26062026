@@ -1,0 +1,44 @@
+{
+  "_comment": [
+    "Bonus 'Give the agent a shell' lab — command policy.",
+    "The agent may run shell commands on YOUR machine to do what you ask.",
+    "Everything is ALLOWED by default. These two lists are the guardrails:",
+    "  deny  — these never run; the agent is told they were blocked and must adapt.",
+    "  ask   — these pause and wait for you to click Allow or Deny in the Live tab.",
+    "",
+    "Rule matching (case-insensitive):",
+    "  'rm'            → matches when the FIRST word of the command is rm",
+    "  'git push'      → matches when the command STARTS WITH 'git push'",
+    "  '*rm -rf*'      → glob: '*' matches anything, matched against the whole command",
+    "",
+    "Edit these lists and re-run — no restart needed."
+  ],
+  "deny": [
+    "rm",
+    "rmdir",
+    "del",
+    "*rm -rf*",
+    "sudo",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "dd",
+    ":(){ :|:& };:",
+    "*> /dev/sd*",
+    "*chmod -R 777*"
+  ],
+  "ask": [
+    "git push",
+    "git commit",
+    "npm install",
+    "npm uninstall",
+    "pip install",
+    "brew",
+    "curl",
+    "wget",
+    "ssh",
+    "scp",
+    "kill",
+    "pkill"
+  ]
+}
