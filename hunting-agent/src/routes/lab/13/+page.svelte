@@ -9,7 +9,7 @@
 
   type EvalRow = { id: string; category: string; description: string; expected: string; passed: boolean; detail: string };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let evals = $state<EvalRow[]>([]);
   let busy = $state(false);
   let hasRun = $state(false);
@@ -46,17 +46,131 @@
     <span>Lab 13</span>
     <h1>Eval Harness</h1>
     <p>Deterministic checks graded against a live investigation — so improvement is measured instead of guessed. The checks are fixed (a test oracle should not be probabilistic); the investigation they grade is real model output.</p>
-    {#if activeTab !== "code"}
+    {#if activeTab === "lab"}
       <button onclick={run} disabled={busy}>{busy ? "Running investigation + evals" : "Run Eval Harness"}</button>
     {/if}
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 13 · Walkthrough</span>
+          <h2>Measure the agent before you change it</h2>
+          <p>
+            This lab runs a fixed set of <strong>deterministic checks</strong> over a live, real-model
+            investigation and reports one number: how many passed. The checks never change, so the
+            pass-rate is a real signal — it tells you whether a tweak to a prompt, tool, or skill
+            actually helped, instead of guessing. This is the seatbelt for iterating on the system.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Run the harness</span>
+                <span class="flow-where">Lab tab · Run Eval Harness</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab and hit <strong>Run Eval Harness</strong>. It runs
+                the real investigation once — actual model output — then grades that output against
+                every check. This takes a moment because the investigation is live, not a fixture.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><ListChecksIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Read the per-check results</span>
+                <span class="flow-where">Eval Dashboard</span>
+              </div>
+              <p>
+                The <strong>Eval Dashboard</strong> lists each check (EVAL-001 …) as
+                <strong>PASS</strong> or <strong>FAIL</strong>, with its category, what it expected,
+                and a human-readable detail saying why. Green means the investigation satisfied that
+                assertion; red means it didn't.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><GaugeIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Read the headline score</span>
+                <span class="flow-where">Dashboard header</span>
+              </div>
+              <p>
+                The header shows the pass-rate — something like <code>6 / 8 passing</code>. That one
+                number is the thing you watch over time: it's how "is the agent better?" becomes a
+                measurement instead of a vibe.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><ScalesIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Understand task · dataset · scorer</span>
+                <span class="flow-where">the three parts of an eval</span>
+              </div>
+              <p>
+                An eval has three pieces: the <strong>task</strong> (run the investigation), the
+                <strong>dataset</strong> (the curated workshop telemetry it runs over), and the
+                <strong>scorers</strong> (the fixed checks). The investigation may vary run to run;
+                the dataset and scorers never do — that's what makes a score change attributable.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><ShieldCheckIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · Why evals gate changes</span>
+                <span class="flow-where">Code tab · go deeper</span>
+              </div>
+              <p>
+                Before you change a prompt, tool, or skill, run the harness to get a baseline. After
+                the change, run it again: a higher pass-rate confirms a real improvement, a lower one
+                catches a regression a "harmless" tweak slipped in. The <strong>Code</strong> tab
+                shows how the grader stays deterministic.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <GaugeIcon size={22} weight="duotone" />
+          <p>
+            <strong>Pin the grader, let the agent vary.</strong> If both the agent and the checks
+            drift, a score tells you nothing. Holding the checks constant is the whole trick — it
+            turns "I think this helped" into a number you can defend, and turns iterating on the
+            agent into engineering rather than hoping.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   <section class="panel">
     <div class="panel-head">
       <h2>Eval Dashboard</h2>

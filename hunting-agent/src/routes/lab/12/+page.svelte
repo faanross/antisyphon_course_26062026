@@ -18,7 +18,7 @@
   type NotificationEventPayload = { id: string; severity: string; title: string; message: string; reportPath?: string; createdAt: string };
   type NotificationResult = { channel: string; delivered: boolean; detail: string };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let verdicts = $state<Verdict[]>([]);
   let report = $state<SavedReport | null>(null);
   let event = $state<NotificationEventPayload | null>(null);
@@ -70,17 +70,128 @@
     <span>Lab 12</span>
     <h1>Feedback, Report, and Notification</h1>
     <p>Record verdicts as structured feedback, generate the final report, and emit a notification through a swappable adapter.</p>
-    {#if activeTab !== "code"}
+    {#if activeTab === "lab"}
       <button onclick={finalize} disabled={busy}>{busy ? "Finalizing" : "Generate Report + Notify"}</button>
     {/if}
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 12 · Walkthrough</span>
+          <h2>Record the verdict, generate the report, close the loop</h2>
+          <p>
+            This is the final stage: the analyst's call on each candidate is captured as
+            <strong>structured feedback</strong>, the whole investigation is assembled into a
+            Markdown report on disk, and a notification fires to pull a human in. The same feedback
+            that fills the report is the data the system learns from over time.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><ClipboardTextIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Read the recorded verdicts</span>
+                <span class="flow-where">Lab tab · Verdict Table</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab and look at the <strong>Verdict Table</strong>.
+                Each row is an analyst's call on one candidate — true positive, false positive — with
+                a rationale. This is feedback stored as <em>typed records</em>, not freeform notes.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Generate the report</span>
+                <span class="flow-where">Generate Report + Notify</span>
+              </div>
+              <p>
+                Hit <strong>Generate Report + Notify</strong> in the header. The harness runs the
+                real investigation, collects the verdicts, and assembles everything into a single
+                outcome — no improvising, just deterministic templating over real results.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Read the saved report</span>
+                <span class="flow-where">Final Report panel</span>
+              </div>
+              <p>
+                The <strong>Final Report</strong> panel shows the Markdown written to
+                <code>reports/</code> — metadata, the narrative as executive summary, the confirmed
+                finding, the verdicts, and eval results. It's the durable artifact a human reads.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><BellRingingIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · See the notification fire</span>
+                <span class="flow-where">Notification Hook panel</span>
+              </div>
+              <p>
+                The <strong>Notification Hook</strong> panel shows the typed event that was
+                dispatched through a <strong>swappable adapter</strong> — UI by default, or Slack /
+                webhook by config. That's how the right person gets pulled in at the right moment.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><FlagCheckeredIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · See feedback as learning data</span>
+                <span class="flow-where">Code tab</span>
+              </div>
+              <p>
+                The verdicts don't just fill the report — that structure feeds per-skill performance
+                tracking, so the system can learn which skills produce true vs false positives.
+                Open the <strong>Code</strong> tab to see how the feedback loop is wired.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <BellRingingIcon size={22} weight="duotone" />
+          <p>
+            <strong>Why structured feedback closes the loop:</strong> an agent that finds things but
+            produces no durable, routable output isn't finished. Recording verdicts as typed data
+            gives you a report a human can read, a notification that reaches the right person, and a
+            signal the system can learn from — all from one "Generate".
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   <section class="panel">
     <h2>Verdict Table</h2>
     <table>

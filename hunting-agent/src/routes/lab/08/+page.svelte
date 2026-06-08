@@ -25,7 +25,7 @@
     text: string;
   };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let query = $state("CrowdFalcon EDR heartbeat beacon false positive 10.42.10.0/24");
   let synthesis = $state("");
   let hits = $state<Hit[]>([]);
@@ -54,11 +54,131 @@
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 08 · Walkthrough</span>
+          <h2>Hunt with precedent — let past cases inform this one</h2>
+          <p>
+            This lab gives the agent a memory of <strong>prior investigations</strong>. Instead of
+            naming the context files yourself, you describe the situation in plain language; the
+            system searches a library of past reports by <strong>meaning</strong>, pulls the closest
+            matches, and hands them to the model as precedent. Your job is to run a query, see which
+            past cases surface, and watch how they shape the answer.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><BooksIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Browse the prior-investigation corpus</span>
+                <span class="flow-where">Lab tab · Prior Investigation Corpus</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab. On the right, the
+                <strong>Prior Investigation Corpus</strong> lists the past reports the agent can draw
+                on — each with its verdict and tags. This is the library RAG searches; skim it so you
+                know what precedent is available.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><MagnifyingGlassIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Describe your situation and run a query</span>
+                <span class="flow-where">RAG Query · Send</span>
+              </div>
+              <p>
+                In the <strong>RAG Query</strong> box, describe what you're investigating in plain
+                language — symptoms, hosts, behaviour — then hit <strong>Send</strong>. You're not
+                typing keywords or filenames; you're describing the case, and the system finds the
+                most similar past work by meaning.
+              </p>
+              <div class="gd-egs">
+                <span class="gd-eg">CrowdFalcon EDR heartbeat beacon false positive 10.42.10.0/24</span>
+                <span class="gd-eg">regular HTTPS beacon to an unfamiliar domain, no known business use</span>
+              </div>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><FunnelIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Read the retrieved chunks</span>
+                <span class="flow-where">Retrieved Chunks</span>
+              </div>
+              <p>
+                The <strong>Retrieved Chunks</strong> panel shows the top matches — the closest prior
+                cases the search surfaced. Each lists its <strong>source report</strong>, the section,
+                a similarity <strong>score</strong>, and the past <strong>verdict</strong>. Higher
+                scores mean a closer match in meaning. This is the precedent the model is about to see.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Read the synthesis</span>
+                <span class="flow-where">Synthesis · RAG Query output</span>
+              </div>
+              <p>
+                The <strong>Synthesis</strong> panel is the model's answer — a real model call, written
+                <em>using the retrieved cases as precedent</em>. Notice how it references the prior
+                investigations rather than reasoning from scratch: that's retrieval feeding generation.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><ScalesIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · Compare evidence, then go deeper</span>
+                <span class="flow-where">Code tab</span>
+              </div>
+              <p>
+                Precedent is not a verdict — try a query whose details <em>differ</em> from the closest
+                case and watch the synthesis weigh the evidence rather than blindly copy the old
+                conclusion. When you're ready, the <strong>Code</strong> tab walks how embeddings,
+                cosine search, and injection actually work.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <BooksIcon size={22} weight="duotone" />
+          <p>
+            <strong>Why retrieval matters here:</strong> often you don't know in advance which past
+            case is relevant. RAG lets the agent find precedent by relevance across a large, growing
+            body of prior work — so its judgement is grounded in what the team has already learned,
+            not invented fresh each time.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   <section class="workspace">
     <ChatPanel title="RAG Query" bind:value={query} output={synthesis} {busy} onSubmit={run} />
     <CorpusBrowser chunks={chunks} />
@@ -615,6 +735,22 @@
     color: #c2c2d2;
     font-size: 0.92rem;
     line-height: 1.7;
+  }
+
+  .gd-egs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.8rem;
+  }
+  .gd-eg {
+    align-self: flex-start;
+    font-size: 0.84rem;
+    color: #d0d0da;
+    background: rgba(80, 250, 123, 0.07);
+    border: 1px solid rgba(80, 250, 123, 0.22);
+    border-radius: 999px;
+    padding: 0.3rem 0.75rem;
   }
 
   @keyframes cvRise {

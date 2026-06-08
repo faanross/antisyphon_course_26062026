@@ -21,7 +21,7 @@
     notification: { channel: string; delivered: boolean; detail: string };
   };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let result = $state<Result | null>(null);
   let busy = $state(false);
 
@@ -42,17 +42,130 @@
     <span>Lab 14</span>
     <h1>Complete Hunt Capstone</h1>
     <p>Run the integrated flow from fan-out detection through graph state, narrative, report, notification, and evals.</p>
-    {#if activeTab !== "code"}
+    {#if activeTab === "lab"}
       <button onclick={run} disabled={busy}>{busy ? "Running" : "Run Complete Hunt"}</button>
     {/if}
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 14 · Walkthrough</span>
+          <h2>Run the whole hunt, start to finish</h2>
+          <p>
+            This is the capstone. One click runs the <strong>entire pipeline</strong> you built up
+            across Labs 09–13 — fan-out detection, the shared graph, the narrative, the evals, and
+            the saved report with its notification. Nothing here is new; the goal is to watch every
+            stage you learned in isolation execute <strong>in sequence</strong>, and recognise the
+            primitives composing into one system.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Run the complete hunt</span>
+                <span class="flow-where">Lab tab · Run Complete Hunt</span>
+              </div>
+              <p>
+                Switch to the <strong>Lab</strong> tab and press <strong>Run Complete Hunt</strong>.
+                That single click fires one request that chains every stage of the pipeline on the
+                server — no per-stage clicking like the earlier labs.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><StackIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Read the integrated result</span>
+                <span class="flow-where">Integrated Result panel</span>
+              </div>
+              <p>
+                When it finishes, the <strong>Integrated Result</strong> panel shows the headline
+                numbers: how many <strong>findings</strong> fan-out detection produced, the
+                <strong>graph nodes</strong> and <strong>edges</strong> that linked them, and the
+                <strong>evals passing</strong> ratio that graded the whole run.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Read the narrative</span>
+                <span class="flow-where">Narrative panel</span>
+              </div>
+              <p>
+                The <strong>Narrative</strong> panel holds the campaign story the model wrote —
+                grounded strictly in the graph's entities and edges (Lab 11). This is the
+                human-readable account stitched together from the structured findings.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Check the report &amp; notification</span>
+                <span class="flow-where">Report + Notification panel</span>
+              </div>
+              <p>
+                The <strong>Report + Notification</strong> panel closes the loop: the saved Markdown
+                report's file name and path (Lab 12), plus the notification channel and whether it
+                was delivered. This is the shippable artifact the whole hunt was building toward.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><PuzzlePieceIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · Spot the labs, composed</span>
+                <span class="flow-where">Code tab · optional</span>
+              </div>
+              <p>
+                Every number on screen traces back to a lab you already ran: detect (09) → connect
+                (10) → narrate (11) → grade (13) → report &amp; notify (12). The optional
+                <strong>Code</strong> tab walks the exact ordering and which stages call the model.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <FlagCheckeredIcon size={22} weight="duotone" />
+          <p>
+            <strong>The whole workshop, in one click.</strong> Each earlier lab isolated a single
+            mechanism so it would be understandable. The capstone is the payoff: snap those
+            mechanisms together in order and you have a real agentic hunting system — auditable,
+            measurable, and built entirely from parts you now understand.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   {#if result}
     <section class="panel">
       <h2>Integrated Result</h2>

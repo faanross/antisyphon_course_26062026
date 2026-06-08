@@ -24,7 +24,7 @@
 
   type ProgressEvent = { stage: string; message: string };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let result = $state<{ findings: Finding[]; progress: ProgressEvent[] } | null>(null);
   let busy = $state(false);
 
@@ -45,17 +45,130 @@
     <span>Lab 09</span>
     <h1>Fan-Out / Fan-In Orchestration</h1>
     <p>Run independent detection jobs, collect structured findings, and inspect the orchestration trace before adding shared graph state.</p>
-    {#if activeTab !== "code"}
+    {#if activeTab === "lab"}
       <button onclick={run} disabled={busy}>{busy ? "Running" : "Run Orchestration"}</button>
     {/if}
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 09 · Walkthrough</span>
+          <h2>Fan one task out to many workers, then fan the results back in</h2>
+          <p>
+            Every lab so far ran <em>one</em> detection at a time. Here you kick off a single run
+            that <strong>fans out</strong> into many independent detection jobs running at once, then
+            <strong>fans in</strong> — collecting every structured finding into one list. Hit Run and
+            watch the orchestration trace and findings appear together.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><LightningIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Kick off the run</span>
+                <span class="flow-where">Lab tab · Run Orchestration</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab and press <strong>Run Orchestration</strong>. One
+                click loads the full candidate set and plans a job for every <em>(skill × candidate)</em>
+                pair that passes its invocation gate — a flat batch of independent detections.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><ArrowsOutIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Watch it fan OUT</span>
+                <span class="flow-where">Orchestration Trace</span>
+              </div>
+              <p>
+                The orchestrator dispatches every job <strong>concurrently</strong> — each worker is a
+                real detection model call (the same unit from Lab 06). Follow the
+                <strong>Orchestration Trace</strong> panel: each stage event marks a job firing in the
+                parallel wave rather than one-after-another.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Each worker produces a finding</span>
+                <span class="flow-where">independent workers</span>
+              </div>
+              <p>
+                Every worker reasons over its own evidence and returns one structured
+                <code>DetectionFinding</code>. Jobs share no state, so one failing or returning
+                unparseable output is logged and <strong>dropped</strong> — never faked — without
+                sinking the rest of the batch.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><ArrowsInIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Watch it fan IN</span>
+                <span class="flow-where">Fan-In Findings</span>
+              </div>
+              <p>
+                The fulfilled workers converge back into the <strong>Fan-In Findings</strong> panel —
+                one card per finding, with its candidate, skill, verdict, and composite score. This is
+                the synthesis: many parallel results collected into one reviewable list.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><GitForkIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · See the shape behind it</span>
+                <span class="flow-where">Code tab</span>
+              </div>
+              <p>
+                When you're ready, open the <strong>Code</strong> tab. It walks the plan → fan-out
+                (<code>Promise.allSettled</code>) → fan-in journey and shows where the orchestrator
+                and the reused worker live.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <ArrowsOutIcon size={22} weight="duotone" />
+          <p>
+            <strong>Why fan-out / fan-in:</strong> a single agent call answers one question, but real
+            investigations ask hundreds in parallel. Keep the worker small and proven, run a whole
+            batch of them at once, and fan the results back into one collection — scale comes from
+            composition, not new magic.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   {#if result}
     <section class="panel">
       <div class="panel-head">

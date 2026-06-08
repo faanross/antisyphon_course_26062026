@@ -157,7 +157,7 @@
   const LAB06_HANDOFF_KEY = "antisiphon.lab06.detectionFinding";
   const FALLBACK_DETECTION_SKILL = "skills/detection/hunt-c2-over-https.md";
 
-  let activeTab = $state<"lab" | "handoff" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "handoff" | "code">("instructions");
   let skills = $state<SkillSummary[]>([]);
   let schemaContext = $state<ResolvedContext | null>(null);
   let detectionFinding = $state<Record<string, unknown> | null>(null);
@@ -481,12 +481,127 @@
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "handoff"} onclick={() => (activeTab = "handoff")}>Handoff</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 07 · Walkthrough</span>
+          <h2>Layer assessment context onto a detection finding</h2>
+          <p>
+            Detection said <em>whether</em> something is malicious. This lab adds the next layer:
+            an <strong>assessment skill</strong> takes that upstream <code>DetectionFinding</code>,
+            injects your organization's context, and judges <em>how severe it is in your environment</em>.
+            You'll watch the net-new contribution stack visibly on top of the detection it received.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Check the inherited finding</span>
+                <span class="flow-where">Lab tab · panel 01</span>
+              </div>
+              <p>
+                Open the <strong>Lab</strong> tab. Panel <strong>01 · DetectionFinding</strong> already
+                holds an upstream finding — either handed off from Lab 06, or produced by a real
+                fallback detection call. Confirm the source note, and read the <strong>Handoff</strong>
+                tab if you want to see exactly where it came from.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><ScalesIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Pick an assessment skill</span>
+                <span class="flow-where">panel 02 · Assessment Skill</span>
+              </div>
+              <p>
+                In panel <strong>02</strong>, choose a skill from the catalog (e.g.
+                <code>assess-severity</code>). Inspect its <strong>Frontmatter</strong>,
+                <strong>Procedure</strong>, and <strong>Reference</strong> sub-tabs — the frontmatter
+                declares the <em>context files</em> this skill needs.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><BuildingsIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · See the context it pulls</span>
+                <span class="flow-where">panel 03 · Context Resolution</span>
+              </div>
+              <p>
+                Panel <strong>03</strong> lists the exact org-context files the skill declared — asset
+                records, escalation policy, incident history — plus the shared field guide. This is the
+                <strong>net-new input</strong> a detection alone never had.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Run it and read the layering</span>
+                <span class="flow-where">Run Assessment Skill · panel 05</span>
+              </div>
+              <p>
+                Hit <strong>Run Assessment Skill</strong>. Panel <strong>04</strong> shows the
+                assembled prompts; panel <strong>05 · AssessmentFinding</strong> streams a real model
+                call. Watch the <strong>layering strip</strong> at the top: detection's baseline on the
+                left, the injected context in the middle, the assessment's new judgement on the right.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 5 -->
+          <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><StackIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · Go deeper</span>
+                <span class="flow-where">Handoff · Code · Execution Trace</span>
+              </div>
+              <p>
+                Everything below the strip is <em>net-new from this layer</em>. Expand
+                <strong>Execution Trace</strong> to see the deterministic steps, open the
+                <strong>Handoff</strong> tab for where the finding originates, and the optional
+                <strong>Code</strong> tab for how context injection works under the hood.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <LinkIcon size={22} weight="duotone" />
+          <p>
+            <strong>This is the pipeline taking shape.</strong> One skill's structured output becomes
+            the next skill's input. Detection answers "is it malicious?"; assessment answers "how bad
+            is it, for <em>us</em>?" — grounding each claim in a named context file rather than
+            re-scoring what detection already decided.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   {#if error}
     <section class="error-panel">{error}</section>
   {/if}

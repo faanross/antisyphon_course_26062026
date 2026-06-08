@@ -12,7 +12,7 @@
   type Finding = { id: string; candidateId: string; skillName: string; evidenceSummary: string; verdict: string };
   type Graph = { nodes: Array<{ id: string; label: string; type: string }>; edges: Array<{ source: string; target: string; label: string }> };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let result = $state<{ graph: Graph; findings: Finding[]; narrative: string; progress: unknown[] } | null>(null);
   let busy = $state(false);
 
@@ -33,17 +33,113 @@
     <span>Lab 11</span>
     <h1>Graph-Grounded Narrative</h1>
     <p>Select graph context, combine it with detection findings, and synthesize an attack narrative that is grounded in explicit relationships.</p>
-    {#if activeTab !== "code"}
+    {#if activeTab === "lab"}
       <button onclick={run} disabled={busy}>{busy ? "Synthesizing" : "Run Narrative"}</button>
     {/if}
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 11 · Walkthrough</span>
+          <h2>Turn the knowledge graph into a written attack story</h2>
+          <p>
+            This is the capstone read step. The findings and the shared entity graph already exist —
+            here you make a <strong>real model call</strong> that narrates them into a readable
+            campaign story. The catch: the narrative is <strong>fenced by the graph</strong>, so it
+            can only describe entities and edges that actually exist. Watch structured state become
+            prose without ever leaving the data.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Generate the narrative</span>
+                <span class="flow-where">Lab tab · Run Narrative</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab and hit <strong>Run Narrative</strong>. The
+                harness gathers the detection findings, builds the shared entity graph, and makes one
+                real model call to synthesize the story from that bounded context.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><GraphIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Inspect the graph context</span>
+                <span class="flow-where">Selected Graph Context</span>
+              </div>
+              <p>
+                The <strong>Selected Graph Context</strong> panel shows the exact nodes and edges the
+                model was handed — the hosts, IPs, processes, and the relationships between them. This
+                is the entire universe the narrative is allowed to draw from.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Read the grounded narrative</span>
+                <span class="flow-where">Grounded Narrative</span>
+              </div>
+              <p>
+                Read the <strong>Grounded Narrative</strong> panel. Every entity it names is a node in
+                the graph above, and every claim traces back to a finding or an edge — that's what
+                makes it grounded synthesis instead of free narration.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><LinkIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Contrast state vs. story</span>
+                <span class="flow-where">graph ↔ narrative</span>
+              </div>
+              <p>
+                Flip between the two panels. The graph is structured, machine state — nodes and edges;
+                the narrative is the same facts rendered as a readable account a human can act on. Same
+                evidence, two representations.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <ShieldCheckIcon size={22} weight="duotone" />
+          <p>
+            <strong>The graph is the fence.</strong> A language model will happily write a confident
+            story full of connections that were never in the data. By restricting the narrative to
+            entities and edges that actually exist, the graph decides what <em>can</em> be said — the
+            model only explains what's already there. Fluent <em>and</em> faithful.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   {#if result}
     <section class="panel">
       <div class="panel-head">

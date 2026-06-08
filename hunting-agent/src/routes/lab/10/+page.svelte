@@ -20,7 +20,7 @@
     edges: Array<{ source: string; target: string; label: string }>;
   };
 
-  let activeTab = $state<"lab" | "code">("lab");
+  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let graph = $state<Graph | null>(null);
 
   onMount(async () => {
@@ -41,11 +41,113 @@
   </header>
 
   <div class="tab-bar-top">
+    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
     <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
   </div>
 
-  {#if activeTab === "lab"}
+  {#if activeTab === "instructions"}
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="code-view">
+      <div class="code-inner">
+        <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 10 · Walkthrough</span>
+          <h2>Read the graph that joins your findings together</h2>
+          <p>
+            The independent detections from earlier labs are, on their own, a flat list. This lab
+            assembles them into a <strong>knowledge graph</strong>: every candidate and the entities
+            it touches — host, user, process, destination IP — become <strong>nodes</strong>, joined
+            by typed <strong>edges</strong>. It's pure structured state, built deterministically: no
+            model reasons here, the same candidates always produce the same graph. Your job is to
+            explore it and find where separate findings meet.
+          </p>
+        </header>
+
+        <ol class="flow">
+          <!-- Step 1 -->
+          <li class="flow-step" style="--d: 0ms">
+            <span class="flow-rail"><GraphIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">1 · Open the graph state</span>
+                <span class="flow-where">Lab tab · Graph State</span>
+              </div>
+              <p>
+                Go to the <strong>Lab</strong> tab. The <strong>Graph State</strong> panel renders the
+                whole graph the moment the page loads — its header shows the live
+                <strong>node and edge counts</strong>. Nothing to run: the harness already built it
+                from the scored candidates.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="flow-step" style="--d: 110ms">
+            <span class="flow-rail"><ShareNetworkIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">2 · Explore the nodes &amp; edges</span>
+                <span class="flow-where">Graph State panel</span>
+              </div>
+              <p>
+                Pan and look across the graph. Each <strong>candidate</strong> node links out to the
+                host, user, process, and IP it references. Entity nodes are <em>deduplicated</em>, so
+                when several candidates sit on one host or call the same IP, they all join to the
+                <strong>same shared node</strong> — that convergence is what you're hunting for.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="flow-step" style="--d: 220ms">
+            <span class="flow-rail"><TargetIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">3 · Inspect an entity's relationships</span>
+                <span class="flow-where">Relationship Table</span>
+              </div>
+              <p>
+                Scroll to the <strong>Relationship Table</strong> below the graph. Every edge is listed
+                as <em>source → relationship → target</em> — <code>ON_HOST</code>,
+                <code>CONNECTS_TO</code>, <code>ATTRIBUTED_TO</code>, <code>FROM_PROCESS</code>. Pick a
+                host or IP and trace every row that points to it to see which candidates share it.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 4 -->
+          <li class="flow-step" style="--d: 330ms">
+            <span class="flow-rail"><ArrowsInIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">4 · Find where findings overlap</span>
+                <span class="flow-where">the payoff</span>
+              </div>
+              <p>
+                A single entity node with two candidates pointing at it is the whole point: a beacon
+                and an exfil finding, discovered independently, are now visibly part of the
+                <strong>same activity</strong>. Overlap that a row-by-row list would hide becomes
+                obvious as soon as the findings share a node.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="cv-callout">
+          <CpuIcon size={22} weight="duotone" />
+          <p>
+            <strong>This is structured state, not reasoning.</strong> The graph is built by pure
+            mapping — candidates in, nodes and typed edges out, no model call. That deterministic
+            shared state is the substrate the next lab reasons over: the narrative is only possible
+            because these findings already share nodes. Curious how the builder works? The optional
+            <strong>Code</strong> tab walks the architecture.
+          </p>
+        </aside>
+      </div>
+    </div>
+  {:else if activeTab === "lab"}
   {#if graph}
     <section class="panel">
       <div class="panel-head">
