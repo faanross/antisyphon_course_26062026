@@ -18,11 +18,6 @@
   import FunnelIcon from "phosphor-svelte/lib/FunnelIcon";
   import CursorClickIcon from "phosphor-svelte/lib/CursorClickIcon";
   import InfoIcon from "phosphor-svelte/lib/InfoIcon";
-  import FolderOpenIcon from "phosphor-svelte/lib/FolderOpenIcon";
-  import TerminalWindowIcon from "phosphor-svelte/lib/TerminalWindowIcon";
-  import ListMagnifyingGlassIcon from "phosphor-svelte/lib/ListMagnifyingGlassIcon";
-  import FileCodeIcon from "phosphor-svelte/lib/FileCodeIcon";
-  import DownloadSimpleIcon from "phosphor-svelte/lib/DownloadSimpleIcon";
 
   // This lab follows a single candidate end to end: the C2 beacon, BEA-001.
   const pair = connectionPairs["c2-beacon"];
@@ -89,13 +84,10 @@
           <p>
             Distillation is the deterministic, math-only stage that boils a flood of raw
             events down to a short list of scored candidates — <em>before</em> any model is
-            involved. There are two ways to explore it here: first step through it visually
-            in the app, then (if you want) run the real pipeline yourself on the command line.
+            involved. Step through it stage by stage and watch a single beacon emerge.
           </p>
         </header>
 
-        <!-- ── PART 1 ── -->
-        <h3 class="cv-part"><span class="cv-num">1</span> Explore the pipeline, in the app</h3>
         <p class="cv-lead">
           Switch to the <strong>Pipeline</strong> tab. The whole lab follows a single
           candidate — <strong>BEA-001</strong>, the C2 beacon — from raw telemetry all the
@@ -169,99 +161,6 @@
           </li>
         </ol>
 
-        <!-- ── PART 2 ── -->
-        <h3 class="cv-part cv-part-2"><span class="cv-num">2</span> Run the real pipeline yourself <span class="cv-tag-opt">take-home</span></h3>
-        <p class="cv-lead">
-          The view you just stepped through is a guided animation. The actual code that does
-          this lives in <code>mini-distillation/</code> — a small, standalone command-line
-          tool you can run on real data. Everything below happens in a terminal, from the
-          repo root.
-        </p>
-
-        <ol class="flow">
-          <li class="flow-step" style="--d: 0ms">
-            <span class="flow-rail"><FolderOpenIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">Where the input data is</span>
-                <span class="flow-where">mini-distillation/examples/</span>
-              </div>
-              <p>
-                A ready-made sample of <strong>normalized Sysmon + Zeek</strong> telemetry
-                ships with the tool — deliberately a <em>different</em> dataset from the one
-                in this lab, so you're not just re-running BEA-001:
-              </p>
-              <pre class="cv-code"><code>mini-distillation/examples/events.sample.json   <span class="c-cm"># 805 events (802 Zeek + 3 Sysmon)</span></code></pre>
-            </div>
-          </li>
-
-          <li class="flow-step" style="--d: 110ms">
-            <span class="flow-rail"><TerminalWindowIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">Install &amp; run</span>
-                <span class="flow-where">first time: npm install</span>
-              </div>
-              <p>
-                <code>mini-distillation</code> has its own dependencies (the workshop setup
-                script doesn't install them), so run <code>npm install</code> once. Then run
-                the distiller — <code>all</code> runs every detector, or pick one
-                (<code>beacon</code> / <code>tls</code> / <code>powershell</code>):
-              </p>
-              <pre class="cv-code"><code><span class="c-cm"># from the repo root</span>
-cd mini-distillation
-npm install                 <span class="c-cm"># first time only</span>
-npx tsx src/distill.ts score all examples/events.sample.json</code></pre>
-            </div>
-          </li>
-
-          <li class="flow-step" style="--d: 220ms">
-            <span class="flow-rail"><ListMagnifyingGlassIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">Where the output is &amp; how to read it</span>
-                <span class="flow-where">candidates.ndjson</span>
-              </div>
-              <p>
-                It prints a summary and writes the scored candidates to
-                <code>candidates.ndjson</code> (one JSON object per line). It's dense on one
-                line — use <code>jq</code> to pretty-print it. The first command collapses the
-                long event-id list to a count; the second is a one-line score summary:
-              </p>
-              <pre class="cv-code"><code><span class="c-cm"># readable, with the 361-id array collapsed to a count</span>
-jq '.evidence.event_count = (.evidence.constituent_event_ids | length)
-    | del(.evidence.constituent_event_ids)' candidates.ndjson
-
-<span class="c-cm"># just the scores, one tidy line per candidate</span>
-jq -r '"\(.type)\t\(.candidate_id)\tscore=\(.beacon_score // .tls_anomaly_score // .powershell_invocation_anomaly_score)"' candidates.ndjson</code></pre>
-            </div>
-          </li>
-
-          <li class="flow-step" style="--d: 330ms">
-            <span class="flow-rail"><FileCodeIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">Want to run it on your own data?</span>
-                <span class="flow-where">SCHEMA.md</span>
-              </div>
-              <p>
-                The tool reads a <strong>normalized</strong> event stream, not raw
-                <code>conn.log</code> / <code>ssl.log</code> or Sysmon EVTX. The exact input
-                contract — plus a Zeek/Sysmon field-mapping cheatsheet for writing a small
-                adapter — is in <code>mini-distillation/SCHEMA.md</code>.
-              </p>
-            </div>
-          </li>
-        </ol>
-
-        <aside class="cv-callout">
-          <DownloadSimpleIcon size={22} weight="duotone" />
-          <p>
-            <strong>Why both?</strong> The in-app view shows you <em>what</em> distillation
-            does, stage by stage. The CLI shows you that it's real, deterministic code you
-            can run, inspect, and point at your own telemetry — no model, no magic.
-          </p>
-        </aside>
       </div>
     </div>
   {:else}
@@ -474,16 +373,6 @@ jq -r '"\(.type)\t\(.candidate_id)\tscore=\(.beacon_score // .tls_anomaly_score 
     padding: 2.2rem 1.75rem 3rem;
     font-family: "JetBrains Mono", monospace;
   }
-  .guide code {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 0.86em;
-    color: #f1fa8c;
-    background: rgba(241, 250, 140, 0.07);
-    border: 1px solid rgba(241, 250, 140, 0.12);
-    border-radius: 3px;
-    padding: 0.05em 0.35em;
-    word-break: break-word;
-  }
   .guide strong { color: #e8e8f0; font-weight: 700; }
   .guide em { color: #bd93f9; font-style: normal; }
 
@@ -512,41 +401,6 @@ jq -r '"\(.type)\t\(.candidate_id)\tscore=\(.beacon_score // .tls_anomaly_score 
     line-height: 1.75;
   }
 
-  .cv-part {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin: 2.8rem 0 0.4rem;
-    font-size: 1.3rem;
-    color: #f5f5fa;
-    font-weight: 700;
-  }
-  .cv-part-2 { margin-top: 3.4rem; padding-top: 2.4rem; border-top: 1px solid #1c1c30; }
-  .cv-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.7rem;
-    height: 1.7rem;
-    border-radius: 6px;
-    background: rgba(189, 147, 249, 0.14);
-    border: 1px solid rgba(189, 147, 249, 0.4);
-    color: #bd93f9;
-    font-size: 0.9rem;
-    font-weight: 800;
-    flex-shrink: 0;
-  }
-  .cv-tag-opt {
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #50fa7b;
-    background: rgba(80, 250, 123, 0.1);
-    border: 1px solid rgba(80, 250, 123, 0.32);
-    border-radius: 999px;
-    padding: 0.2rem 0.6rem;
-  }
   .cv-lead {
     max-width: 64ch;
     margin: 0.5rem 0 1.4rem;
@@ -616,40 +470,8 @@ jq -r '"\(.type)\t\(.candidate_id)\tscore=\(.beacon_score // .tls_anomaly_score 
   .flow-body p { margin: 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.65; }
 
   /* Code blocks */
-  .cv-code {
-    margin: 0.85rem 0 0;
-    padding: 0.75rem 0.9rem;
-    background: #0d0d14;
-    border: 1px solid #1a1a2e;
-    border-radius: 6px;
-    overflow-x: auto;
-    font-size: 0.82rem;
-    line-height: 1.6;
-  }
-  .cv-code code {
-    background: none;
-    border: none;
-    padding: 0;
-    color: #d6d6e2;
-    font-size: 0.82rem;
-    white-space: pre;
-  }
-  .cv-code .c-cm { color: #6272a4; }
 
   /* Callout */
-  .cv-callout {
-    display: flex;
-    gap: 0.75rem;
-    align-items: flex-start;
-    margin-top: 2.4rem;
-    padding: 1rem 1.15rem;
-    border: 1px solid rgba(189, 147, 249, 0.28);
-    border-left: 3px solid #bd93f9;
-    border-radius: 8px;
-    background: rgba(189, 147, 249, 0.06);
-  }
-  .cv-callout :global(svg) { color: #bd93f9; flex-shrink: 0; margin-top: 2px; }
-  .cv-callout p { margin: 0; color: #c2c2d2; font-size: 0.92rem; line-height: 1.7; }
 
   @keyframes cvRise {
     from { opacity: 0; transform: translateY(14px); }
