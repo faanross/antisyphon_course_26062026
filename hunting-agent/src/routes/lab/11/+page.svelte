@@ -239,14 +239,21 @@
             what the model sees:
           </p>
           <pre class="cv-code"><code><span class="c-key">findings:</span>
-  - BEA-001 via hunt-c2-over-https → true_positive
+  - UPCA-001 via hunt-ai-tool-execution-anomaly  → true_positive
+  - PSI-001  via hunt-malicious-powershell-payload → true_positive
+  - BEA-001  via hunt-c2-over-https               → true_positive
 
 <span class="c-key">nodes:</span>
   - host: DEV-WS03 (host:dev-ws03)
+  - process: powershell.exe (proc:ps)
+  - process: svchost-health.exe (proc:implant)
   - ip: 45.61.&#8230; (ip:45.61&#8230;)
 
 <span class="c-key">edges:</span>
-  - BEA-001 --CONNECTS_TO--> ip:45.61&#8230;</code></pre>
+  - UPCA-001 --FROM_PROCESS--> proc:ps
+  - PSI-001  --FROM_PROCESS--> proc:ps
+  - BEA-001  --FROM_PROCESS--> proc:implant
+  - BEA-001  --CONNECTS_TO--> ip:45.61&#8230;</code></pre>
           <p class="cv-note">Two rules turn this from free narration into grounded synthesis:</p>
           <div class="g11-rules">
             <span class="g11-rule"><ShieldCheckIcon size={14} weight="bold" /> only entities that exist as nodes</span>

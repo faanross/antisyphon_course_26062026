@@ -77,6 +77,11 @@ function gatePasses(candidate: Candidate, gate: Record<string, unknown>): boolea
     const required = gate.parentImageContains.map((item) => String(item).toLowerCase());
     if (!required.some((item) => parentImage.includes(item))) return false;
   }
+  if (typeof gate.minParentChildRarity === "number") {
+    // Rarity of the parent→child pair across the fleet (1.0 = never-before-seen).
+    // Mirrors the canonical hunt-ai-tool-execution-anomaly gate's rarity branch.
+    if (numberValue(field(candidate, "parent_child_pair_rarity")) < gate.minParentChildRarity) return false;
+  }
   return true;
 }
 

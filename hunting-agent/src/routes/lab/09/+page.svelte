@@ -158,6 +158,19 @@
         </ol>
 
         <aside class="cv-callout">
+          <GitForkIcon size={22} weight="duotone" />
+          <p>
+            <strong>Your whole detection library, run at once.</strong> The plan no longer fans out a
+            single skill — it fans out <em>every</em> detection skill across the candidate set. Three
+            skills now cover three candidate types: <code>hunt-c2-over-https</code> (HTTPS beacons),
+            <code>hunt-ai-tool-execution-anomaly</code> (a coding / AI assistant spawning a rare child),
+            and <code>hunt-malicious-powershell-payload</code> (encoded PowerShell). So the findings
+            come back as a <em>mix of types</em> that line up into one kill chain — AI&nbsp;tool →
+            encoded&nbsp;PowerShell → C2&nbsp;beacon — not three copies of the same finding.
+          </p>
+        </aside>
+
+        <aside class="cv-callout">
           <ArrowsOutIcon size={22} weight="duotone" />
           <p>
             <strong>Why fan-out / fan-in:</strong> a single agent call answers one question, but real
