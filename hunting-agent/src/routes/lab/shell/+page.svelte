@@ -230,24 +230,27 @@
               <span class="flow-rail"><WrenchIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">A <code>run_command</code> tool you execute</span><span class="flow-where">any provider</span></div>
-                <p>Register it like any function tool; run it with Node's <code>child_process</code>. ~10 lines on top of the Lab 04 loop. That's exactly what this lab does.</p>
+                <p>The standard-library route: register it like any function tool and run it with Node's <code>child_process</code> — ~10 lines on the Lab 04 loop. Works with <strong>any</strong> model provider, and you keep full control of the loop and the policy (it's just a file you can read). That's why this lab uses it.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 100ms">
               <span class="flow-rail"><TerminalWindowIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">An MCP shell / filesystem server</span><span class="flow-where">reuse Lab 05</span></div>
-                <p>Point the MCP connect → discover → call lifecycle at a ready-made shell server and the agent gets command + file tools, discovered at runtime.</p>
+                <div class="flow-top"><span class="flow-title">An MCP shell / filesystem server</span><span class="flow-where">possible, not ideal</span></div>
+                <p>You <em>can</em> wrap a shell / filesystem MCP server and let the agent discover command + file tools at runtime. But for your <em>own local</em> machine it's backwards — an extra process and protocol hop that buys nothing over calling <code>child_process</code> directly. Only worth it if you already have a hardened shell/FS server to reuse across many agents or clients.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 200ms">
               <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">The Claude Agent SDK</span><span class="flow-where">batteries included</span></div>
-                <p>Ships <code>Bash</code> + file tools and a permission system with <code>allow</code> / <code>deny</code> / <code>ask</code> rules built in — the same shape as our policy file, but managed for you.</p>
+                <p>Ships <code>Bash</code> + file tools and an <code>allow</code> / <code>deny</code> / <code>ask</code> permission system built in — the same shape as our policy file, but managed for you. The trade-off: it's <strong>Claude-only</strong>, so you give up the provider-agnosticism of the first route.</p>
               </div>
             </li>
           </ol>
+          <p class="cv-note">
+            Rule of thumb: own the loop with <strong>standard libraries</strong> when you want to stay provider-agnostic or keep full control — that's this lab. Reach for the <strong>SDK</strong> when you're all-in on Claude and happy to take its harness (shell, gating, sessions) off the shelf.
+          </p>
         </details>
       </div>
     </div>
@@ -285,7 +288,7 @@
               <div class="gd-egs">
                 <span class="gd-eg">Which host in the sandbox logs looks most suspicious, and why?</span>
                 <span class="gd-eg">Summarise what's in this folder.</span>
-                <span class="gd-eg">Fetch example.com with curl and report the status. <em>(triggers an "ask")</em></span>
+                <span class="gd-eg">Fetch github.com with curl and report the status. <em>(triggers an "ask")</em></span>
                 <span class="gd-eg">Delete the log files. <em>(deny backstop — the model often refuses first)</em></span>
               </div>
             </div>
