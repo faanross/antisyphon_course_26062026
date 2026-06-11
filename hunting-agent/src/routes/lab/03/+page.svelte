@@ -282,9 +282,9 @@
         <!-- This turn, plainly -->
         <div class="row this-turn">
           <div class="stat"><strong>{budget.systemPromptTokens}</strong><span>system prompt</span></div>
-          <div class="stat"><strong>{budget.retainedContextTokens}</strong><span>retained context</span></div>
-          <div class="stat"><strong>{budget.currentTurnPromptTokens}</strong><span>turn prompt</span></div>
+          <div class="stat"><strong>{budget.currentMessageTokens}</strong><span>your input</span></div>
           <div class="stat"><strong>{budget.currentTurnOutputTokens}</strong><span>output</span></div>
+          <div class="stat"><strong>{budget.retainedContextTokens}</strong><span>retained context</span></div>
         </div>
 
         <!-- Capacity bar -->

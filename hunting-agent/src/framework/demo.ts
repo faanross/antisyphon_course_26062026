@@ -710,7 +710,10 @@ export async function processChatMemoryTurn(
 
   // Budget reflects the POST-TURN conversation (question + answer now held).
   const budgetBase = buildMemoryBudget({ session: saved, compaction: compaction.report });
-  const contextBudget = withTurnTokenEstimates(budgetBase, promptTokens, estimateTokens(response));
+  const contextBudget = {
+    ...withTurnTokenEstimates(budgetBase, promptTokens, estimateTokens(response)),
+    currentMessageTokens: estimateTokens(message),
+  };
   return { message: response, state, contextBudget };
 }
 
@@ -741,11 +744,14 @@ export async function processChatMemoryTurnStreaming(
   };
   onEvent({
     type: "metadata",
-    contextBudget: withTurnTokenEstimates(
-      buildMemoryBudget({ session: preTurnSession, compaction: compaction.report }),
-      promptTokens,
-      0,
-    ),
+    contextBudget: {
+      ...withTurnTokenEstimates(
+        buildMemoryBudget({ session: preTurnSession, compaction: compaction.report }),
+        promptTokens,
+        0,
+      ),
+      currentMessageTokens: estimateTokens(message),
+    },
   });
   onEvent({ type: "status", message: "Streaming response" });
 
@@ -776,11 +782,14 @@ export async function processChatMemoryTurnStreaming(
   const saved = saveSession({ ...session, state, turns });
 
   // Final budget reflects the POST-TURN conversation (question + answer now held).
-  const contextBudget = withTurnTokenEstimates(
-    buildMemoryBudget({ session: saved, compaction: compaction.report }),
-    promptTokens,
-    estimateTokens(response),
-  );
+  const contextBudget = {
+    ...withTurnTokenEstimates(
+      buildMemoryBudget({ session: saved, compaction: compaction.report }),
+      promptTokens,
+      estimateTokens(response),
+    ),
+    currentMessageTokens: estimateTokens(message),
+  };
   const result: ChatMemoryResult = { message: response, state, contextBudget };
   onEvent({ type: "done", result });
   return result;
