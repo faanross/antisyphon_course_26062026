@@ -4,8 +4,12 @@ import type { LLMProvider, LLMResult } from "./types.js";
 export function createOpenAIProvider(
   apiKey: string,
   model: string,
+  baseURL?: string,
 ): LLMProvider {
-  const client = new OpenAI({ apiKey });
+  // baseURL lets you point at ANY OpenAI-compatible endpoint — a local model
+  // server (Ollama, LM Studio, llama.cpp, vLLM) on localhost or a LAN host, or
+  // a proxy like LiteLLM. Leave it unset to use the real OpenAI API.
+  const client = new OpenAI({ apiKey, baseURL });
 
   return {
     async invoke({ systemPrompt, userPrompt, onToken }): Promise<LLMResult> {

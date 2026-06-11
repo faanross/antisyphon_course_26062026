@@ -26,6 +26,7 @@ export function selectProvider(): LLMProvider {
       return createOpenAIProvider(
         requireEnv("OPENAI_API_KEY"),
         requireEnv("OPENAI_MODEL"),
+        process.env.OPENAI_BASE_URL, // optional: point at a local/LAN OpenAI-compatible server
       );
 
     case "anthropic":
