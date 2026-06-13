@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AntiSyphon Course — Setup Guide</title>
+<style>
+  :root {
+    --bg: #07070a;
+    --panel: #14141d;
+    --panel-2: #1b1b26;
+    --line: rgba(189,147,249,0.22);
+    --line-strong: rgba(245,230,99,0.40);
+    --text: rgba(255,255,255,0.90);
+    --muted: rgba(255,255,255,0.56);
+    --purple: #bd93f9;
+    --yellow: #f5e663;
+    --green: #50fa7b;
+    --cyan: #8be9fd;
+    --pink: #ff79c6;
+    --red: #ff6b6b;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+  @page { size: A4; margin: 0; }
+
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+
+  /* Repeats on every printed page → guarantees full-bleed dark, no white bands */
+  .page-bg { position: fixed; inset: 0; background: var(--bg); z-index: -1; }
+
+  /* Manual vertical spacer for nudging page breaks. Default ≈ a few newlines.
+     Override per-spot with inline style="height:NNmm" where more/less is wanted. */
+  .vsp { height: 16mm; }
+  body {
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 10.5pt;
+    line-height: 1.62;
+  }
+
+  .wrap { padding: 15mm 16mm 8mm; }
+
+  /* ── Cover ── */
+  .cover {
+    min-height: 100vh;
+    padding: 22mm 15mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background:
+      radial-gradient(900px 360px at 18% 12%, rgba(189,147,249,0.12), transparent 60%),
+      radial-gradient(700px 300px at 90% 88%, rgba(245,230,99,0.06), transparent 60%),
+      var(--bg);
+    border-bottom: 1px solid var(--line);
+    break-after: page;
+  }
+  .cover .eyebrow { color: var(--purple); }
+  .cover h1 {
+    margin: 8px 0 0;
+    font-size: 40pt;
+    line-height: 1.02;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .cover .sub {
+    margin-top: 14px;
+    max-width: 60ch;
+    color: var(--muted);
+    font-size: 12.5pt;
+    line-height: 1.6;
+  }
+  .cover .meta {
+    margin-top: 26px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pill {
+    font-family: var(--mono);
+    font-size: 9pt;
+    font-weight: 700;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 12px;
+    background: rgba(189,147,249,0.06);
+  }
+  .pill.y { color: var(--yellow); border-color: var(--line-strong); background: rgba(245,230,99,0.06); }
+  .cover .foot { margin-top: auto; padding-top: 30px; color: var(--muted); font-family: var(--mono); font-size: 8.5pt; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 8.5pt;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--purple);
+  }
+
+  /* ── Section headings ── */
+  h2 {
+    margin: 30px 0 10px;
+    padding-top: 18px;
+    font-size: 18pt;
+    font-weight: 800;
+    color: #fff;
+    break-after: avoid;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  h2:first-of-type { margin-top: 8px; }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 12pt;
+    color: var(--yellow);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 2px 10px;
+    flex-shrink: 0;
+  }
+  h2 + .lead { margin-top: 4px; color: var(--muted); break-after: avoid; }
+  h3 { margin: 30px 0 8px; font-size: 12.5pt; font-weight: 800; color: var(--cyan); break-after: avoid; }
+  h3 .part {
+    font-family: var(--mono); font-size: 9pt; color: var(--bg); background: var(--cyan);
+    border-radius: 6px; padding: 2px 9px; margin-right: 10px; font-weight: 800;
+  }
+  h4 { margin: 22px 0 6px; font-size: 10.5pt; font-weight: 800; color: var(--text); break-after: avoid; }
+
+  p { margin: 9px 0; }
+  a { color: var(--cyan); text-decoration: none; word-break: break-all; }
+  strong { color: #fff; }
+  em { color: var(--purple); font-style: normal; }
+  ul, ol { margin: 7px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 9pt;
+    color: var(--yellow);
+    background: rgba(245,230,99,0.08);
+    border: 1px solid rgba(245,230,99,0.16);
+    border-radius: 4px;
+    padding: 1px 5px;
+    word-break: break-word;
+  }
+
+  pre {
+    margin: 14px 0;
+    padding: 13px 15px;
+    background: #0c0c13;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    border-radius: 8px;
+    overflow: hidden;
+    break-inside: avoid;
+  }
+  pre code {
+    display: block;
+    background: none;
+    border: none;
+    padding: 0;
+    color: #e6e6f0;
+    font-size: 9pt;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  pre code .c { color: #6272a4; }       /* comment */
+  pre code .p { color: var(--purple); } /* prompt $ */
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    padding: 12px 14px;
+    break-inside: avoid;
+  }
+  .card h4 { margin-top: 0; }
+  .card.a { border-left: 3px solid var(--cyan); }
+  .card.b { border-left: 3px solid var(--green); }
+  .card.c { border-left: 3px solid var(--yellow); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 9pt;
+    break-inside: avoid;
+  }
+  tr { break-inside: avoid; }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--purple);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  td code { font-size: 8.5pt; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.018); }
+  td.go { white-space: nowrap; font-family: var(--mono); font-weight: 700; }
+  td.go a { color: var(--yellow); }
+
+  .callout {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    margin: 16px 0;
+    padding: 13px 16px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--purple);
+    border-radius: 8px;
+    background: rgba(189,147,249,0.06);
+    break-inside: avoid;
+  }
+  .callout .tag { font-family: var(--mono); font-weight: 800; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple); }
+  .callout p { margin: 0; font-size: 9.5pt; color: #d6d6e2; }
+  .callout.warn { border-left-color: var(--red); background: rgba(255,107,107,0.06); }
+  .callout.warn .tag { color: var(--red); }
+  .callout.tip { border-left-color: var(--green); background: rgba(80,250,123,0.05); }
+  .callout.tip .tag { color: var(--green); }
+
+  .os-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 7.5pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+  }
+  .os-mac { color: var(--cyan); background: rgba(139,233,253,0.10); border: 1px solid rgba(139,233,253,0.3); }
+  .os-win { color: var(--yellow); background: rgba(245,230,99,0.10); border: 1px solid rgba(245,230,99,0.3); }
+
+  .step-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; margin: 12px 0; break-inside: avoid; }
+  .step-n {
+    font-family: var(--mono); font-weight: 800; font-size: 10pt; color: var(--bg);
+    background: var(--purple); border-radius: 6px; width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step-row p { margin: 0; }
+
+  hr { border: none; border-top: 1px solid var(--line); margin: 36px 0; }
+
+  .toc { columns: 2; column-gap: 28px; margin: 10px 0 0; }
+  .toc a { display: block; color: var(--text); font-size: 9.5pt; padding: 3px 0; }
+  .toc .tnum { color: var(--yellow); font-family: var(--mono); margin-right: 8px; }
+
+  /* Troubleshooting fix blocks */
+  .fix { margin: 14px 0; padding: 12px 15px; border: 1px solid var(--line); border-left: 3px solid var(--yellow); border-radius: 8px; background: rgba(245,230,99,0.04); break-inside: avoid; }
+  .fix h4 { margin: 0 0 6px; color: var(--yellow); }
+  .fix p { margin: 6px 0; font-size: 9.7pt; }
+  .fix .sym { color: var(--muted); font-family: var(--mono); font-size: 8.3pt; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .docfoot {
+    margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line);
+    color: var(--muted); font-family: var(--mono); font-size: 7.5pt;
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    break-inside: avoid;
+  }
+</style>
+</head>
+<body>
+<div class="page-bg"></div>
+
+<!-- ════════════ COVER ════════════ -->
+<div class="cover">
+  <span class="eyebrow">AntiSyphon Course · 26 June 2026</span>
+  <h1>Build Your Own<br/>AI Security Agent<br/>Setup Guide</h1>
+  <p class="sub">Please complete setup <strong>before</strong> the course. It takes ~15 minutes. Stuck? Ask in Discord — and check the guided <strong>Troubleshooting</strong> in Section&nbsp;8.</p>
+  <div class="meta">
+    <span class="pill y">8 hours · 15 labs</span>
+    <span class="pill">Bring a laptop</span>
+    <span class="pill">macOS · Linux · Windows</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ════════════ TOC ════════════ -->
+  <h2 id="toc"><span class="num">·</span> What's in this guide</h2>
+  <div class="toc">
+    <a href="#s1"><span class="tnum">1</span> Download the repo</a>
+    <a href="#s2"><span class="tnum">2</span> Run the installer script</a>
+    <a href="#s3"><span class="tnum">3</span> Choose how to run the model (A / B / C)</a>
+    <a href="#s4"><span class="tnum">4</span> Set up the GTI lab (MCP)</a>
+    <a href="#s5"><span class="tnum">5</span> Start the server</a>
+    <a href="#s6"><span class="tnum">6</span> Confirm it worked</a>
+    <a href="#s7"><span class="tnum">7</span> Optional — bonus take-home</a>
+    <a href="#s8"><span class="tnum">8</span> Troubleshooting (symptom → fix)</a>
+  </div>
+
+  <!-- ════════════ 1 — DOWNLOAD ════════════ -->
+  <h2 id="s1"><span class="num">1</span> Download the repo</h2>
+  <p class="lead">Pick whichever is easier — both end with the project folder on your machine.</p>
+
+  <div class="callout warn"><span class="tag">Where to put it</span><p>Clone or unzip into a folder you <strong>own</strong> — your home directory or Desktop is ideal. Do <strong>not</strong> put it under a system path like <code>/opt</code>, <code>/usr</code>, or <code>C:\Program Files</code>, and don't clone with <code>sudo</code> — the labs need to write files (a Python environment for Lab&nbsp;05), and a system-owned folder blocks that.</p></div>
+
+  <h3>Option A — Git (recommended)</h3>
+  <p>If you have <code>git</code> installed, clone it:</p>
+  <pre><code><span class="p">$</span> git clone https://github.com/faanross/antisyphon_course_26062026.git
+<span class="p">$</span> cd antisyphon_course_26062026</code></pre>
+
+  <h3>Option B — Download a ZIP (no git needed)</h3>
+  <div class="step-row"><div class="step-n">1</div><p>Open <a href="https://github.com/faanross/antisyphon_course_26062026">github.com/faanross/antisyphon_course_26062026</a> in a browser.</p></div>
+  <div class="step-row"><div class="step-n">2</div><p>Click the green <strong>Code</strong> button → <strong>Download ZIP</strong>.</p></div>
+  <div class="step-row"><div class="step-n">3</div><p>Unzip it somewhere easy to find that you own (e.g. your Desktop or home folder), then <code>cd</code> into the unzipped folder in your terminal.</p></div>
+
+
+  <!-- ════════════ 2 — INSTALLER ════════════ -->
+  <h2 id="s2"><span class="num">2</span> Run the installer script</h2>
+  <p class="lead">From the project folder, move into <code>hunting-agent/</code> and run the script for your OS. It is safe to re-run.</p>
+
+  <h3><span class="os-tag os-mac">macOS / Linux</span></h3>
+  <pre><code><span class="p">$</span> cd hunting-agent
+<span class="p">$</span> bash ./setup.sh</code></pre>
+
+  <h3><span class="os-tag os-win">Windows (PowerShell)</span></h3>
+  <pre><code><span class="p">&gt;</span> cd hunting-agent
+<span class="p">&gt;</span> powershell -ExecutionPolicy Bypass -File setup.ps1</code></pre>
+
+  <h4>What the script actually does</h4>
+  <ul>
+    <li>Checks whether you already have a supported <strong>Node</strong> (20.19+, 22.12+, or 24+; it deliberately avoids 21/23).</li>
+    <li>If not, it installs <strong>Volta</strong> (a small, cross-platform Node version manager) and pins <strong>Node 22.12.0</strong> — without touching any other Node you might have.</li>
+    <li>Runs <code>npm install</code> to download the app's dependencies.</li>
+  </ul>
+  <div class="vsp"></div>
+  <div class="callout warn"><span class="tag">Windows note</span><p>The <code>-ExecutionPolicy Bypass</code> part is required — without it PowerShell refuses to run scripts. On Windows the script uses <code>winget</code> to install Volta; if you don't have winget, install Volta manually from <a href="https://volta.sh">volta.sh</a>, reopen PowerShell, and re-run.</p></div>
+  <div class="callout"><span class="tag">If Node was just installed</span><p>Close the terminal, open a fresh one, <code>cd</code> back into <code>hunting-agent</code>, and run the script again. Volta updates your PATH, and a new terminal is the cleanest way to pick it up.</p></div>
+
+  <!-- ════════════ 3 — PROVIDER ════════════ -->
+  <h2 id="s3"><span class="num">3</span> Choose how to run the model</h2>
+  <p class="lead">Every lab calls a real language model. You have <strong>three</strong> ways to provide one — you only need <strong>one</strong>. Pick the path that matches what you already have, then jump to its part below.</p>
+
+  <div class="grid-3">
+    <div class="card a"><h4>Path A · A CLI you already pay for</h4><p>Already subscribe to <strong>Claude</strong> (Claude Code) or <strong>ChatGPT</strong> (Codex CLI) and have the CLI installed? Use it directly — <strong>no API key, no extra cost</strong> beyond your subscription. <a href="#pa">→ Part A</a></p></div>
+    <div class="card b"><h4>Path B · A local model with Ollama</h4><p>Free, private, runs entirely on your own machine (offline). Needs a reasonably capable computer. <a href="#pb">→ Part B</a></p></div>
+    <div class="card c"><h4>Path C · An API key</h4><p>Gemini, OpenAI, or Anthropic. <strong>Gemini has a free tier</strong> that's perfect to get started. <a href="#pc">→ Part C</a></p></div>
+  </div>
+
+  <div class="callout"><span class="tag">Not sure which?</span><p>If you already have a <strong>Claude or ChatGPT subscription</strong>, <strong>Path A</strong> is the least setup and costs nothing extra — you do <em>not</em> need to buy an API key. If you don't, a <strong>free Gemini key (Path C)</strong> is the fastest way to get going. Path B is for those who'd rather run everything locally.</p></div>
+
+  <h4>First, create your <code>.env</code> file (all paths need this)</h4>
+  <p>The app reads your choice from a file called <code>.env</code>. Create it from the template:</p>
+  <pre><code><span class="c"># macOS / Linux</span>
+<span class="p">$</span> cp .env.example .env
+
+<span class="c"># Windows (PowerShell)</span>
+<span class="p">&gt;</span> copy .env.example .env</code></pre>
+
+  <div class="callout warn"><span class="tag">One provider at a time</span><p>Open <code>.env</code> in any text editor. Set the single <code>LLM_PROVIDER</code> line to your choice, fill in only that path's values, and make sure <strong>every line belonging to the other paths is commented out</strong> with a leading <code>#</code>. Mixing two active providers is the most common cause of confusing errors.</p></div>
+
+  <!-- ── PART A ── -->
+  <h3 id="pa"><span class="part">A</span> Use a CLI you already subscribe to</h3>
+  <p>If you already pay for <strong>Claude</strong> or <strong>ChatGPT</strong> and have its command-line tool installed and signed in, the app drives that tool for you. There is <strong>no API key in <code>.env</code></strong>, and you pay nothing beyond the subscription you already have. This is the simplest path for existing subscribers.</p>
+
+  <h4>A1 · Claude Code (Anthropic subscription)</h4>
+  <div class="step-row"><div class="step-n">1</div><p>Install the CLI (needs Node, which Section&nbsp;2 set up): <code>npm install -g @anthropic-ai/claude-code</code></p></div>
+  <div class="step-row"><div class="step-n">2</div><p>Sign in: run <code>claude</code>, then type <code>/login</code> and complete the browser login with your Claude account.</p></div>
+  <div class="step-row"><div class="step-n">3</div><p>In <code>.env</code> set just these (comment out everything else):</p></div>
+  <pre><code>LLM_PROVIDER=claude-code
+CLAUDE_CODE_MODEL=sonnet
+<span class="c"># CLAUDE_CODE_MODEL=opus   # if your plan includes it</span></code></pre>
+  <div class="callout"><span class="tag">If you later see "exited with code 1"</span><p>That's usually a one-time auth hiccup when the tool is run non-interactively. Run <code>claude setup-token</code> to mint a token for programmatic use, then retry. Full steps in <a href="#f-cc-exit1">Section&nbsp;8 → Fix CC-1</a>.</p></div>
+
+  <h4>A2 · Codex CLI (OpenAI / ChatGPT subscription)</h4>
+  <div class="step-row"><div class="step-n">1</div><p>Install the <strong>Codex</strong> CLI (needs Node 22+, which Section&nbsp;2 set up): <code>npm install -g @openai/codex</code></p></div>
+  <div class="step-row"><div class="step-n">2</div><p>Sign in: run <code>codex</code> and choose <strong>Sign in with ChatGPT</strong> (a browser opens). Codex is included with ChatGPT Plus / Pro / Business / Edu / Enterprise plans — no separate purchase. On a headless box, use <code>codex login --device-auth</code> for a paste-a-code flow.</p></div>
+  <div class="step-row"><div class="step-n">3</div><p>In <code>.env</code> set just these (comment out everything else):</p></div>
+  <pre><code>LLM_PROVIDER=codex-cli
+CODEX_MODEL=gpt-5.4
+<span class="c"># CODEX_MODEL=gpt-5.4-mini</span></code></pre>
+  <div class="callout tip"><span class="tag">How to tell it's ready</span><p>Before touching the app, make sure the bare CLI works in your terminal: <code>claude --print "hi"</code> (Claude Code) or a quick <code>codex</code> run (Codex). If the CLI answers, the app will too. The app simply runs <code>claude</code> / <code>codex</code> for you, so they must be on your <code>PATH</code> and signed in.</p></div>
+
+  <!-- ── PART B ── -->
+  <h3 id="pb"><span class="part">B</span> Run a local model with Ollama</h3>
+  <p><strong>Ollama</strong> (and LM Studio, llama.cpp, vLLM, LiteLLM) expose an <strong>OpenAI-compatible</strong> API. So you keep <code>LLM_PROVIDER=openai</code> and simply point the app at your local server with <code>OPENAI_BASE_URL</code>. No cloud, no key, no cost.</p>
+  <div class="step-row"><div class="step-n">1</div><p>Install Ollama from <a href="https://ollama.com">ollama.com</a> and make sure it's running (the desktop app runs the server automatically; or run <code>ollama serve</code>).</p></div>
+  <div class="step-row"><div class="step-n">2</div><p>Pull a capable <strong>instruct</strong> model — 7B or larger. Tiny models mangle the structured-output labs:</p></div>
+  <pre><code><span class="p">$</span> ollama pull qwen2.5</code></pre>
+  <div class="step-row"><div class="step-n">3</div><p>In <code>.env</code> set these four lines (comment out everything else):</p></div>
+  <pre><code>LLM_PROVIDER=openai
+OPENAI_API_KEY=ollama                       <span class="c"># any non-empty string; local servers ignore it</span>
+OPENAI_MODEL=qwen2.5                         <span class="c"># whatever you `ollama pull`ed</span>
+OPENAI_BASE_URL=http://localhost:11434/v1   <span class="c"># Ollama's OpenAI-compatible endpoint</span></code></pre>
+
+  <h4>Running Ollama on another machine on your network (LAN)</h4>
+  <p>If the model runs on a <em>different</em> box (e.g. a desktop with a GPU) and you want to use it from your laptop, point the base URL at that machine instead:</p>
+  <pre><code>OPENAI_BASE_URL=http://<span style="color:var(--yellow)">192.168.1.50</span>:11434/v1   <span class="c"># the GPU box's LAN IP</span></code></pre>
+  <div class="callout warn"><span class="tag">LAN requirement</span><p>By default Ollama only listens on <code>localhost</code>. On the machine running the model, start it bound to all interfaces — <code>OLLAMA_HOST=0.0.0.0 ollama serve</code> — and allow port <code>11434</code> through that machine's firewall.</p></div>
+  <div class="callout tip"><span class="tag">Honest note</span><p>Local models are great for privacy and cost, but quality and speed vary with your hardware. The later <strong>structured-output</strong> labs (06 onward) need a capable instruct model; very small or "reasoning/&lt;think&gt;" models often produce malformed JSON. If a lab misbehaves on local, a free Gemini key (Path&nbsp;C) is a reliable fallback.</p></div>
+
+  <!-- ── PART C ── -->
+  <h3 id="pc"><span class="part">C</span> Use an API key</h3>
+  <p>Use a hosted model via an API key. Set <code>LLM_PROVIDER</code> to your choice, fill in that key/model, and comment out the rest.</p>
+
+  <table>
+    <tr><th>LLM_PROVIDER</th><th>What you need</th><th>Set in .env</th></tr>
+    <tr>
+      <td><code>gemini</code></td>
+      <td>An API key from Google AI Studio (has a <strong>free</strong> tier).</td>
+      <td><code>GEMINI_API_KEY=…</code><br/><code>GEMINI_MODEL=gemini-2.5-flash</code></td>
+    </tr>
+    <tr>
+      <td><code>openai</code></td>
+      <td>An OpenAI API key (paid account).</td>
+      <td><code>OPENAI_API_KEY=…</code><br/><code>OPENAI_MODEL=gpt-5.4-mini</code></td>
+    </tr>
+    <tr>
+      <td><code>anthropic</code></td>
+      <td>An Anthropic API key (paid account).</td>
+      <td><code>ANTHROPIC_API_KEY=…</code><br/><code>ANTHROPIC_MODEL=claude-haiku-4-5-20251001</code></td>
+    </tr>
+  </table>
+
+  <div class="callout"><span class="tag">Model IDs change</span><p>Model names get updated over time. If a model ID is rejected, swap it for a current one from the provider's model list — the links are in the comments at the top of <code>.env.example</code>.</p></div>
+
+  <div class="callout"><span class="tag">Free vs paid</span><p>We're provider-agnostic — use whatever you have or prefer. Two honest notes: <code>gemini-2.5-flash</code> has a <strong>free</strong> tier, which is great for trying it, but the free tier is <strong>heavily rate-limited</strong> — during a full day of labs you'll likely hit <code>429</code>/<code>500</code>s and interruptions. If you'd rather work uninterrupted, a <strong>paid</strong> API key (any provider) is smoother: the entire course costs roughly <strong>$5–10 of tokens at most</strong>, even with a stronger model such as Claude Sonnet.</p></div>
+
+  <h4>Example: getting a free Gemini key (Google AI Studio)</h4>
+  <div class="step-row"><div class="step-n">1</div><p>Go to <a href="https://aistudio.google.com">aistudio.google.com</a> and sign in with a Google account.</p></div>
+  <div class="step-row"><div class="step-n">2</div><p>In the left sidebar open <strong>Dashboard</strong>, then <strong>API Keys</strong>.</p></div>
+  <div class="step-row"><div class="step-n">3</div><p>Click <strong>Create API key</strong> (top right). A key is created under a project on the <strong>Free tier</strong>.</p></div>
+  <div class="step-row"><div class="step-n">4</div><p>Copy the key.</p></div>
+  <div class="step-row"><div class="step-n">5</div><p>In <code>.env</code> set:</p></div>
+  <pre><code>LLM_PROVIDER=gemini
+GEMINI_API_KEY=<span style="color:var(--yellow)">your-key-here</span>
+GEMINI_MODEL=gemini-2.5-flash
+<span class="c"># keep every other provider's lines commented out with #</span></code></pre>
+  <p style="margin-top:6px;">Save the file. That's it — you're ready to run.</p>
+
+  <div class="callout warn"><span class="tag">Keep it secret</span><p>Your <code>.env</code> holds a credential. Don't paste it into chat, screenshots, or commit it (the repo already ignores <code>.env</code>). Treat it like a password.</p></div>
+
+  <!-- ════════════ 4 — GTI / MCP PREREQS ════════════ -->
+  <h2 id="s4"><span class="num">4</span> Set up the GTI lab (MCP)</h2>
+  <p class="lead">Lab&nbsp;05 makes a <strong>real</strong> call to Google Threat Intelligence over MCP — it's part of the course, not an extra. Set up its two prerequisites <em>now</em>, while you're still installing things, so the single fresh terminal in the next step picks up everything at once.</p>
+  <h4>1. Install <code>uv</code> (a single binary; it fetches Python for you)</h4>
+  <p>You can run this from anywhere — <code>uv</code> installs a global, system-wide binary; you do <strong>not</strong> need to be in <code>hunting-agent/</code>.</p>
+  <pre><code><span class="c"># macOS / Linux</span>
+<span class="p">$</span> curl -LsSf https://astral.sh/uv/install.sh | sh
+
+<span class="c"># Windows (PowerShell) — run BOTH lines, in order</span>
+<span class="p">&gt;</span> Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+<span class="p">&gt;</span> powershell -c "irm https://astral.sh/uv/install.ps1 | iex"</code></pre>
+  <div class="callout warn"><span class="tag">Windows note</span><p>On a fresh Windows machine the execution policy is <code>Restricted</code>, and uv's installer refuses to run under it (you'll see <em>"PowerShell requires an execution policy in [Unrestricted, RemoteSigned, Bypass]"</em>). The first line fixes that — it only affects your user account and is the standard dev setting. Answer <strong>Y</strong> if it prompts, then run the install line. <strong>Don't restart anything yet</strong> — the next step opens one fresh terminal that picks up both Node and uv together.</p></div>
+  <h4>2. Add a free VirusTotal API key to <code>.env</code></h4>
+  <p>Get one at <a href="https://www.virustotal.com/gui/my-apikey">virustotal.com/gui/my-apikey</a>, then add this line to the <code>.env</code> you created in Section&nbsp;3:</p>
+  <pre><code>VT_APIKEY=<span style="color:var(--yellow)">your-virustotal-key</span></code></pre>
+  <div class="callout tip"><span class="tag">Expected</span><p>The MCP server is already bundled in the repo (<code>mcp-security/</code>) — no separate download. The <strong>first</strong> Lab&nbsp;05 run may pause a few seconds while <code>uv</code> fetches the server's Python dependencies. That's normal, and only happens once. (If it errors instead, see <a href="#f-mcp-mask">Section&nbsp;8 → Fix MCP-2</a>.)</p></div>
+
+  <!-- ════════════ 5 — RUN ════════════ -->
+  <h2 id="s5"><span class="num">5</span> Start the server</h2>
+  <div class="callout warn"><span class="tag">Do this once — open ONE fresh terminal</span><p>Setup installed <strong>Node</strong> (via Volta) and <strong>uv</strong>, and both updated your <code>PATH</code>. Any terminal you already had open won't see those changes, so <code>npm</code> and <code>uv</code> will read as "not recognized." <strong>Close every PowerShell / terminal window</strong> — on Windows, fully quit <strong>Windows Terminal</strong> (the whole app, not just the tab) — then open <strong>one brand-new</strong> terminal and <code>cd</code> into <code>hunting-agent/</code>. Confirm both: <code>npm -v</code> and <code>uv --version</code> should each print a version. (If either is missing, sign out of Windows and back in.) Start the server from <em>this</em> terminal — the labs it launches inherit its PATH, which is how Lab&nbsp;05 finds <code>uv</code>.</p></div>
+  <div class="vsp"></div>
+  <p class="lead">From inside <code>hunting-agent/</code>:</p>
+  <pre><code><span class="p">$</span> npm run dev</code></pre>
+  <p>It prints a local URL — usually <a href="http://localhost:5173">http://localhost:5173</a> (if that port is busy it picks the next one, so use whatever URL it prints). Open it in your browser. Leave this terminal running for the whole course; press <code>Ctrl + C</code> in it to stop the server.</p>
+  <div class="callout"><span class="tag">Running in a VM or WSL?</span><p>If the app runs in a headless VM / WSL2 and you open it from a browser on the host, start it with <code>npm run dev -- --host</code> so it listens on all interfaces. See <a href="#f-host">Section&nbsp;8 → Fix NET-2</a>.</p></div>
+
+  <!-- ════════════ 6 — TEST ════════════ -->
+  <h2 id="s6"><span class="num">6</span> Confirm it worked</h2>
+  <p class="lead">A 30-second smoke test that proves the app, your model choice, and the wiring are all good:</p>
+  <div class="step-row"><div class="step-n">1</div><p>On the landing page, open <strong>Lab 01 — Our First Agent</strong>.</p></div>
+  <div class="step-row"><div class="step-n">2</div><p>Click the <strong>Agent</strong> tab, type anything (e.g. <em>"What is beaconing?"</em>), and press <strong>Send</strong>.</p></div>
+  <div class="step-row"><div class="step-n">3</div><p>You should see a reply <strong>stream in word by word</strong>. That's success — the browser reached your local server, which called the model you configured. ✔</p></div>
+  <div class="callout warn"><span class="tag">If it errors</span><p>An error here almost always means Section&nbsp;3: provider not set, a key still left as <code>paste-your-key-here</code>, a model ID the provider rejected, or (Path&nbsp;A) a CLI that isn't signed in. Re-check Section&nbsp;3, save <code>.env</code>, restart <code>npm run dev</code> — then use the <strong>guided Troubleshooting</strong> in Section&nbsp;8.</p></div>
+
+  <hr/>
+
+  <!-- ════════════ 7 — BONUS ════════════ -->
+  <h2 id="s7"><span class="num">7</span> Optional — bonus take-home</h2>
+  <p class="lead">An optional bonus you can explore on your own — not needed for the core labs.</p>
+
+  <h3>Give the Agent a Shell (in-app)</h3>
+  <p>The <strong>Bonus — Give the Agent a Shell</strong> card on the landing page runs entirely in the app you already have. It executes real commands on your machine, gated by a policy file at <code>hunting-agent/command-policy.json</code> (a <code>deny</code> / <code>ask</code> list you can edit). Read its <em>Lesson</em> and <em>Instructions</em> tabs first — and only run it on a machine you're comfortable with.</p>
+
+  <hr/>
+
+  <!-- ════════════ 8 — TROUBLESHOOTING ════════════ -->
+  <h2 id="s8"><span class="num">8</span> Troubleshooting</h2>
+  <p class="lead">Find your symptom in the index below — each row links to a numbered <strong>Fix</strong> with the full steps. Fixes are grouped by where they happen.</p>
+
+  <h3>8.1 · Symptom index — find your error, jump to the fix</h3>
+
+  <h4>Setup, Node &amp; PATH</h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td><code>npm</code> / <code>node</code> <em>"not recognized"</em> when you run <code>npm run dev</code> (setup succeeded)</td><td class="go"><a href="#f-path">→ Fix SET-1</a></td></tr>
+    <tr><td><code>node: command not found</code> / "unsupported" right after setup</td><td class="go"><a href="#f-node">→ Fix SET-2</a></td></tr>
+    <tr><td>Windows: <em>"running scripts is disabled on this system"</em></td><td class="go"><a href="#f-scripts">→ Fix SET-3</a></td></tr>
+    <tr><td>Windows: <em>winget not found</em> during setup</td><td class="go"><a href="#f-winget">→ Fix SET-4</a></td></tr>
+    <tr><td><code>npm install</code> fails behind a corporate network / proxy</td><td class="go"><a href="#f-proxy">→ Fix SET-5</a></td></tr>
+  </table>
+
+  <h4>Model provider &amp; <code>.env</code></h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td><code>LLM_PROVIDER not set</code> / <code>… not set in .env</code></td><td class="go"><a href="#f-unset">→ Fix ENV-1</a></td></tr>
+    <tr><td>Model errors / <code>401</code> / "invalid model"</td><td class="go"><a href="#f-401">→ Fix ENV-2</a></td></tr>
+    <tr><td>App calls the <em>wrong</em> provider (e.g. a Google error when <code>.env</code> says <code>openai</code>), and restarting doesn't help</td><td class="go"><a href="#f-stale">→ Fix ENV-3</a></td></tr>
+  </table>
+
+  <h4>Path A — CLI subscription (Claude Code / Codex)</h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td><code>claude-code</code>: <em>"Claude Code exited with code 1"</em></td><td class="go"><a href="#f-cc-exit1">→ Fix CC-1</a></td></tr>
+    <tr><td><code>spawn claude ENOENT</code> / <code>spawn codex ENOENT</code> (may crash the server → <em>"NetworkError when attempting to fetch resource"</em>)</td><td class="go"><a href="#f-cc-enoent">→ Fix CC-2</a></td></tr>
+  </table>
+
+  <h4>Path B — Local / Ollama</h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td>Can't reach the local model: <code>ECONNREFUSED</code> / connection refused / nothing happens</td><td class="go"><a href="#f-ollama-conn">→ Fix LOC-1</a></td></tr>
+    <tr><td><code>model runner has unexpectedly stopped</code>, or local replies are garbled JSON</td><td class="go"><a href="#f-ollama-oom">→ Fix LOC-2</a></td></tr>
+  </table>
+
+  <h4>Path C — API keys</h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td>OpenAI: <em>"you exceeded your current quota"</em> / <code>insufficient_quota</code></td><td class="go"><a href="#f-quota">→ Fix API-1</a></td></tr>
+    <tr><td>Gemini free tier: frequent <code>429</code> / <code>500</code> / rate-limit interruptions</td><td class="go"><a href="#f-rate">→ Fix API-2</a></td></tr>
+  </table>
+
+  <h4>Lab 05 — GTI / MCP</h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td><code>MCP error -32000: Connection closed</code> + server shows <code>'uv' is not recognized</code></td><td class="go"><a href="#f-mcp-uvpath">→ Fix MCP-1</a></td></tr>
+    <tr><td><code>MCP error -32000: Connection closed</code> <strong>even though uv is installed</strong></td><td class="go"><a href="#f-mcp-mask">→ Fix MCP-2</a></td></tr>
+    <tr><td>Lab 05 fails or hangs (no clear error)</td><td class="go"><a href="#f-mcp-hang">→ Fix MCP-3</a></td></tr>
+    <tr><td>Windows: uv install errors with <em>"requires an execution policy…"</em></td><td class="go"><a href="#f-uv-policy">→ Fix MCP-4</a></td></tr>
+  </table>
+
+  <h4>Networking &amp; misc</h4>
+  <table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td>"Port 5173 is in use"</td><td class="go"><a href="#f-port">→ Fix NET-1</a></td></tr>
+    <tr><td>Headless VM / WSL2 / remote box: a browser on your host can't reach the dev server</td><td class="go"><a href="#f-host">→ Fix NET-2</a></td></tr>
+  </table>
+
+  <!-- ── FIXES ── -->
+  <h3>8.2 · Fixes — Setup, Node &amp; PATH</h3>
+
+  <div class="fix" id="f-path">
+    <h4>Fix SET-1 — <code>npm</code>/<code>node</code> "not recognized"</h4>
+    <p class="sym">After a successful setup, the terminal can't find npm/node</p>
+    <p>Your terminal is using the old <code>PATH</code>. <strong>Close all terminals — on Windows fully quit Windows Terminal (the whole app, not just the tab)</strong> — open a brand-new one, <code>cd</code> back into <code>hunting-agent/</code>, and try again. Confirm with <code>npm -v</code>. Still missing? Sign out of Windows and back in (or reboot).</p>
+  </div>
+
+  <div class="fix" id="f-node">
+    <h4>Fix SET-2 — <code>node: command not found</code> right after setup</h4>
+    <p class="sym">Volta installed Node but this shell doesn't see it yet</p>
+    <p>Close the terminal, open a new one, <code>cd</code> back in, and re-run the setup script. Volta's PATH change needs a fresh shell to take effect.</p>
+  </div>
+
+  <div class="fix" id="f-scripts">
+    <h4>Fix SET-3 — Windows "running scripts is disabled on this system"</h4>
+    <p class="sym">PowerShell refused to run setup.ps1</p>
+    <p>You omitted the policy flag. Run the script with it exactly: <code>powershell -ExecutionPolicy Bypass -File setup.ps1</code></p>
+  </div>
+
+  <div class="fix" id="f-winget">
+    <h4>Fix SET-4 — Windows "winget not found" during setup</h4>
+    <p class="sym">The script couldn't use winget to install Volta</p>
+    <p>Install Volta manually from <a href="https://volta.sh">volta.sh</a> (the MSI installer), reopen PowerShell, then re-run the setup script.</p>
+  </div>
+
+  <div class="fix" id="f-proxy">
+    <h4>Fix SET-5 — <code>npm install</code> fails behind a corporate network</h4>
+    <p class="sym">Dependency downloads time out or are blocked</p>
+    <p>You're likely behind a proxy or filtered network. Configure npm's proxy settings, or try again from a home / non-restricted network.</p>
+  </div>
+
+  <h3>8.3 · Fixes — Model provider &amp; <code>.env</code></h3>
+
+  <div class="fix" id="f-unset">
+    <h4>Fix ENV-1 — <code>LLM_PROVIDER not set</code> / "… not set in .env"</h4>
+    <p class="sym">The app doesn't know which model to use</p>
+    <p>You didn't create/edit <code>.env</code>, or a required value is still <code>paste-your-key-here</code>. Re-do Section&nbsp;3 for your chosen path, save the file, and restart the server.</p>
+  </div>
+
+  <div class="fix" id="f-401">
+    <h4>Fix ENV-2 — Model errors / <code>401</code> / "invalid model"</h4>
+    <p class="sym">The provider rejected your key or model ID</p>
+    <p>Wrong or expired key, or a model ID the provider no longer offers. Re-check the key, and pick a current model ID from the provider's list (links are in the comments at the top of <code>.env.example</code>). Save and restart.</p>
+  </div>
+
+  <div class="fix" id="f-stale">
+    <h4>Fix ENV-3 — App calls the <em>wrong</em> provider, and restarting doesn't help</h4>
+    <p class="sym">e.g. a Google/Gemini error when .env clearly says openai</p>
+    <p>A stale <strong>exported</strong> environment variable (<code>LLM_PROVIDER</code> or a <code>*_API_KEY</code>) in your shell is overriding <code>.env</code> — the app's loader will not replace a variable that's already set, and it survives restarts. Check it:</p>
+    <pre><code><span class="c"># macOS / Linux</span>
+<span class="p">$</span> echo $LLM_PROVIDER
+<span class="c"># Windows (PowerShell)</span>
+<span class="p">&gt;</span> $env:LLM_PROVIDER</code></pre>
+    <p>If it prints anything, clear it — <code>unset LLM_PROVIDER</code> (PowerShell: <code>Remove-Item Env:LLM_PROVIDER</code>) — and remove any such lines from <code>~/.zshrc</code> / your shell profile. Then restart the server.</p>
+  </div>
+
+  <h3>8.4 · Fixes — Path A (CLI subscription)</h3>
+
+  <div class="fix" id="f-cc-exit1">
+    <h4>Fix CC-1 — <code>claude-code</code>: "Claude Code exited with code 1"</h4>
+    <p class="sym">The CLI ran but failed — usually a hidden 401 on a subscription login</p>
+    <p>When Claude Code is driven non-interactively it can reject a subscription session with a 401 even though the interactive app works. Fix the credential:</p>
+    <div class="step-row"><div class="step-n">1</div><p>Run <code>claude</code>, type <code>/login</code>, and complete the browser login again.</p></div>
+    <div class="step-row"><div class="step-n">2</div><p>If it still fails, run <code>claude setup-token</code> — this mints a token for non-interactive/programmatic use (the canonical fix for "interactive works, headless 401s").</p></div>
+    <div class="step-row"><div class="step-n">3</div><p>Confirm with <code>claude --print --model sonnet "hi"</code>; once it answers, retry the lab.</p></div>
+  </div>
+
+  <div class="fix" id="f-cc-enoent">
+    <h4>Fix CC-2 — <code>spawn claude ENOENT</code> / <code>spawn codex ENOENT</code></h4>
+    <p class="sym">The CLI isn't on the PATH of the terminal running the server (may crash it → browser shows "NetworkError when attempting to fetch resource")</p>
+    <p>The app launches <code>claude</code> / <code>codex</code> by name, so it must be installed and on the <code>PATH</code> of the terminal that started <code>npm run dev</code>.</p>
+    <div class="step-row"><div class="step-n">1</div><p>Stop the server. In a <strong>fresh</strong> terminal run <code>claude --version</code> (or <code>codex --version</code>).</p></div>
+    <div class="step-row"><div class="step-n">2</div><p>Not recognized? Install it (Claude Code: <code>npm install -g @anthropic-ai/claude-code</code>; Codex: <code>npm install -g @openai/codex</code>), then close and reopen the terminal.</p></div>
+    <div class="step-row"><div class="step-n">3</div><p>Sign in (<code>claude</code> → <code>/login</code>; or run <code>codex</code> → <strong>Sign in with ChatGPT</strong>). Then start <code>npm run dev</code> <strong>from that same terminal</strong> — the server inherits its PATH.</p></div>
+  </div>
+
+  <h3>8.5 · Fixes — Path B (local / Ollama)</h3>
+
+  <div class="fix" id="f-ollama-conn">
+    <h4>Fix LOC-1 — Can't reach the local model (connection refused)</h4>
+    <p class="sym">ECONNREFUSED / connection refused / no response</p>
+    <div class="step-row"><div class="step-n">1</div><p>Make sure the model server is actually running — open the Ollama app, or run <code>ollama serve</code>. Test it: <code>curl http://localhost:11434/v1/models</code> should return JSON.</p></div>
+    <div class="step-row"><div class="step-n">2</div><p>Check your <code>.env</code>: <code>LLM_PROVIDER=openai</code> and <code>OPENAI_BASE_URL</code> points at the right host. Local: <code>http://localhost:11434/v1</code>. Another box: that machine's LAN IP.</p></div>
+    <div class="step-row"><div class="step-n">3</div><p>Using a model on another machine? It must bind all interfaces (<code>OLLAMA_HOST=0.0.0.0 ollama serve</code>) and allow port <code>11434</code> through its firewall. Confirm the model name in <code>OPENAI_MODEL</code> matches one you <code>ollama pull</code>ed.</p></div>
+  </div>
+
+  <div class="fix" id="f-ollama-oom">
+    <h4>Fix LOC-2 — <code>model runner has unexpectedly stopped</code> / garbled JSON</h4>
+    <p class="sym">The model ran out of memory, or is too small for structured output</p>
+    <p>"Unexpectedly stopped" means the machine ran out of memory loading the model — use a smaller model, or run it on a stronger (GPU) box. For the structured-output labs (06 onward), use a capable <strong>instruct</strong> model (e.g. <code>qwen2.5</code>, <code>llama3.1</code>) — tiny or "reasoning/&lt;think&gt;" models often mangle the JSON. If local keeps misbehaving on those labs, a free Gemini key (Path&nbsp;C) is a reliable fallback.</p>
+  </div>
+
+  <h3>8.6 · Fixes — Path C (API keys)</h3>
+
+  <div class="fix" id="f-quota">
+    <h4>Fix API-1 — OpenAI "you exceeded your current quota" / <code>insufficient_quota</code></h4>
+    <p class="sym">Billing, not a lab bug</p>
+    <p>Your OpenAI account balance is $0. Add a payment method and a few dollars of credit (Settings → Billing). Credits take a minute or two to propagate; no <code>.env</code> change or restart needed.</p>
+  </div>
+
+  <div class="fix" id="f-rate">
+    <h4>Fix API-2 — Gemini free tier: frequent <code>429</code> / <code>500</code> interruptions</h4>
+    <p class="sym">The free tier is heavily rate-limited</p>
+    <p>Expected on the free tier during a full day of labs. Either wait a moment and retry, or switch to a paid key (any provider) for smooth, uninterrupted runs — the whole course is roughly <strong>$5–10 of tokens</strong>. Update <code>.env</code> and restart.</p>
+  </div>
+
+  <h3>8.7 · Fixes — Lab 05 (GTI / MCP)</h3>
+
+  <div class="fix" id="f-mcp-uvpath">
+    <h4>Fix MCP-1 — <code>-32000: Connection closed</code> + <code>'uv' is not recognized</code></h4>
+    <p class="sym">uv isn't on the dev server's PATH</p>
+    <p>You installed uv <em>after</em> the dev server was already running, so the server can't see it on <code>PATH</code>. Stop the server (<code>Ctrl + C</code>), open a <strong>fresh</strong> terminal (so both <code>npm</code> and <code>uv</code> resolve), <code>cd</code> into <code>hunting-agent/</code>, and run <code>npm run dev</code> again from there.</p>
+  </div>
+
+  <div class="fix" id="f-mcp-mask">
+    <h4>Fix MCP-2 — <code>-32000: Connection closed</code> even though uv is installed</h4>
+    <p class="sym">The threat-intel server crashed at startup; the real error is hidden behind this code</p>
+    <p>Surface the true error by building the server's environment manually. Stop the server, then from <code>hunting-agent/</code> run:</p>
+    <pre><code><span class="c"># macOS / Linux</span>
+<span class="p">$</span> uv --directory ../mcp-security/server/gti sync
+<span class="c"># Windows</span>
+<span class="p">&gt;</span> uv --directory ..\mcp-security\server\gti sync</code></pre>
+    <p>This downloads Python + dependencies and prints the <strong>real</strong> error. Common reveals:</p>
+    <ul>
+      <li><strong>Linux <code>Permission denied (os error 13)</code></strong> — your repo is under a system-owned path like <code>/opt</code>. Move it into your home folder and take ownership, then restart:
+        <pre><code><span class="p">$</span> sudo mv /opt/antisyphon_course_26062026 "$HOME/"
+<span class="p">$</span> sudo chown -R "$USER:$USER" "$HOME/antisyphon_course_26062026"</code></pre>
+        Never run the project with <code>sudo</code>.</li>
+      <li><strong>Windows <code>Access is denied (os error 5)</code></strong> — antivirus/Defender locked the uv cache mid-build. Retry the sync; if it persists, run <code>uv cache clean</code> then retry; if still stuck, add a Defender <em>folder exclusion</em> for <code>%LOCALAPPDATA%\uv</code>. Don't mix Administrator and normal terminals.</li>
+    </ul>
+    <p>Once <code>uv sync</code> finishes cleanly, restart <code>npm run dev</code> and retry Lab&nbsp;05.</p>
+  </div>
+
+  <div class="fix" id="f-mcp-hang">
+    <h4>Fix MCP-3 — Lab 05 fails or hangs with no clear error</h4>
+    <p class="sym">Prerequisite missing, or first run still fetching deps</p>
+    <p>Confirm Section&nbsp;4: <code>uv</code> is installed and <code>VT_APIKEY</code> is set in <code>.env</code>, and that you started the server from a terminal opened <em>after</em> installing uv. The first run is slow while <code>uv</code> fetches dependencies — give it a moment. If it errors rather than just being slow, use <a href="#f-mcp-mask">Fix MCP-2</a> to reveal the real cause.</p>
+  </div>
+
+  <div class="fix" id="f-uv-policy">
+    <h4>Fix MCP-4 — Windows: uv install "requires an execution policy…"</h4>
+    <p class="sym">PowerShell's default Restricted policy blocks uv's installer</p>
+    <p>Run <code>Set-ExecutionPolicy RemoteSigned -Scope CurrentUser</code> (answer <strong>Y</strong>), then re-run the uv install line from Section&nbsp;4. It only affects your user account and is the standard dev setting.</p>
+  </div>
+
+  <h3>8.8 · Fixes — Networking &amp; misc</h3>
+
+  <div class="fix" id="f-port">
+    <h4>Fix NET-1 — "Port 5173 is in use"</h4>
+    <p class="sym">Not a problem</p>
+    <p>Vite automatically picks the next free port. Just open whatever URL it prints in the terminal.</p>
+  </div>
+
+  <div class="fix" id="f-host">
+    <h4>Fix NET-2 — Headless VM / WSL2 / remote box can't be reached from the host browser</h4>
+    <p class="sym">Vite binds to localhost only by default</p>
+    <p>Start the server so it listens on all interfaces:</p>
+    <pre><code><span class="p">$</span> npm run dev -- --host</code></pre>
+    <p>Then your forwarded / LAN port can reach it. On an untrusted network, prefer SSH port-forwarding instead — <code>ssh -L 5173:localhost:5173 user@box</code> — which needs no <code>--host</code> and keeps the server bound to localhost.</p>
+  </div>
+
+  <div class="callout tip"><span class="tag">Remember</span><p>The detailed, per-lab instructions live <em>inside the app</em> — each lab opens on an <strong>Instructions</strong> tab. This guide only gets you to the front door.</p></div>
+
+  <div class="docfoot">
+    <span>AntiSyphon — Build Your Own AI Security Agent · Course · 26 June 2026</span>
+    <span>Questions? Ask in Discord before the course.</span>
+  </div>
+
+</div>
+</body>
+</html>
