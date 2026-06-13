@@ -471,7 +471,7 @@ GEMINI_MODEL=gemini-2.5-flash
   <p class="lead">From inside <code>hunting-agent/</code>:</p>
   <pre><code><span class="p">$</span> npm run dev</code></pre>
   <p>It prints a local URL — usually <a href="http://localhost:5173">http://localhost:5173</a> (if that port is busy it picks the next one, so use whatever URL it prints). Open it in your browser. Leave this terminal running for the whole course; press <code>Ctrl + C</code> in it to stop the server.</p>
-  <div class="callout"><span class="tag">Running in a VM or WSL?</span><p>If the app runs in a headless VM / WSL2 and you open it from a browser on the host, start it with <code>npm run dev -- --host</code> so it listens on all interfaces. See <a href="#f-host">Section&nbsp;8 → Fix NET-2</a>.</p></div>
+  <div class="callout"><span class="tag">Running in a VM or WSL?</span><p>If the app runs in a headless VM / WSL2 and you open it from a browser on the host, start it with <code>npm run dev:host</code> so it listens on all interfaces. See <a href="#f-host">Section&nbsp;8 → Fix NET-2</a>.</p></div>
 
   <!-- ════════════ 6 — TEST ════════════ -->
   <h2 id="s6"><span class="num">6</span> Confirm it worked</h2>
@@ -712,8 +712,8 @@ GEMINI_MODEL=gemini-2.5-flash
     <h4>Fix NET-2 — Headless VM / WSL2 / remote box can't be reached from the host browser</h4>
     <p class="sym">Vite binds to localhost only by default</p>
     <p>Start the server so it listens on all interfaces:</p>
-    <pre><code><span class="p">$</span> npm run dev -- --host</code></pre>
-    <p>Then your forwarded / LAN port can reach it. On an untrusted network, prefer SSH port-forwarding instead — <code>ssh -L 5173:localhost:5173 user@box</code> — which needs no <code>--host</code> and keeps the server bound to localhost.</p>
+    <pre><code><span class="p">$</span> npm run dev:host</code></pre>
+    <p><code>dev:host</code> is a ready-made script for <code>vite dev --host</code> (<code>npm run dev -- --host</code> does the same). Then your forwarded / LAN port can reach it. On an untrusted network, prefer SSH port-forwarding instead — <code>ssh -L 5173:localhost:5173 user@box</code> — which needs no <code>--host</code> and keeps the server bound to localhost.</p>
   </div>
 
   <div class="callout tip"><span class="tag">Remember</span><p>The detailed, per-lab instructions live <em>inside the app</em> — each lab opens on an <strong>Instructions</strong> tab. This guide only gets you to the front door.</p></div>
