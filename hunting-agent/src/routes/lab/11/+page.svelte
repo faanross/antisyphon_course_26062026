@@ -231,6 +231,20 @@
           </ol>
         </details>
 
+        <aside class="cv-callout">
+          <GraphIcon size={22} weight="duotone" />
+          <p>
+            <strong>Where this goes next.</strong> In the real system the narrative has evolved into
+            <strong>two phases</strong>: first a cheap <strong>graph traversal</strong> to discover
+            <em>which</em> findings connect, then a richer pass over the <strong>findings store</strong>
+            to weave the story from their full reasoning. And two gates shape it —
+            <strong>significance</strong> (does a finding clear a threshold → is it told at all?) and
+            <strong>connectivity</strong> (do ≥2 significant findings link → a standalone beat, or one
+            woven chain?). This lab teaches the read-only grounding principle; those phases and gates
+            layer on top.
+          </p>
+        </aside>
+
         <!-- B · The guardrail -->
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">B</span> The guardrail: grounded, not free<span class="cv-chev" aria-hidden="true">▸</span></summary>

@@ -1,434 +1,396 @@
 <script lang="ts">
-  import RocketLaunchIcon from "phosphor-svelte/lib/RocketLaunchIcon";
-  import ArrowsOutIcon from "phosphor-svelte/lib/ArrowsOutIcon";
+  import BookOpenTextIcon from "phosphor-svelte/lib/BookOpenTextIcon";
+  import CompassIcon from "phosphor-svelte/lib/CompassIcon";
   import GraphIcon from "phosphor-svelte/lib/GraphIcon";
-  import ScrollIcon from "phosphor-svelte/lib/ScrollIcon";
-  import GaugeIcon from "phosphor-svelte/lib/GaugeIcon";
-  import FileTextIcon from "phosphor-svelte/lib/FileTextIcon";
-  import BellRingingIcon from "phosphor-svelte/lib/BellRingingIcon";
-  import FlagCheckeredIcon from "phosphor-svelte/lib/FlagCheckeredIcon";
-  import PuzzlePieceIcon from "phosphor-svelte/lib/PuzzlePieceIcon";
-  import StackIcon from "phosphor-svelte/lib/StackIcon";
-  import CpuIcon from "phosphor-svelte/lib/CpuIcon";
-  import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
+  import PlugsConnectedIcon from "phosphor-svelte/lib/PlugsConnectedIcon";
+  import TargetIcon from "phosphor-svelte/lib/TargetIcon";
 
-  type Result = {
-    graph: { nodes: unknown[]; edges: unknown[] };
-    findings: unknown[];
-    narrative: string;
-    evals: Array<{ id: string; passed: boolean; description: string }>;
-    report: { fileName: string; path: string };
-    notification: { channel: string; delivered: boolean; detail: string };
-  };
+  const extensionPaths = [
+    {
+      title: "Detection coverage",
+      icon: TargetIcon,
+      items: [
+        "Add narrow skills for lateral movement, persistence, credential access, cloud control-plane abuse, and data staging.",
+        "Keep each skill contract explicit: trigger, evidence, procedure, output shape, and failure modes.",
+      ],
+    },
+    {
+      title: "Real integrations",
+      icon: PlugsConnectedIcon,
+      items: [
+        "Replace static JSON with scoped tools for Splunk, Elastic, Sentinel, CrowdStrike, SentinelOne, or Velociraptor.",
+        "Expose only the evidence each stage needs; do not hand the model unrestricted production access.",
+      ],
+    },
+    {
+      title: "Persistent graph state",
+      icon: GraphIcon,
+      items: [
+        "Move from per-session graph objects to durable entity memory with provenance and timestamped relationships.",
+        "Use the graph to answer operational questions, not just to draw a picture.",
+      ],
+    },
+    {
+      title: "Evals and feedback",
+      icon: BookOpenTextIcon,
+      items: [
+        "Expand task, dataset, and scorer coverage before changing prompts, tools, or skills.",
+        "Treat analyst verdicts, false positives, reports, and notifications as structured feedback data.",
+      ],
+    },
+  ];
 
-  let activeTab = $state<"instructions" | "lab" | "code">("instructions");
-  let result = $state<Result | null>(null);
-  let busy = $state(false);
+  const references = [
+    {
+      label: "Anthropic — Building Effective Agents",
+      url: "https://www.anthropic.com/engineering/building-effective-agents",
+      note: "Harness patterns, bounded autonomy, and practical agent design.",
+    },
+    {
+      label: "Anthropic — Demystifying Evals for AI Agents",
+      url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
+      note: "Task, dataset, scorer, and the eval improvement loop.",
+    },
+    {
+      label: "Detection at Scale",
+      url: "https://www.detectionatscale.com/",
+      note: "Jack Naglieri's newsletter on detection engineering, security operations, and AI-assisted SOC work.",
+    },
+    {
+      label: "Omar Santos — h4cker: AI & AI-security resources",
+      url: "https://github.com/The-Art-of-Hacking/h4cker/tree/master/ai",
+      note: "Curated AI-security, LLM-engineering, and incident-response references.",
+    },
+  ];
 
-  async function run() {
-    busy = true;
-    const response = await fetch("/lab/14/api/capstone", { method: "POST" });
-    result = await response.json();
-    busy = false;
-  }
+  const videos = [
+    {
+      label: "An AI Agent for Timesketch (Black Hat USA 2025)",
+      url: "https://youtu.be/9EA7kz4bGvQ",
+      note: "Autonomous timeline analysis and threat hunting, driven by an AI agent.",
+    },
+    {
+      label: "AI Agents & Jupyter for Security Data Analysis",
+      url: "https://www.youtube.com/watch?v=VJPWZGhQe4A",
+      note: "Roberto Rodriguez (Cyb3rWard0g) — hands-on agents for security data analysis.",
+    },
+    {
+      label: "AI Engineer — YouTube channel",
+      url: "https://www.youtube.com/@aiDotEngineer",
+      note: "Not security-specific, but a deep, high-quality library on building with agents and LLMs — very relevant.",
+    },
+  ];
+
+  const checklist = [
+    "What exact task is the agent allowed to perform?",
+    "What evidence can it see?",
+    "Which tools can it call?",
+    "Which context is injected, retrieved, or withheld?",
+    "Which outputs are accepted by schema?",
+    "Which human decision points remain explicit?",
+    "Which evals prove the behavior is stable?",
+    "Which logs let you reconstruct what happened?",
+  ];
 </script>
 
-<svelte:head><title>Lab 14 | Complete Hunt Capstone</title></svelte:head>
+<svelte:head><title>Lab 14 - Further Learning</title></svelte:head>
 
-<main class="lab-shell">
-  <a class="back" href="/">Labs</a>
-
-  <header class="hero">
-    <span>Lab 14</span>
-    <h1>Complete Hunt Capstone</h1>
-    <p>Run the integrated flow from fan-out detection through graph state, narrative, report, notification, and evals.</p>
-    {#if activeTab === "lab"}
-      <button onclick={run} disabled={busy}>{busy ? "Running" : "Run Complete Hunt"}</button>
-    {/if}
-  </header>
-
-  <div class="tab-bar-top">
-    <button class="tab-btn-top" class:active={activeTab === "instructions"} onclick={() => (activeTab = "instructions")}>Instructions</button>
-    <button class="tab-btn-top" class:active={activeTab === "lab"} onclick={() => (activeTab = "lab")}>Lab</button>
-    <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
-  </div>
-
-  {#if activeTab === "instructions"}
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!-- INSTRUCTIONS VIEW  (the workshop walkthrough)        -->
-    <!-- ═══════════════════════════════════════════════════ -->
-    <div class="code-view">
-      <div class="code-inner">
-        <header class="cv-hero">
-          <span class="cv-eyebrow">Lab 14 · Walkthrough</span>
-          <h2>Run the whole hunt, start to finish</h2>
-          <p>
-            This is the capstone. One click runs the <strong>entire pipeline</strong> you built up
-            across Labs 09–13 — fan-out detection, the shared graph, the narrative, the evals, and
-            the saved report with its notification. Nothing here is new; the goal is to watch every
-            stage you learned in isolation execute <strong>in sequence</strong>, and recognise the
-            primitives composing into one system.
-          </p>
-        </header>
-
-        <ol class="flow">
-          <!-- Step 1 -->
-          <li class="flow-step" style="--d: 0ms">
-            <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">1 · Run the complete hunt</span>
-                <span class="flow-where">Lab tab · Run Complete Hunt</span>
-              </div>
-              <p>
-                Switch to the <strong>Lab</strong> tab and press <strong>Run Complete Hunt</strong>.
-                That single click fires one request that chains every stage of the pipeline on the
-                server — no per-stage clicking like the earlier labs.
-              </p>
-            </div>
-          </li>
-
-          <!-- Step 2 -->
-          <li class="flow-step" style="--d: 110ms">
-            <span class="flow-rail"><StackIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">2 · Read the integrated result</span>
-                <span class="flow-where">Integrated Result panel</span>
-              </div>
-              <p>
-                When it finishes, the <strong>Integrated Result</strong> panel shows the headline
-                numbers: how many <strong>findings</strong> fan-out detection produced, the
-                <strong>graph nodes</strong> and <strong>edges</strong> that linked them, and the
-                <strong>evals passing</strong> ratio that graded the whole run.
-              </p>
-            </div>
-          </li>
-
-          <!-- Step 3 -->
-          <li class="flow-step" style="--d: 220ms">
-            <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">3 · Read the narrative</span>
-                <span class="flow-where">Narrative panel</span>
-              </div>
-              <p>
-                The <strong>Narrative</strong> panel holds the campaign story the model wrote —
-                grounded strictly in the graph's entities and edges (Lab 11). This is the
-                human-readable account stitched together from the structured findings.
-              </p>
-            </div>
-          </li>
-
-          <!-- Step 4 -->
-          <li class="flow-step" style="--d: 330ms">
-            <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">4 · Check the report &amp; notification</span>
-                <span class="flow-where">Report + Notification panel</span>
-              </div>
-              <p>
-                The <strong>Report + Notification</strong> panel closes the loop: the saved Markdown
-                report's file name and path (Lab 12), plus the notification channel and whether it
-                was delivered. This is the shippable artifact the whole hunt was building toward.
-              </p>
-            </div>
-          </li>
-
-          <!-- Step 5 -->
-          <li class="flow-step" style="--d: 440ms">
-            <span class="flow-rail"><PuzzlePieceIcon size={22} weight="duotone" /></span>
-            <div class="flow-body">
-              <div class="flow-top">
-                <span class="flow-title">5 · Spot the labs, composed</span>
-                <span class="flow-where">Code tab · optional</span>
-              </div>
-              <p>
-                Every number on screen traces back to a lab you already ran: detect (09) → connect
-                (10) → narrate (11) → grade (13) → report &amp; notify (12). The optional
-                <strong>Code</strong> tab walks the exact ordering and which stages call the model.
-              </p>
-            </div>
-          </li>
-        </ol>
-
-        <aside class="cv-callout">
-          <FlagCheckeredIcon size={22} weight="duotone" />
-          <p>
-            <strong>The whole workshop, in one click.</strong> Each earlier lab isolated a single
-            mechanism so it would be understandable. The capstone is the payoff: snap those
-            mechanisms together in order and you have a real agentic hunting system — auditable,
-            measurable, and built entirely from parts you now understand.
-          </p>
-        </aside>
-      </div>
+<main class="lab14-shell">
+  <section class="hero">
+    <div class="hero-icon" aria-hidden="true">
+      <CompassIcon size={44} weight="duotone" />
     </div>
-  {:else if activeTab === "lab"}
-  {#if result}
-    <section class="panel">
-      <h2>Integrated Result</h2>
-      <div class="stats">
-        <article><strong>{result.findings.length}</strong><span>findings</span></article>
-        <article><strong>{result.graph.nodes.length}</strong><span>graph nodes</span></article>
-        <article><strong>{result.graph.edges.length}</strong><span>graph edges</span></article>
-        <article><strong>{result.evals.filter((row) => row.passed).length}/{result.evals.length}</strong><span>evals passing</span></article>
-      </div>
-    </section>
-    <section class="panel">
-      <h2>Narrative</h2>
-      <pre>{result.narrative}</pre>
-    </section>
-    <section class="panel">
-      <h2>Report + Notification</h2>
-      <p>{result.report.fileName}</p>
-      <p class="path">{result.report.path}</p>
-      <p>{result.notification.channel} | {result.notification.delivered ? "delivered" : "not delivered"} | {result.notification.detail}</p>
-    </section>
-  {/if}
-  {:else}
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!-- CODE VIEW  (architectural reference, non-interactive)-->
-    <!-- ═══════════════════════════════════════════════════ -->
-    <div class="code-view">
-      <div class="code-inner">
-        <header class="cv-hero">
-          <span class="cv-eyebrow">Under the Hood</span>
-          <h2>The whole pipeline, end to end</h2>
-          <p>
-            Optional reading for the curious. Every lab before this one isolated a single stage. The
-            capstone runs them <strong>all in sequence</strong> on one click — detect, connect,
-            narrate, grade, report, notify. There's nothing new here: it's the earlier labs
-            <strong>composed</strong>. That composition is the real shape of an agent system.
-          </p>
-          <div class="cv-mental-model">
-            <RocketLaunchIcon size={20} weight="duotone" />
-            <span>one run</span>
-            <span class="cv-mm-sep">→</span>
-            <StackIcon size={20} weight="duotone" />
-            <span>every stage in order</span>
-            <span class="cv-mm-sep">→</span>
-            <FlagCheckeredIcon size={20} weight="duotone" />
-            <span>report + alert</span>
+    <span class="eyebrow">Lab 14</span>
+    <h1>Further Learning</h1>
+    <p>
+      The capstone proved the full flow. This final lab is the handoff: what to extend,
+      what to integrate, and what to measure before this becomes production work.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Extension Paths</h2>
+    <div class="path-list">
+      {#each extensionPaths as path}
+        {@const Icon = path.icon}
+        <article class="path-card">
+          <div class="path-header">
+            <Icon size={30} weight="duotone" />
+            <h3>{path.title}</h3>
           </div>
-        </header>
-
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">A</span> The full pipeline, stage by stage<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">
-            One endpoint chains the stages. The first three are produced inside
-            <code>runInvestigationState()</code>; the rest are assembled from that real output.
-          </p>
-          <ol class="flow">
-            <li class="flow-step" style="--d: 0ms">
-              <span class="flow-rail"><ArrowsOutIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Fan-out detection</span><span class="flow-where">Lab 09 · orchestrator.ts</span></div>
-                <p>Every detection skill runs against every gated candidate, concurrently, producing the structured findings.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 90ms">
-              <span class="flow-rail"><GraphIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Build the shared graph</span><span class="flow-where">Lab 10 · graph.ts</span></div>
-                <p>Candidates and their entities become deduplicated nodes and edges — the shared state that links findings.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 180ms">
-              <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Synthesize the narrative</span><span class="flow-where">Lab 11 · narrative.ts</span></div>
-                <p>The model writes a campaign story, grounded strictly in the graph's entities and edges.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 270ms">
-              <span class="flow-rail"><GaugeIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Grade with evals</span><span class="flow-where">Lab 13 · evals.ts</span></div>
-                <p>The deterministic checks run over the live state, turning the whole hunt into a pass-rate.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 360ms">
-              <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Report &amp; notify</span><span class="flow-badge">closes the loop</span><span class="flow-where">Lab 12 · report.ts · notifications.ts</span></div>
-                <p>Verdicts, evals, and narrative are assembled into a saved Markdown report, and a notification fires through the configured adapter.</p>
-              </div>
-            </li>
-          </ol>
-        </details>
-
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">B</span> The capstone is the labs, composed<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Each stage is a thing you already built. The capstone just runs them in order:</p>
-          <div class="cap-chain">
-            <span class="cap-stage"><ArrowsOutIcon size={15} weight="duotone" />detect<small>Lab 09</small></span>
-            <ArrowRightIcon size={14} weight="bold" />
-            <span class="cap-stage"><GraphIcon size={15} weight="duotone" />connect<small>Lab 10</small></span>
-            <ArrowRightIcon size={14} weight="bold" />
-            <span class="cap-stage"><ScrollIcon size={15} weight="duotone" />narrate<small>Lab 11</small></span>
-            <ArrowRightIcon size={14} weight="bold" />
-            <span class="cap-stage"><GaugeIcon size={15} weight="duotone" />grade<small>Lab 13</small></span>
-            <ArrowRightIcon size={14} weight="bold" />
-            <span class="cap-stage"><BellRingingIcon size={15} weight="duotone" />report<small>Lab 12</small></span>
-          </div>
-          <p class="cv-note">
-            No stage knows it's part of a capstone — each is the same small, tested unit from its own
-            lab. The power is entirely in the ordering.
-          </p>
-        </details>
-
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">C</span> Four ideas worth understanding<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <div class="cv-cards">
-            <article class="cv-card">
-              <div class="cv-card-head"><PuzzlePieceIcon size={26} weight="duotone" /><h4>Composition over monoliths</h4></div>
-              <p>The full hunt isn't one giant function — it's small, independently-built stages snapped together. Each stayed testable on its own, which is why the whole thing is trustworthy.</p>
-            </article>
-            <article class="cv-card">
-              <div class="cv-card-head"><StackIcon size={26} weight="duotone" /><h4>One call wires the core</h4></div>
-              <p><code>runInvestigationState()</code> already chains detect → connect → narrate. The endpoint just adds grade, report, and notify around it — the same functions from Labs 12 and 13.</p>
-            </article>
-            <article class="cv-card">
-              <div class="cv-card-head"><CpuIcon size={26} weight="duotone" /><h4>A deterministic shell around model steps</h4></div>
-              <p>Only detection and narrative call the model. Everything else — fan-out, graph, evals, report, notify — is deterministic code. The agent is a thin layer of judgement inside a sturdy machine.</p>
-            </article>
-            <article class="cv-card">
-              <div class="cv-card-head"><FlagCheckeredIcon size={26} weight="duotone" /><h4>This is the real shape of an agent</h4></div>
-              <p>Not one clever prompt, but a pipeline: gather, reason where it helps, structure, verify, and ship an artifact. That's what every earlier lab was building toward.</p>
-            </article>
-          </div>
-        </details>
-
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">D</span> Where each piece lives<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">The capstone endpoint is thin — it calls into the framework files from every prior lab.</p>
-          <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/src/</span>
-│
-├─ <span class="tr-dir">routes/lab/14/api/capstone/</span>
-│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← chains the whole pipeline in one handler</span>
-│
-└─ <span class="tr-dir">framework/</span>
-   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runInvestigationState: detect + graph + narrative</span>
-   ├─ <span class="tr-file">evals.ts</span>              <span class="tr-cm">← grade the live state</span>
-   ├─ <span class="tr-file">report.ts</span>             <span class="tr-cm">← assemble + save the report</span>
-   └─ <span class="tr-file">notifications.ts</span>       <span class="tr-cm">← fire the notification</span></code></pre>
-        </details>
-
-        <aside class="cv-callout">
-          <PuzzlePieceIcon size={22} weight="duotone" />
-          <p>
-            <strong>The whole point of the workshop, in one screen.</strong> Each lab taught one
-            mechanism in isolation so it would be understandable. The capstone shows the payoff: snap
-            those mechanisms together in order and you have a real agentic hunting system — auditable,
-            measurable, and built from parts you now understand.
-          </p>
-        </aside>
-      </div>
+          <ul>
+            {#each path.items as item}
+              <li>{item}</li>
+            {/each}
+          </ul>
+        </article>
+      {/each}
     </div>
-  {/if}
+  </section>
+
+  <section class="panel">
+    <h2>Production Checklist</h2>
+    <div class="checklist">
+      {#each checklist as item, index}
+        <div class="check-row">
+          <span>{String(index + 1).padStart(2, "0")}</span>
+          <p>{item}</p>
+        </div>
+      {/each}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Recommended References</h2>
+    <div class="references">
+      {#each references as reference}
+        <a href={reference.url} target="_blank" rel="noreferrer">
+          <strong>{reference.label}</strong>
+          <span>{reference.note}</span>
+          <code>{reference.url}</code>
+        </a>
+      {/each}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Watch &amp; Follow</h2>
+    <div class="references">
+      {#each videos as video}
+        <a href={video.url} target="_blank" rel="noreferrer">
+          <strong>{video.label}</strong>
+          <span>{video.note}</span>
+          <code>{video.url}</code>
+        </a>
+      {/each}
+    </div>
+  </section>
+
+  <section class="closing">
+    <h2>Keep the primitives</h2>
+    <p>
+      State, tools, skills, context, orchestration, graph memory, feedback, and evals
+      are the reusable design pieces. Add one piece at a time, measure the behavior,
+      and keep every important output inspectable.
+    </p>
+  </section>
 </main>
 
 <style>
-  :global(body) { background: #07070a; }
-  .lab-shell { min-height: 100vh; padding: 2.5rem max(1rem, calc((100vw - 1120px) / 2)); background: linear-gradient(135deg, rgba(189,147,249,.06), transparent 34%), #07070a; color: rgba(255,255,255,.9); font-family: var(--font-heading); }
-  .back { display: inline-flex; margin-bottom: 1rem; color: #f5e663; font-size: .75rem; font-weight: 800; text-decoration: none; text-transform: uppercase; }
-  .hero, .panel { border: 1px solid rgba(189,147,249,.24); border-radius: 4px; background: rgba(22,22,31,.92); padding: 1.4rem; box-shadow: 0 24px 80px rgba(0,0,0,.32); }
-  .panel { margin-top: 1rem; }
-  .hero { display: grid; gap: .8rem; }
-  .hero span { color: #bd93f9; text-transform: uppercase; font-weight: 800; }
-  h1, h2, p { margin: 0; }
-  h1 { color: #f5e663; font-size: clamp(2.5rem, 7vw, 5rem); line-height: .98; }
-  h2 { color: #f5e663; margin-bottom: 1rem; }
-  p, .path { color: rgba(255,255,255,.62); line-height: 1.55; }
-  button { width: fit-content; border: 1px solid rgba(245,230,99,.42); border-radius: 3px; padding: .7rem .95rem; background: rgba(245,230,99,.1); color: #f5e663; font: inherit; font-weight: 800; }
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
-  article { border: 1px solid rgba(255,255,255,.12); border-radius: 4px; padding: .9rem; display: grid; gap: .25rem; }
-  article strong { color: #8be9fd; font-size: 2rem; }
-  article span { color: rgba(255,255,255,.58); }
-  pre { white-space: pre-wrap; color: rgba(255,255,255,.76); }
-  @media (max-width: 850px) { .stats { grid-template-columns: 1fr 1fr; } }
-  /* ═══ Top tab bar ══════════════════════════════════════ */
-  .tab-bar-top { display: flex; gap: 0; border-bottom: 1px solid #1a1a2e; margin-bottom: 1rem; }
-  .tab-btn-top {
-    width: auto; background: none; border: none; border-bottom: 2px solid transparent;
-    border-radius: 0; padding: 0.85rem 1.5rem; font-family: "JetBrains Mono", monospace;
-    font-size: 1rem; font-weight: 600; color: #8a8a9a; cursor: pointer; transition: all 0.2s;
+  :global(body) {
+    background: #07070a;
   }
-  .tab-btn-top:hover { color: #c0c0d0; }
-  .tab-btn-top.active { color: #f5e663; border-bottom-color: #f5e663; }
 
-  /* ═══ CODE VIEW (architectural reference) ══════════════ */
-  .code-view { padding: 0.25rem 0 0; }
-  .code-inner { max-width: 940px; margin: 0 auto; padding: 0.5rem 0.25rem 2rem; font-family: "JetBrains Mono", monospace; }
-  .code-view code {
-    font-family: "JetBrains Mono", monospace; font-size: 0.86em; color: #f1fa8c;
-    background: rgba(241, 250, 140, 0.07); border: 1px solid rgba(241, 250, 140, 0.12);
-    border-radius: 3px; padding: 0.05em 0.35em; word-break: break-word;
+  .lab14-shell {
+    --bg: #07070a;
+    --panel: #15151d;
+    --panel-2: #1b1b25;
+    --line: rgba(189, 147, 249, 0.26);
+    --line-strong: rgba(245, 230, 99, 0.42);
+    --text: rgba(255, 255, 255, 0.9);
+    --muted: rgba(255, 255, 255, 0.62);
+    --purple: #bd93f9;
+    --yellow: #f5e663;
+    --cyan: #8be9fd;
+
+    min-height: 100vh;
+    padding: 3rem max(1rem, calc((100vw - 1120px) / 2)) 4rem;
+    background:
+      linear-gradient(135deg, rgba(189, 147, 249, 0.08), transparent 28rem),
+      linear-gradient(180deg, rgba(245, 230, 99, 0.035), transparent 18rem),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
   }
-  .code-view strong { color: #e8e8f0; font-weight: 700; }
 
-  .cv-hero { animation: cvRise 0.5s ease both; }
-  .cv-eyebrow { display: inline-block; color: #bd93f9; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 0.6rem; }
-  .cv-hero h2 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.05; color: #f5f5fa; font-weight: 700; }
-  .cv-hero p { max-width: 64ch; margin: 1rem 0 0; color: #b6b6c6; font-size: 0.98rem; line-height: 1.75; }
-  .cv-mental-model { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1.4rem; padding: 0.7rem 1rem; border: 1px solid #1f1f33; border-radius: 8px; background: rgba(18, 18, 26, 0.7); color: #cfcfe0; font-size: 0.92rem; }
-  .cv-mental-model :global(svg) { color: #8be9fd; flex-shrink: 0; }
-  .cv-mm-sep { color: #50fa7b; font-size: 1.05rem; margin: 0 0.15rem; }
+  .hero,
+  .panel,
+  .closing {
+    width: min(1120px, 100%);
+    margin: 0 auto 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.55rem;
+    background: rgba(21, 21, 29, 0.9);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
+  }
 
-  .cv-section { margin-top: 1.8rem; }
-  .cv-h3 { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.5rem; font-size: 1.25rem; color: #f5f5fa; font-weight: 700; }
-  summary.cv-h3 { cursor: pointer; list-style: none; user-select: none; padding: 0.2rem 0; }
-  summary.cv-h3::-webkit-details-marker { display: none; }
-  .cv-chev { margin-left: auto; color: #6f6f86; font-size: 0.85rem; transition: transform 0.2s ease, color 0.2s ease; }
-  summary.cv-h3:hover .cv-chev { color: #bd93f9; }
-  details[open] > summary .cv-chev { transform: rotate(90deg); }
-  details.cv-section:not([open]) > summary.cv-h3 { margin-bottom: 0; }
-  .cv-num { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: 6px; background: rgba(189, 147, 249, 0.14); border: 1px solid rgba(189, 147, 249, 0.4); color: #bd93f9; font-size: 0.9rem; font-weight: 800; }
-  .cv-lead { max-width: 64ch; margin: 0 0 1.4rem; color: #9a9aaa; font-size: 0.94rem; line-height: 1.7; }
+  .hero {
+    position: relative;
+    padding: 2rem;
+    overflow: hidden;
+  }
 
-  .flow { list-style: none; margin: 0; padding: 0.4rem 0 0; }
-  .flow-step { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: 1.1rem; padding-bottom: 1.5rem; opacity: 0; animation: cvRise 0.55s ease forwards; animation-delay: var(--d, 0ms); }
-  .flow-step:last-child { padding-bottom: 0; }
-  .flow-step::before { content: ""; position: absolute; left: 21px; top: 48px; bottom: -2px; width: 2px; background: linear-gradient(180deg, #bd93f9, #50fa7b, #bd93f9); background-size: 100% 140px; opacity: 0.45; animation: cvFlow 2.4s linear infinite; }
-  .flow-step:last-child::before { display: none; }
-  .flow-rail { position: relative; z-index: 1; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #12121a; border: 1px solid rgba(189, 147, 249, 0.45); color: #bd93f9; box-shadow: 0 0 0 4px #07070a; }
-  .flow-body { border: 1px solid #1c1c30; border-radius: 8px; background: rgba(18, 18, 26, 0.6); padding: 0.85rem 1.05rem; transition: border-color 0.2s, transform 0.2s; }
-  .flow-body:hover { border-color: #2e2e4e; transform: translateX(2px); }
-  .flow-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.7rem; margin-bottom: 0.35rem; }
-  .flow-title { color: #e8e8f0; font-weight: 700; font-size: 1rem; }
-  .flow-where { color: #6f6f86; font-size: 0.76rem; letter-spacing: 0.03em; margin-left: auto; }
-  .flow-badge { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #f5e663; border: 1px solid rgba(245, 230, 99, 0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
-  .flow-body p { margin: 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.65; }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -6rem -10rem auto;
+    width: 26rem;
+    height: 26rem;
+    border: 1px solid rgba(245, 230, 99, 0.16);
+    transform: rotate(12deg);
+  }
 
-  /* Capstone chain */
-  .cap-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; border: 1px solid #1c1c30; border-radius: 10px; background: rgba(18, 18, 26, 0.6); padding: 1.1rem 1.2rem; }
-  .cap-chain > :global(svg) { color: #6f6f86; flex-shrink: 0; }
-  .cap-stage { display: inline-flex; flex-direction: column; align-items: center; gap: 0.1rem; font-size: 0.82rem; color: #cfcfe0; background: #0d0d14; border: 1px solid #2a2a40; border-radius: 7px; padding: 0.5rem 0.7rem; min-width: 78px; text-align: center; }
-  .cap-stage :global(svg) { color: #bd93f9; }
-  .cap-stage small { color: #7d7d92; font-size: 0.66rem; }
-  .cv-note { margin: 1rem 0 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.7; }
+  .hero-icon {
+    color: var(--yellow);
+    margin-bottom: 1rem;
+  }
 
-  /* Concept cards (override lab14 global article) */
-  .cv-cards { display: flex; flex-direction: column; gap: 1rem; }
-  .cv-card { display: block; border: 1px solid #1c1c30; border-radius: 10px; background: rgba(18, 18, 26, 0.6); padding: 1.1rem 1.2rem 1.25rem; transition: border-color 0.2s, transform 0.2s; }
-  .cv-card:hover { border-color: #33335a; transform: translateY(-2px); }
-  .cv-card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; color: #bd93f9; }
-  .cv-card-head h4 { margin: 0; font-size: 1.02rem; color: #f0f0f6; font-weight: 700; }
-  .cv-card p { margin: 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.65; }
+  .eyebrow,
+  h1,
+  h2,
+  h3,
+  .check-row span,
+  code {
+    font-family: var(--font-heading);
+  }
 
-  .cv-tree { margin: 0; padding: 1rem 1.15rem; background: #0d0d14; border: 1px solid #1a1a2e; border-radius: 9px; overflow-x: auto; white-space: pre; color: #5f6075; font-size: 0.82rem; line-height: 1.7; }
-  .cv-tree code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
-  .cv-tree .tr-dir { color: #8be9fd; }
-  .cv-tree .tr-file { color: #f1fa8c; }
-  .cv-tree .tr-cm { color: #6f6f86; }
+  .eyebrow {
+    display: block;
+    color: var(--purple);
+    font-size: 0.92rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
 
-  .cv-callout { display: flex; gap: 0.75rem; align-items: flex-start; margin-top: 1.8rem; padding: 1rem 1.15rem; border: 1px solid rgba(189, 147, 249, 0.28); border-left: 3px solid #bd93f9; border-radius: 8px; background: rgba(189, 147, 249, 0.06); }
-  .cv-callout :global(svg) { color: #bd93f9; flex-shrink: 0; margin-top: 2px; }
-  .cv-callout p { margin: 0; color: #c2c2d2; font-size: 0.92rem; line-height: 1.7; }
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
 
-  @keyframes cvRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes cvFlow { from { background-position: 0 0; } to { background-position: 0 140px; } }
-  @media (prefers-reduced-motion: reduce) { .flow-step, .cv-hero { animation: none; opacity: 1; } .flow-step::before { animation: none; } }
+  h1 {
+    margin-top: 0.35rem;
+    color: var(--text);
+    font-size: clamp(3rem, 8vw, 6.8rem);
+    line-height: 0.93;
+    letter-spacing: 0;
+  }
+
+  .hero p,
+  .closing p {
+    max-width: 64rem;
+    margin-top: 1.1rem;
+    color: var(--muted);
+    font-size: 1.15rem;
+    line-height: 1.6;
+  }
+
+  .panel,
+  .closing {
+    padding: 1.35rem;
+  }
+
+  h2 {
+    margin-bottom: 1rem;
+    color: var(--yellow);
+    font-size: 1.35rem;
+  }
+
+  .path-list,
+  .references {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .path-card,
+  .references a,
+  .check-row {
+    border: 1px solid rgba(189, 147, 249, 0.22);
+    border-radius: 0.5rem;
+    background: var(--panel-2);
+  }
+
+  .path-card {
+    padding: 1.1rem;
+  }
+
+  .path-header {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    color: var(--cyan);
+  }
+
+  h3 {
+    color: var(--text);
+    font-size: 1.18rem;
+  }
+
+  ul {
+    margin: 0.8rem 0 0;
+    padding-left: 1.2rem;
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  li + li {
+    margin-top: 0.45rem;
+  }
+
+  .checklist {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .check-row {
+    display: grid;
+    grid-template-columns: 3.25rem 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.85rem 1rem;
+  }
+
+  .check-row span {
+    color: var(--purple);
+    font-weight: 800;
+  }
+
+  .check-row p {
+    color: var(--text);
+    line-height: 1.45;
+  }
+
+  .references a {
+    display: grid;
+    gap: 0.35rem;
+    padding: 1rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .references a:hover {
+    border-color: var(--line-strong);
+  }
+
+  .references strong {
+    color: var(--cyan);
+    font-family: var(--font-heading);
+    font-size: 1.04rem;
+  }
+
+  .references span {
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  code {
+    color: rgba(245, 230, 99, 0.84);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 720px) {
+    .lab14-shell {
+      padding-top: 1rem;
+    }
+
+    .hero,
+    .panel,
+    .closing {
+      padding: 1rem;
+    }
+  }
 </style>

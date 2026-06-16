@@ -1,53 +1,47 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import RocketLaunchIcon from "phosphor-svelte/lib/RocketLaunchIcon";
-  import ListChecksIcon from "phosphor-svelte/lib/ListChecksIcon";
-  import GaugeIcon from "phosphor-svelte/lib/GaugeIcon";
-  import ScalesIcon from "phosphor-svelte/lib/ScalesIcon";
-  import ShieldCheckIcon from "phosphor-svelte/lib/ShieldCheckIcon";
-  import CheckCircleIcon from "phosphor-svelte/lib/CheckCircleIcon";
+  import ArrowsOutIcon from "phosphor-svelte/lib/ArrowsOutIcon";
+  import GraphIcon from "phosphor-svelte/lib/GraphIcon";
+  import ScrollIcon from "phosphor-svelte/lib/ScrollIcon";
+  import FileTextIcon from "phosphor-svelte/lib/FileTextIcon";
+  import BellRingingIcon from "phosphor-svelte/lib/BellRingingIcon";
+  import FlagCheckeredIcon from "phosphor-svelte/lib/FlagCheckeredIcon";
+  import PuzzlePieceIcon from "phosphor-svelte/lib/PuzzlePieceIcon";
+  import StackIcon from "phosphor-svelte/lib/StackIcon";
+  import CpuIcon from "phosphor-svelte/lib/CpuIcon";
+  import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
 
-  type EvalRow = { id: string; category: string; description: string; expected: string; passed: boolean; detail: string };
+  type Result = {
+    graph: { nodes: unknown[]; edges: unknown[] };
+    findings: unknown[];
+    narrative: string;
+    report: { fileName: string; path: string };
+    notification: { channel: string; delivered: boolean; detail: string };
+  };
 
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
-  let evals = $state<EvalRow[]>([]);
+  let result = $state<Result | null>(null);
   let busy = $state(false);
-  let hasRun = $state(false);
-
-  onMount(async () => {
-    // Load the check definitions (not-yet-run) so the dashboard lists what will be evaluated.
-    const response = await fetch("/lab/13/api/evals");
-    const data = await response.json();
-    evals = data.evals;
-  });
 
   async function run() {
     busy = true;
-    try {
-      // POST runs the real investigation, then evaluates its live output.
-      const response = await fetch("/lab/13/api/evals", { method: "POST" });
-      const data = await response.json();
-      evals = data.evals;
-      hasRun = true;
-    } finally {
-      busy = false;
-    }
+    const response = await fetch("/lab/13/api/capstone", { method: "POST" });
+    result = await response.json();
+    busy = false;
   }
-
-  const passed = $derived(evals.filter((row) => row.passed).length);
 </script>
 
-<svelte:head><title>Lab 13 | Eval Harness</title></svelte:head>
+<svelte:head><title>Lab 13 | Complete Hunt Capstone</title></svelte:head>
 
 <main class="lab-shell">
   <a class="back" href="/">Labs</a>
 
   <header class="hero">
     <span>Lab 13</span>
-    <h1>Eval Harness</h1>
-    <p>Deterministic checks graded against a live investigation — so improvement is measured instead of guessed. The checks are fixed (a test oracle should not be probabilistic); the investigation they grade is real model output.</p>
+    <h1>Complete Hunt Capstone</h1>
+    <p>Run the integrated flow from fan-out detection through graph state, narrative, report, and notification.</p>
     {#if activeTab === "lab"}
-      <button onclick={run} disabled={busy}>{busy ? "Running investigation + evals" : "Run Eval Harness"}</button>
+      <button onclick={run} disabled={busy}>{busy ? "Running" : "Run Complete Hunt"}</button>
     {/if}
   </header>
 
@@ -65,12 +59,13 @@
       <div class="code-inner">
         <header class="cv-hero">
           <span class="cv-eyebrow">Lab 13 · Walkthrough</span>
-          <h2>Measure the agent before you change it</h2>
+          <h2>Run the whole hunt, start to finish</h2>
           <p>
-            This lab runs a fixed set of <strong>deterministic checks</strong> over a live, real-model
-            investigation and reports one number: how many passed. The checks never change, so the
-            pass-rate is a real signal — it tells you whether a tweak to a prompt, tool, or skill
-            actually helped, instead of guessing. This is the seatbelt for iterating on the system.
+            This is the capstone. One click runs the <strong>entire pipeline</strong> you built up
+            across Labs 09–12 — fan-out detection, the shared graph, the narrative, and
+            the saved report with its notification. Nothing here is new; the goal is to watch every
+            stage you learned in isolation execute <strong>in sequence</strong>, and recognise the
+            primitives composing into one system.
           </p>
         </header>
 
@@ -80,114 +75,114 @@
             <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">1 · Run the harness</span>
-                <span class="flow-where">Lab tab · Run Eval Harness</span>
+                <span class="flow-title">1 · Run the complete hunt</span>
+                <span class="flow-where">Lab tab · Run Complete Hunt</span>
               </div>
               <p>
-                Go to the <strong>Lab</strong> tab and hit <strong>Run Eval Harness</strong>. It runs
-                the real investigation once — actual model output — then grades that output against
-                every check. This takes a moment because the investigation is live, not a fixture.
+                Switch to the <strong>Lab</strong> tab and press <strong>Run Complete Hunt</strong>.
+                That single click fires one request that chains every stage of the pipeline on the
+                server — no per-stage clicking like the earlier labs.
               </p>
             </div>
           </li>
 
           <!-- Step 2 -->
           <li class="flow-step" style="--d: 110ms">
-            <span class="flow-rail"><ListChecksIcon size={22} weight="duotone" /></span>
+            <span class="flow-rail"><StackIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">2 · Read the per-check results</span>
-                <span class="flow-where">Eval Dashboard</span>
+                <span class="flow-title">2 · Read the integrated result</span>
+                <span class="flow-where">Integrated Result panel</span>
               </div>
               <p>
-                The <strong>Eval Dashboard</strong> lists each check (EVAL-001 …) as
-                <strong>PASS</strong> or <strong>FAIL</strong>, with its category, what it expected,
-                and a human-readable detail saying why. Green means the investigation satisfied that
-                assertion; red means it didn't.
+                When it finishes, the <strong>Integrated Result</strong> panel shows the headline
+                numbers: how many <strong>findings</strong> fan-out detection produced, and the
+                <strong>graph nodes</strong> and <strong>edges</strong> that linked them.
               </p>
             </div>
           </li>
 
           <!-- Step 3 -->
           <li class="flow-step" style="--d: 220ms">
-            <span class="flow-rail"><GaugeIcon size={22} weight="duotone" /></span>
+            <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">3 · Read the headline score</span>
-                <span class="flow-where">Dashboard header</span>
+                <span class="flow-title">3 · Read the narrative</span>
+                <span class="flow-where">Narrative panel</span>
               </div>
               <p>
-                The header shows the pass-rate — something like <code>6 / 8 passing</code>. That one
-                number is the thing you watch over time: it's how "is the agent better?" becomes a
-                measurement instead of a vibe.
+                The <strong>Narrative</strong> panel holds the campaign story the model wrote —
+                grounded strictly in the graph's entities and edges (Lab 11). This is the
+                human-readable account stitched together from the structured findings.
               </p>
             </div>
           </li>
 
           <!-- Step 4 -->
           <li class="flow-step" style="--d: 330ms">
-            <span class="flow-rail"><ScalesIcon size={22} weight="duotone" /></span>
+            <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">4 · Understand task · dataset · scorer</span>
-                <span class="flow-where">the three parts of an eval</span>
+                <span class="flow-title">4 · Check the report &amp; notification</span>
+                <span class="flow-where">Report + Notification panel</span>
               </div>
               <p>
-                An eval has three pieces: the <strong>task</strong> (run the investigation), the
-                <strong>dataset</strong> (the curated workshop telemetry it runs over), and the
-                <strong>scorers</strong> (the fixed checks). The investigation may vary run to run;
-                the dataset and scorers never do — that's what makes a score change attributable.
+                The <strong>Report + Notification</strong> panel closes the loop: the saved Markdown
+                report's file name and path (Lab 12), plus the notification channel and whether it
+                was delivered. This is the shippable artifact the whole hunt was building toward.
               </p>
             </div>
           </li>
 
           <!-- Step 5 -->
           <li class="flow-step" style="--d: 440ms">
-            <span class="flow-rail"><ShieldCheckIcon size={22} weight="duotone" /></span>
+            <span class="flow-rail"><PuzzlePieceIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">5 · Why evals gate changes</span>
-                <span class="flow-where">Code tab · go deeper</span>
+                <span class="flow-title">5 · Spot the labs, composed</span>
+                <span class="flow-where">Code tab · optional</span>
               </div>
               <p>
-                Before you change a prompt, tool, or skill, run the harness to get a baseline. After
-                the change, run it again: a higher pass-rate confirms a real improvement, a lower one
-                catches a regression a "harmless" tweak slipped in. The <strong>Code</strong> tab
-                shows how the grader stays deterministic.
+                Every number on screen traces back to a lab you already ran: detect (09) → connect
+                (10) → narrate (11) → report &amp; notify (12). The optional
+                <strong>Code</strong> tab walks the exact ordering and which stages call the model.
               </p>
             </div>
           </li>
         </ol>
 
         <aside class="cv-callout">
-          <GaugeIcon size={22} weight="duotone" />
+          <FlagCheckeredIcon size={22} weight="duotone" />
           <p>
-            <strong>Pin the grader, let the agent vary.</strong> If both the agent and the checks
-            drift, a score tells you nothing. Holding the checks constant is the whole trick — it
-            turns "I think this helped" into a number you can defend, and turns iterating on the
-            agent into engineering rather than hoping.
+            <strong>The whole workshop, in one click.</strong> Each earlier lab isolated a single
+            mechanism so it would be understandable. The capstone is the payoff: snap those
+            mechanisms together in order and you have a real agentic hunting system — auditable,
+            measurable, and built entirely from parts you now understand.
           </p>
         </aside>
       </div>
     </div>
   {:else if activeTab === "lab"}
-  <section class="panel">
-    <div class="panel-head">
-      <h2>Eval Dashboard</h2>
-      <span>{hasRun ? `${passed} / ${evals.length} passing` : "not run"}</span>
-    </div>
-    <div class="evals">
-      {#each evals as row}
-        <article class:pass={row.passed}>
-          <strong>{row.id} {row.passed ? "PASS" : "FAIL"}</strong>
-          <span>{row.category}</span>
-          <p>{row.description}</p>
-          <small>Expected: {row.expected}</small>
-          <small>{row.detail}</small>
-        </article>
-      {/each}
-    </div>
-  </section>
+  {#if result}
+    <section class="panel">
+      <h2>Integrated Result</h2>
+      <div class="stats">
+        <article><strong>{result.findings.length}</strong><span>findings</span></article>
+        <article><strong>{result.graph.nodes.length}</strong><span>graph nodes</span></article>
+        <article><strong>{result.graph.edges.length}</strong><span>graph edges</span></article>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Narrative</h2>
+      <pre>{result.narrative}</pre>
+    </section>
+    <section class="panel">
+      <h2>Report + Notification</h2>
+      <p>{result.report.fileName}</p>
+      <p class="path">{result.report.path}</p>
+      <p>{result.notification.channel} | {result.notification.delivered ? "delivered" : "not delivered"} | {result.notification.detail}</p>
+    </section>
+  {/if}
   {:else}
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- CODE VIEW  (architectural reference, non-interactive)-->
@@ -196,110 +191,124 @@
       <div class="code-inner">
         <header class="cv-hero">
           <span class="cv-eyebrow">Under the Hood</span>
-          <h2>How you measure an agent</h2>
+          <h2>The whole pipeline, end to end</h2>
           <p>
-            Optional reading for the curious. You can't improve what you don't measure — and you
-            can't measure a changing agent with a changing grader. An <strong>eval harness</strong>
-            is a fixed set of <strong>deterministic checks</strong> graded against the live, real-model
-            investigation. The agent's output may vary run to run; the checks never do, so the
-            pass-rate tells you whether a change actually helped.
+            Optional reading for the curious. Every lab before this one isolated a single stage. The
+            capstone runs them <strong>all in sequence</strong> on one click — detect, connect,
+            narrate, grade, report, notify. There's nothing new here: it's the earlier labs
+            <strong>composed</strong>. That composition is the real shape of an agent system.
           </p>
           <div class="cv-mental-model">
             <RocketLaunchIcon size={20} weight="duotone" />
-            <span>real investigation</span>
+            <span>one run</span>
             <span class="cv-mm-sep">→</span>
-            <ListChecksIcon size={20} weight="duotone" />
-            <span>fixed checks</span>
+            <StackIcon size={20} weight="duotone" />
+            <span>every stage in order</span>
             <span class="cv-mm-sep">→</span>
-            <GaugeIcon size={20} weight="duotone" />
-            <span>pass-rate</span>
+            <FlagCheckeredIcon size={20} weight="duotone" />
+            <span>report + alert</span>
           </div>
         </header>
 
         <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">A</span> How a run is graded<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Run the real investigation once, then grade its output against every check.</p>
+          <summary class="cv-h3"><span class="cv-num">A</span> The full pipeline, stage by stage<span class="cv-chev" aria-hidden="true">▸</span></summary>
+          <p class="cv-lead">
+            One endpoint chains the stages. The first three are produced inside
+            <code>runInvestigationState()</code>; the rest are assembled from that real output.
+          </p>
           <ol class="flow">
             <li class="flow-step" style="--d: 0ms">
-              <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
+              <span class="flow-rail"><ArrowsOutIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Run the real investigation</span><span class="flow-where">server · orchestrator.ts</span></div>
-                <p><code>runInvestigationState()</code> produces the live findings, graph, narrative, and verdicts — actual model output, not a fixture.</p>
+                <div class="flow-top"><span class="flow-title">Fan-out detection</span><span class="flow-where">Lab 09 · orchestrator.ts</span></div>
+                <p>Every detection skill runs against every gated candidate, concurrently, producing the structured findings.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 90ms">
-              <span class="flow-rail"><CheckCircleIcon size={22} weight="duotone" /></span>
+              <span class="flow-rail"><GraphIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Grade every check</span><span class="flow-badge">deterministic</span><span class="flow-where">server · evals.ts</span></div>
-                <p><code>runWorkshopEvals(state)</code> runs each <code>EVAL_CHECK</code> as a plain assertion over that state — no model in the grader — returning <code>passed</code> plus a human-readable detail.</p>
+                <div class="flow-top"><span class="flow-title">Build the shared graph</span><span class="flow-where">Lab 10 · graph.ts</span></div>
+                <p>Candidates and their entities become deduplicated nodes and edges — the shared state that links findings.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 180ms">
-              <span class="flow-rail"><GaugeIcon size={22} weight="duotone" /></span>
+              <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Report the pass-rate</span><span class="flow-where">server → browser</span></div>
-                <p>The dashboard shows each check as PASS/FAIL and a headline score like <code>6 / 8 passing</code> — one number you can watch as you tune skills and prompts.</p>
+                <div class="flow-top"><span class="flow-title">Synthesize the narrative</span><span class="flow-where">Lab 11 · narrative.ts</span></div>
+                <p>The model writes a campaign story, grounded strictly in the graph's entities and edges.</p>
+              </div>
+            </li>
+            <li class="flow-step" style="--d: 360ms">
+              <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
+              <div class="flow-body">
+                <div class="flow-top"><span class="flow-title">Report &amp; notify</span><span class="flow-badge">closes the loop</span><span class="flow-where">Lab 12 · report.ts · notifications.ts</span></div>
+                <p>Verdicts and narrative are assembled into a saved Markdown report, and a notification fires through the configured adapter.</p>
               </div>
             </li>
           </ol>
         </details>
 
         <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">B</span> What the harness checks<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Eight fixed checks, each a single assertion over the investigation state:</p>
-          <div class="ev-list">
-            <div class="ev-row"><code>EVAL-001</code><span>C2 beacon 185.225.73.217 is the top-priority candidate</span></div>
-            <div class="ev-row"><code>EVAL-002</code><span>the EDR heartbeat is triaged as likely benign</span></div>
-            <div class="ev-row"><code>EVAL-003</code><span>hunt-c2-over-https produced a finding with compositeScore &gt; 0.8</span></div>
-            <div class="ev-row"><code>EVAL-004</code><span>assessment flagged high/critical given the CI/CD asset</span></div>
-            <div class="ev-row"><code>EVAL-005</code><span>narrative connected the AI-tool anomaly and C2 via shared entities</span></div>
-            <div class="ev-row"><code>EVAL-006</code><span>uncertainty was preserved where evidence was partial</span></div>
-            <div class="ev-row"><code>EVAL-007</code><span>at least one verdict was recorded</span></div>
-            <div class="ev-row"><code>EVAL-008</code><span>skill-performance tracking is active</span></div>
+          <summary class="cv-h3"><span class="cv-num">B</span> The capstone is the labs, composed<span class="cv-chev" aria-hidden="true">▸</span></summary>
+          <p class="cv-lead">Each stage is a thing you already built. The capstone just runs them in order:</p>
+          <div class="cap-chain">
+            <span class="cap-stage"><ArrowsOutIcon size={15} weight="duotone" />detect<small>Lab 09</small></span>
+            <ArrowRightIcon size={14} weight="bold" />
+            <span class="cap-stage"><GraphIcon size={15} weight="duotone" />connect<small>Lab 10</small></span>
+            <ArrowRightIcon size={14} weight="bold" />
+            <span class="cap-stage"><ScrollIcon size={15} weight="duotone" />narrate<small>Lab 11</small></span>
+            <ArrowRightIcon size={14} weight="bold" />
+            <span class="cap-stage"><BellRingingIcon size={15} weight="duotone" />report<small>Lab 12</small></span>
           </div>
-          <p class="cv-note">Each check reads the real state and returns true/false — a test oracle, deliberately boring and repeatable.</p>
+          <p class="cv-note">
+            No stage knows it's part of a capstone — each is the same small, tested unit from its own
+            lab. The power is entirely in the ordering.
+          </p>
         </details>
 
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">C</span> Four ideas worth understanding<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <div class="cv-cards">
             <article class="cv-card">
-              <div class="cv-card-head"><ScalesIcon size={26} weight="duotone" /><h4>A fixed oracle grades variable work</h4></div>
-              <p>The investigation is probabilistic; the grader must not be. Holding the checks constant is what makes a score change attributable to the agent, not the test.</p>
+              <div class="cv-card-head"><PuzzlePieceIcon size={26} weight="duotone" /><h4>Composition over monoliths</h4></div>
+              <p>The full hunt isn't one giant function — it's small, independently-built stages snapped together. Each stayed testable on its own, which is why the whole thing is trustworthy.</p>
             </article>
             <article class="cv-card">
-              <div class="cv-card-head"><CheckCircleIcon size={26} weight="duotone" /><h4>Each check is one assertion over state</h4></div>
-              <p>A check is just code that inspects the findings, narrative, or verdicts and returns a boolean plus a detail. No cleverness — exactly the point.</p>
+              <div class="cv-card-head"><StackIcon size={26} weight="duotone" /><h4>One call wires the core</h4></div>
+              <p><code>runInvestigationState()</code> already chains detect → connect → narrate. The endpoint just adds report and notify around it — the same functions from Labs 11 and 12.</p>
             </article>
             <article class="cv-card">
-              <div class="cv-card-head"><GaugeIcon size={26} weight="duotone" /><h4>Measured, not guessed</h4></div>
-              <p>"Is it better?" becomes a number — 6/8 today, 7/8 after a fix. Without that, prompt and skill changes are vibes.</p>
+              <div class="cv-card-head"><CpuIcon size={26} weight="duotone" /><h4>A deterministic shell around model steps</h4></div>
+              <p>Only detection and narrative call the model. Everything else — fan-out, graph, report, notify — is deterministic code. The agent is a thin layer of judgement inside a sturdy machine.</p>
             </article>
             <article class="cv-card">
-              <div class="cv-card-head"><ShieldCheckIcon size={26} weight="duotone" /><h4>Regression safety</h4></div>
-              <p>Evals catch the day a "harmless" tweak quietly breaks a detection that used to pass. They're the seatbelt for iterating on an agent.</p>
+              <div class="cv-card-head"><FlagCheckeredIcon size={26} weight="duotone" /><h4>This is the real shape of an agent</h4></div>
+              <p>Not one clever prompt, but a pipeline: gather, reason where it helps, structure, verify, and ship an artifact. That's what every earlier lab was building toward.</p>
             </article>
           </div>
         </details>
 
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">D</span> Where each piece lives<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">The checks and the runner are one file.</p>
+          <p class="cv-lead">The capstone endpoint is thin — it calls into the framework files from every prior lab.</p>
           <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/src/</span>
 │
-├─ <span class="tr-dir">routes/lab/13/api/evals/</span>
-│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← run investigation → runWorkshopEvals</span>
+├─ <span class="tr-dir">routes/lab/13/api/capstone/</span>
+│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← chains the whole pipeline in one handler</span>
 │
 └─ <span class="tr-dir">framework/</span>
-   └─ <span class="tr-file">evals.ts</span>              <span class="tr-cm">← EVAL_CHECKS + the deterministic grader</span></code></pre>
+   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runInvestigationState: detect + graph + narrative</span>
+   ├─ <span class="tr-file">report.ts</span>             <span class="tr-cm">← assemble + save the report</span>
+   └─ <span class="tr-file">notifications.ts</span>       <span class="tr-cm">← fire the notification</span></code></pre>
         </details>
 
         <aside class="cv-callout">
-          <GaugeIcon size={22} weight="duotone" />
+          <PuzzlePieceIcon size={22} weight="duotone" />
           <p>
-            <strong>Why deterministic grading?</strong> If both the agent and the grader drift, a score
-            tells you nothing. Pin the grader, let the agent vary, and the pass-rate becomes a real
-            signal — the difference between engineering an agent and hoping it got better.
+            <strong>The whole point of the workshop, in one screen.</strong> Each lab taught one
+            mechanism in isolation so it would be understandable. The capstone shows the payoff: snap
+            those mechanisms together in order and you have a real agentic hunting system — auditable,
+            measurable, and built from parts you now understand.
           </p>
         </aside>
       </div>
@@ -312,21 +321,20 @@
   .lab-shell { min-height: 100vh; padding: 2.5rem max(1rem, calc((100vw - 1120px) / 2)); background: linear-gradient(135deg, rgba(189,147,249,.06), transparent 34%), #07070a; color: rgba(255,255,255,.9); font-family: var(--font-heading); }
   .back { display: inline-flex; margin-bottom: 1rem; color: #f5e663; font-size: .75rem; font-weight: 800; text-decoration: none; text-transform: uppercase; }
   .hero, .panel { border: 1px solid rgba(189,147,249,.24); border-radius: 4px; background: rgba(22,22,31,.92); padding: 1.4rem; box-shadow: 0 24px 80px rgba(0,0,0,.32); }
-  .hero { display: grid; gap: .8rem; }
-  button { width: fit-content; border: 1px solid rgba(245,230,99,.42); border-radius: 3px; padding: .7rem .95rem; background: rgba(245,230,99,.1); color: #f5e663; font: inherit; font-weight: 800; }
-  button:disabled { opacity: .58; }
   .panel { margin-top: 1rem; }
-  .hero span, .panel-head span { color: #bd93f9; text-transform: uppercase; font-weight: 800; }
+  .hero { display: grid; gap: .8rem; }
+  .hero span { color: #bd93f9; text-transform: uppercase; font-weight: 800; }
   h1, h2, p { margin: 0; }
   h1 { color: #f5e663; font-size: clamp(2.5rem, 7vw, 5rem); line-height: .98; }
-  h2 { color: #f5e663; }
-  p, small { color: rgba(255,255,255,.62); line-height: 1.55; }
-  .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
-  .evals { display: grid; gap: .75rem; }
-  article { border: 1px solid rgba(255,85,85,.36); border-radius: 4px; padding: .9rem; display: grid; gap: .3rem; background: rgba(255,85,85,.05); }
-  article.pass { border-color: rgba(80,250,123,.42); background: rgba(80,250,123,.05); }
-  article strong { color: #8be9fd; }
-  article span { color: #bd93f9; }
+  h2 { color: #f5e663; margin-bottom: 1rem; }
+  p, .path { color: rgba(255,255,255,.62); line-height: 1.55; }
+  button { width: fit-content; border: 1px solid rgba(245,230,99,.42); border-radius: 3px; padding: .7rem .95rem; background: rgba(245,230,99,.1); color: #f5e663; font: inherit; font-weight: 800; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+  article { border: 1px solid rgba(255,255,255,.12); border-radius: 4px; padding: .9rem; display: grid; gap: .25rem; }
+  article strong { color: #8be9fd; font-size: 2rem; }
+  article span { color: rgba(255,255,255,.58); }
+  pre { white-space: pre-wrap; color: rgba(255,255,255,.76); }
+  @media (max-width: 850px) { .stats { grid-template-columns: 1fr 1fr; } }
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top { display: flex; gap: 0; border-bottom: 1px solid #1a1a2e; margin-bottom: 1rem; }
   .tab-btn-top {
@@ -380,14 +388,15 @@
   .flow-badge { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #f5e663; border: 1px solid rgba(245, 230, 99, 0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
   .flow-body p { margin: 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.65; }
 
-  /* Eval list */
-  .ev-list { display: flex; flex-direction: column; gap: 0.4rem; }
-  .ev-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.6rem; border: 1px solid #1c1c30; border-radius: 8px; background: rgba(18, 18, 26, 0.6); padding: 0.5rem 0.8rem; }
-  .ev-row code { flex-shrink: 0; }
-  .ev-row span { color: #aeaebe; font-size: 0.86rem; }
+  /* Capstone chain */
+  .cap-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; border: 1px solid #1c1c30; border-radius: 10px; background: rgba(18, 18, 26, 0.6); padding: 1.1rem 1.2rem; }
+  .cap-chain > :global(svg) { color: #6f6f86; flex-shrink: 0; }
+  .cap-stage { display: inline-flex; flex-direction: column; align-items: center; gap: 0.1rem; font-size: 0.82rem; color: #cfcfe0; background: #0d0d14; border: 1px solid #2a2a40; border-radius: 7px; padding: 0.5rem 0.7rem; min-width: 78px; text-align: center; }
+  .cap-stage :global(svg) { color: #bd93f9; }
+  .cap-stage small { color: #7d7d92; font-size: 0.66rem; }
   .cv-note { margin: 1rem 0 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.7; }
 
-  /* Concept cards (override lab13 global article) */
+  /* Concept cards (override lab14 global article) */
   .cv-cards { display: flex; flex-direction: column; gap: 1rem; }
   .cv-card { display: block; border: 1px solid #1c1c30; border-radius: 10px; background: rgba(18, 18, 26, 0.6); padding: 1.1rem 1.2rem 1.25rem; transition: border-color 0.2s, transform 0.2s; }
   .cv-card:hover { border-color: #33335a; transform: translateY(-2px); }

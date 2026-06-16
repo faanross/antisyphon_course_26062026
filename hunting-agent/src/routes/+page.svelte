@@ -6,7 +6,6 @@
   import ChartBarIcon from "phosphor-svelte/lib/ChartBarIcon";
   import ChatCircleTextIcon from "phosphor-svelte/lib/ChatCircleTextIcon";
   import CompassIcon from "phosphor-svelte/lib/CompassIcon";
-  import ExamIcon from "phosphor-svelte/lib/ExamIcon";
   import GraphIcon from "phosphor-svelte/lib/GraphIcon";
   import GithubLogoIcon from "phosphor-svelte/lib/GithubLogoIcon";
   import HouseIcon from "phosphor-svelte/lib/HouseIcon";
@@ -106,23 +105,16 @@
     },
     {
       id: "13",
-      title: "Eval Harness",
-      description: "Run deterministic checks over the hunting workflow so improvement is measured, not guessed.",
-      href: "/lab/13",
-      icon: ExamIcon,
-    },
-    {
-      id: "14",
       title: "Complete Hunt",
-      description: "Run the integrated capstone from orchestration through graph, narrative, feedback, and evals.",
-      href: "/lab/14",
+      description: "Run the integrated capstone from orchestration through graph, narrative, and feedback.",
+      href: "/lab/13",
       icon: RocketLaunchIcon,
     },
     {
-      id: "15",
+      id: "14",
       title: "Further Learning",
-      description: "Map next steps after the workshop: more skills, real integrations, persistent graph state, feedback, and evals.",
-      href: "/lab/15",
+      description: "Map next steps after the workshop: more skills, real integrations, persistent graph state, and feedback.",
+      href: "/lab/14",
       icon: CompassIcon,
     },
     {
