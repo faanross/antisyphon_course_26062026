@@ -683,51 +683,53 @@
               <span class="f-term f-corr">corroboration × 2</span>
               <span class="f-op">+</span>
               <span class="f-term f-score">beacon&nbsp;score</span>
-              <span class="f-op">−</span>
-              <span class="f-term f-lots">LOTS&nbsp;penalty</span>
             </div>
           </div>
           <div class="formula-legend">
             <div class="fl-row"><span class="fl-dot f-corr"></span><strong>corroboration × 2</strong> — how many independent correlated candidates fire (TLS / intel / data-transfer). Weighted heaviest: <em>converging evidence wins</em>.</div>
             <div class="fl-row"><span class="fl-dot f-score"></span><strong>beacon score</strong> — the raw statistical regularity score.</div>
-            <div class="fl-row"><span class="fl-dot f-lots"></span><strong>LOTS penalty (−1.5)</strong> — applied if the beacon is explained by a trusted app (living-off-trusted-sites).</div>
           </div>
+          <p class="cv-note">
+            Note on <code>lots_match</code>: LOTS (<em>Living Off Trusted Sites</em>) flags traffic to
+            trusted infrastructure — but that is the very infrastructure attackers <strong>abuse</strong>
+            to blend in (Dropbox, pastebin, a CDN). It is an <strong>informative signal, not an
+            exculpatory one</strong>, so it does <em>not</em> lower a candidate's rank. Whether a trusted
+            destination is legitimate is an <em>assessment</em>-layer judgement — never a detection-time
+            penalty.
+          </p>
         </details>
 
         <!-- D · Head to head -->
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">D</span> Why 0.90 beats 0.93<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">The three gate survivors, scored. The highest beacon score loses:</p>
+          <p class="cv-lead">The three gate survivors, scored. The highest beacon score still loses — on corroboration alone:</p>
           <div class="versus">
             <article class="vs-card win">
               <div class="vs-top"><span class="vs-id"><TargetIcon size={16} weight="duotone" /> BEA-001</span><span class="vs-badge win">chosen</span></div>
               <div class="vs-math">
                 <div class="vs-line"><span>corroboration 3 × 2</span><b class="pos">+6.00</b></div>
                 <div class="vs-line"><span>beacon score</span><b class="pos">+0.90</b></div>
-                <div class="vs-line"><span>LOTS penalty</span><b>−0.00</b></div>
                 <div class="vs-total"><span>rank</span><b class="pos">6.90</b></div>
               </div>
-              <p class="vs-note">TLS anomaly, threat-intel hit, and data transfer all converge on it — and nothing explains it away.</p>
+              <p class="vs-note">TLS anomaly, threat-intel hit, and data transfer all converge on the same activity — three independent signals.</p>
             </article>
             <article class="vs-card lose">
-              <div class="vs-top"><span class="vs-id">BEA-002</span><span class="vs-badge lose">−1.5 LOTS</span></div>
+              <div class="vs-top"><span class="vs-id">BEA-002</span><span class="vs-badge lose">no corroboration</span></div>
               <div class="vs-math">
                 <div class="vs-line"><span>corroboration 0 × 2</span><b>+0.00</b></div>
                 <div class="vs-line"><span>beacon score</span><b class="pos">+0.93</b></div>
-                <div class="vs-line"><span>LOTS penalty</span><b class="neg">−1.50</b></div>
-                <div class="vs-total"><span>rank</span><b class="neg">−0.57</b></div>
+                <div class="vs-total"><span>rank</span><b class="neg">0.93</b></div>
               </div>
-              <p class="vs-note">Highest score — but fully explained by CrowdFalcon EDR, with zero corroboration.</p>
+              <p class="vs-note">The <em>highest</em> raw score — a very regular beacon to a CDN — but not one other candidate points at it. A lone signal.</p>
             </article>
             <article class="vs-card lose">
-              <div class="vs-top"><span class="vs-id">BEA-003</span><span class="vs-badge lose">−1.5 LOTS</span></div>
+              <div class="vs-top"><span class="vs-id">BEA-003</span><span class="vs-badge lose">no corroboration</span></div>
               <div class="vs-math">
                 <div class="vs-line"><span>corroboration 0 × 2</span><b>+0.00</b></div>
                 <div class="vs-line"><span>beacon score</span><b class="pos">+0.88</b></div>
-                <div class="vs-line"><span>LOTS penalty</span><b class="neg">−1.50</b></div>
-                <div class="vs-total"><span>rank</span><b class="neg">−0.62</b></div>
+                <div class="vs-total"><span>rank</span><b class="neg">0.88</b></div>
               </div>
-              <p class="vs-note">Explained by Microsoft 365 — a benign keep-alive, not a threat.</p>
+              <p class="vs-note">A regular keep-alive to Microsoft 365 — again, high regularity but zero corroborating evidence.</p>
             </article>
           </div>
 
@@ -747,10 +749,11 @@
         <aside class="cv-callout">
           <ScalesIcon size={22} weight="duotone" />
           <p>
-            <strong>Raw score is not priority.</strong> A high beacon score that a trusted app fully
-            explains is exactly the false positive you don't chase. The real threat is the beacon where
-            <em>independent evidence converges</em> and nothing explains it away — BEA-001 at 0.90, not
-            the 0.93 CrowdFalcon beacon. The harness targets and gathers; the model then judges.
+            <strong>Raw score is not priority — corroboration is.</strong> A lone high-regularity beacon
+            is exactly what a benign service (a CDN, an EDR heartbeat, an M365 keep-alive) produces. The
+            real threat is the beacon where <em>independent evidence converges</em> — BEA-001 at 0.90 with
+            three corroborating signals, not the lone 0.93 beacon. The harness targets and gathers; the
+            model then judges, and the <em>assessment</em> layer later decides legitimacy.
           </p>
         </aside>
       </div>
@@ -2374,14 +2377,12 @@ How to combine the evidence into a verdict.</code></pre>
   .f-op { color: #8a8a9a; font-weight: 700; }
   .f-corr { color: #50fa7b; background: rgba(80, 250, 123, 0.1); border: 1px solid rgba(80, 250, 123, 0.4); }
   .f-score { color: #f5e663; background: rgba(245, 230, 99, 0.1); border: 1px solid rgba(245, 230, 99, 0.4); }
-  .f-lots { color: #ff79c6; background: rgba(255, 121, 198, 0.1); border: 1px solid rgba(255, 121, 198, 0.4); }
   .formula-legend { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.9rem; }
   .fl-row { display: flex; align-items: baseline; gap: 0.55rem; font-size: 0.86rem; color: #aeaebe; line-height: 1.55; }
   .fl-row strong { color: #e8e8f0; }
   .fl-dot { flex-shrink: 0; width: 0.7rem; height: 0.7rem; border-radius: 3px; align-self: center; }
   .fl-dot.f-corr { background: #50fa7b; }
   .fl-dot.f-score { background: #f5e663; }
-  .fl-dot.f-lots { background: #ff79c6; }
 
   /* Targeting tab: head-to-head */
   .versus { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
@@ -2404,7 +2405,6 @@ How to combine the evidence into a verdict.</code></pre>
   .vs-line { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.84rem; color: #9a9aaa; }
   .vs-line b { color: #c0c0ca; font-variant-numeric: tabular-nums; }
   .vs-line b.pos { color: #8be9fd; }
-  .vs-line b.neg { color: #ff79c6; }
   .vs-total { display: flex; justify-content: space-between; gap: 1rem; margin-top: 0.35rem; padding-top: 0.4rem; border-top: 1px solid #2a2a40; font-size: 0.92rem; color: #cfcfe0; font-weight: 800; }
   .vs-total b { font-variant-numeric: tabular-nums; }
   .vs-total b.pos { color: #50fa7b; }

@@ -347,12 +347,15 @@ function chooseTrigger(skill: SkillDocument, candidates: Candidate[]) {
       const gateResult = evaluateGate(candidate, gate);
       const relatedGroups = collectRelated(candidate, specs, candidates);
       const relatedCount = relatedGroups.reduce((count, group) => count + group.matches.length, 0);
-      const lotsPenalty = candidateLots(candidate) !== "false" && candidateLots(candidate) !== "none" ? 1.5 : 0;
+      // Rank by corroboration (independent correlated candidates) + the candidate's own score.
+      // A LOTS match (lots_match) is NOT penalized here: LOTS = Living Off Trusted Sites, the
+      // trusted infrastructure attackers deliberately abuse to blend in — an informative signal,
+      // not an exculpatory one. Legitimacy is an assessment-layer call, never a detection penalty.
       return {
         candidate,
         gateResult,
         relatedGroups,
-        rank: relatedCount * 2 + candidateScore(candidate) - lotsPenalty,
+        rank: relatedCount * 2 + candidateScore(candidate),
       };
     })
     .filter((entry) => entry.gateResult.pass)
