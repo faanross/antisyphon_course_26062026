@@ -403,7 +403,9 @@ function upstreamCandidateId(upstreamFinding: JsonRecord): string {
 
 function upstreamRelatedIds(upstreamFinding: JsonRecord): string[] {
   const refs = asRecord(upstreamFinding.evidenceRefs);
-  return asArray(refs.relatedCandidateIds).map(String);
+  // New typed shape uses `candidateIds`; older handoffs used `relatedCandidateIds`.
+  const ids = asArray(refs.candidateIds).length ? asArray(refs.candidateIds) : asArray(refs.relatedCandidateIds);
+  return ids.map(String);
 }
 
 function chooseAssessmentEvidence(upstreamFinding: JsonRecord, candidates: Candidate[]) {
@@ -451,7 +453,7 @@ function renderAssessmentSkillSystemPrompt(skill: SkillDocument): string {
     "An upstream detection skill (Lab 06) already produced the DetectionFinding in the user message. Your job is the assessment layer: judge severity / behavioral context using the injected organization context — do NOT re-run detection scoring.",
     "Reason ONLY from the supplied DetectionFinding, the injected context files, and the supporting candidate evidence. Do not invent assets, owners, policies, prior incidents, or threat-intel beyond what the context and candidates carry.",
     "Every claim about business impact, baseline, or history must trace to a line in the injected context — quote or name the source. If the context does not establish something, say so rather than assuming.",
-    "If the skill references production graph writes or an output-shape document, represent the AssessmentFinding as Markdown text in this workshop run.",
+    "Your output is a STRUCTURED OBJECT, not a report. Emit the AssessmentFinding as a single JSON object in the exact shape the user message specifies — no prose, no markdown, no fences. Each judgement is its own named field.",
     "",
     "## Loaded skill procedure",
     skill.body,
@@ -467,29 +469,32 @@ function buildAssessmentUserPrompt(
   evidenceBundle: unknown,
 ): string {
   const isBehavioral = skill.metadata.name === "assess-behavioral-context";
+  // Cardinal isolation: a behavioral-context skill judges baseline/anomaly and does NOT set
+  // severity; a severity skill sets severity. Each emits its own JSON shape.
   const sections = isBehavioral
     ? [
-        "- behavioralVerdict (e.g. \"Baseline plausible\" or \"Materially anomalous\")",
-        "- what is baseline-consistent (cite the user/host context line)",
-        "- what is a material deviation from the established baseline",
-        "- a contextJudgement: does the context strengthen or weaken the detection, and why",
-        "- uncertainty: what the local context cannot establish on its own",
+        '  "behavioralVerdict": string — e.g. "Baseline plausible" or "Materially anomalous"',
+        '  "baselineConsistent": string — what is baseline-consistent (cite the user/host context line)',
+        '  "materialDeviation": string — what is a material deviation from the established baseline',
+        '  "contextJudgement": string — does the context strengthen or weaken the detection, and why',
+        '  "uncertainty": string — what the local context cannot establish on its own',
       ]
     : [
-        "- severity (Low / Medium / High / Critical) with the reasoning",
-        "- operationalBottomLine: the one-line decision this drives",
-        "- businessImpact (cite the asset/owner/role context lines)",
-        "- escalationRationale (cite the escalation / evidence-preservation policy)",
-        "- recommendedResponse: evidence-preserving actions before cleanup",
-        "- uncertainty: what the workshop dataset cannot establish",
+        '  "severity": "Low" | "Medium" | "High" | "Critical"',
+        '  "severityReasoning": string — why this severity',
+        '  "operationalBottomLine": string — the one-line decision this drives',
+        '  "businessImpact": string — cite the asset/owner/role context lines',
+        '  "escalationRationale": string — cite the escalation / evidence-preservation policy',
+        '  "recommendedResponse": string — evidence-preserving actions before cleanup',
+        '  "uncertainty": string — what the workshop dataset cannot establish',
       ];
 
   return [
     "Run the loaded assessment skill against the upstream DetectionFinding using the injected context.",
     "Separate technical confidence (already established upstream) from business/behavioral judgement (your job here).",
-    "Return an AssessmentFinding as concise Markdown. For teaching clarity, include:",
+    "Return ONLY a single JSON object — no prose, no markdown, no fences — an AssessmentFinding with EXACTLY these keys:",
     ...sections,
-    "Name the injected context file behind each contextual claim so the grounding is visible.",
+    "Name the injected context file behind each contextual claim (inside the relevant field) so the grounding is visible.",
     "",
     "## Upstream DetectionFinding",
     JSON.stringify(upstreamFinding, null, 2),
@@ -500,6 +505,80 @@ function buildAssessmentUserPrompt(
     "## Supporting Candidate Evidence",
     JSON.stringify(evidenceBundle, null, 2),
   ].join("\n");
+}
+
+// ── The schema gate (workshop-scale, DETERMINISTIC, no LLM) ─────────────────────────────
+// Assessment ENRICHES the upstream detection finding. The model emits JSON; this gate validates
+// it into a typed AssessmentFinding and stamps `basedOn` deterministically (the link to the
+// detection finding is not left to the model). Cardinal isolation is enforced here: a
+// behavioral-context skill never carries a severity. In the real framework this is an Ajv check
+// with a correction retry; here we surface pass/fail so students see why the gate exists.
+type GatedAssessment = {
+  layer: "assessment";
+  skillName: string;
+  assessmentType: "severity" | "behavioral_context";
+  basedOn: string;
+  severity: "Low" | "Medium" | "High" | "Critical" | null;
+  fields: { key: string; value: string }[];
+};
+type AssessmentGateResult = { pass: boolean; errors: string[]; finding: GatedAssessment | null };
+
+function extractJsonObject(text: string): string | undefined {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced?.[1] ?? text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return undefined;
+  return candidate.slice(start, end + 1);
+}
+
+function gateAssessmentFinding(rawText: string, skill: SkillDocument, upstreamFinding: JsonRecord): AssessmentGateResult {
+  const errors: string[] = [];
+  const isBehavioral = skill.metadata.name === "assess-behavioral-context";
+  const assessmentType: GatedAssessment["assessmentType"] = isBehavioral ? "behavioral_context" : "severity";
+
+  const jsonText = extractJsonObject(rawText);
+  if (!jsonText) return { pass: false, errors: ["Model did not return a JSON object — output was prose/empty."], finding: null };
+
+  let parsed: JsonRecord;
+  try {
+    parsed = JSON.parse(jsonText) as JsonRecord;
+  } catch {
+    return { pass: false, errors: ["Model output was not valid JSON and could not be parsed."], finding: null };
+  }
+
+  // basedOn is stamped deterministically from the upstream finding (not trusted to the model).
+  const basedOn = upstreamCandidateId(upstreamFinding) || asString(upstreamFinding.candidateId);
+  if (!basedOn) errors.push("could not link to an upstream detection finding (basedOn is empty).");
+
+  const orderedKeys = isBehavioral
+    ? ["behavioralVerdict", "baselineConsistent", "materialDeviation", "contextJudgement", "uncertainty"]
+    : ["severityReasoning", "operationalBottomLine", "businessImpact", "escalationRationale", "recommendedResponse", "uncertainty"];
+  const fields = orderedKeys.map((key) => ({ key, value: asString(parsed[key]) }));
+  for (const field of fields) {
+    if (!field.value) errors.push(`${field.key} is missing.`);
+  }
+
+  let severity: GatedAssessment["severity"] = null;
+  if (!isBehavioral) {
+    const allowed = ["Low", "Medium", "High", "Critical"];
+    const severityRaw = asString(parsed.severity);
+    if (!allowed.includes(severityRaw)) errors.push(`severity "${severityRaw}" is not one of ${allowed.join(", ")}.`);
+    severity = (allowed.includes(severityRaw) ? severityRaw : null) as GatedAssessment["severity"];
+  } else if (asString(parsed.severity)) {
+    // cardinal isolation: a behavioral skill must NOT assign severity.
+    errors.push("a behavioral-context assessment must not set severity (cardinal isolation).");
+  }
+
+  const finding: GatedAssessment = {
+    layer: "assessment",
+    skillName: skill.metadata.name,
+    assessmentType,
+    basedOn,
+    severity,
+    fields,
+  };
+  return { pass: errors.length === 0, errors, finding };
 }
 
 function buildTrace(
@@ -668,12 +747,17 @@ export const POST: RequestHandler = async ({ request }) => {
             onToken: (token) => send({ type: "token", value: token }),
           });
 
+          // Deterministic schema gate (no LLM): parse + validate the model's JSON into the typed
+          // AssessmentFinding, stamping basedOn and enforcing cardinal isolation.
+          const gate = gateAssessmentFinding(result.text, skill, upstreamFinding);
           send({
             type: "finding",
-            text: result.text,
+            raw: result.text,
+            finding: gate.finding,
+            gate: { pass: gate.pass, errors: gate.errors },
             model: result.model,
             usage: result.usage ?? null,
-            assessmentType: skill.metadata.name === "assess-behavioral-context" ? "behavioral_context" : "severity",
+            assessmentType: gate.finding?.assessmentType ?? (skill.metadata.name === "assess-behavioral-context" ? "behavioral_context" : "severity"),
             skill: skill.metadata.name,
           });
           send({ type: "done" });

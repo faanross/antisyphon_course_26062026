@@ -94,6 +94,25 @@
   };
 
   // NDJSON event contract emitted by the POST endpoint, one object per line.
+  // The typed object the detection skill emits. The model produces this as JSON; the harness
+  // gate validates it. The readable view in the UI is rendered FROM this — it is NOT the model's
+  // output and NOT what the harness persists (the harness persists this typed object).
+  type DetectionFindingObject = {
+    layer: "detection";
+    skillName: string;
+    candidateId: string;
+    verdict: "true_positive" | "false_positive" | "inconclusive";
+    compositeScore: number;
+    dimensions: { name: string; score: number; evidence: string }[];
+    evidenceSummary: string;
+    attackNarrative: string;
+    uncertainty: string;
+    benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];
+    mitreTechniques: string[];
+    evidenceRefs: { candidateIds: string[]; eventIds: string[] };
+    scope: { host: string };
+  };
+
   type StreamEvent =
     | { type: "skill"; skill: SkillSummary }
     | { type: "trace"; step: TraceStep }
@@ -101,7 +120,14 @@
     | { type: "prompt"; systemPrompt: string; userPrompt: string }
     | { type: "model-start"; message: string }
     | { type: "token"; value: string }
-    | { type: "finding"; text: string; model: string; usage: Record<string, unknown> | null }
+    | {
+        type: "finding";
+        raw: string;
+        finding: DetectionFindingObject | null;
+        gate: { pass: boolean; errors: string[] };
+        model: string;
+        usage: Record<string, unknown> | null;
+      }
     | { type: "done" }
     | { type: "error"; message: string };
 
@@ -119,7 +145,9 @@
   let systemPrompt = $state("");
   let userPrompt = $state("");
   let modelStreaming = $state(false);
-  let findingText = $state("");
+  let findingText = $state(""); // the RAW model output (streamed tokens) — JSON, the model's actual output
+  let finding = $state<DetectionFindingObject | null>(null); // the typed object after the gate
+  let gate = $state<{ pass: boolean; errors: string[] } | null>(null); // schema-gate result
   let findingModel = $state("");
   let findingUsage = $state<Record<string, unknown> | null>(null);
 
@@ -130,7 +158,6 @@
   let promptTab = $state<"system" | "user">("system");
 
   const hasExecution = $derived(Boolean(executedSkill));
-  const findingBlocks = $derived(findingText ? parseMarkdown(findingText) : []);
 
   const LAB06_HANDOFF_KEY = "antisiphon.lab06.detectionFinding";
 
@@ -169,6 +196,8 @@
     userPrompt = "";
     modelStreaming = false;
     findingText = "";
+    finding = null;
+    gate = null;
     findingModel = "";
     findingUsage = null;
   }
@@ -195,7 +224,9 @@
         findingText += event.value;
         break;
       case "finding":
-        findingText = event.text;
+        findingText = event.raw;
+        finding = event.finding;
+        gate = event.gate;
         findingModel = event.model;
         findingUsage = event.usage;
         break;
@@ -257,49 +288,33 @@
     }
   }
 
-  // The streamed POST returns free-text Markdown, but the assessment lab (Lab 07) reads a
-  // STRUCTURED DetectionFinding object from this handoff key. We synthesize that object from
-  // the executed skill + deterministic evidence bundle so Lab 07 keeps working, and carry the
-  // raw model Markdown alongside it for display.
+  // Lab 07 (Assessment) reads the upstream DetectionFinding from this handoff key. We persist the
+  // REAL typed object the gate produced (compositeScore = max(dimensions), per-dimension evidence,
+  // narrative, uncertainty, benign-fallbacks) — not a synthesized stand-in. The raw model JSON is
+  // carried alongside for display only.
   function persistDetectionFinding() {
     if (typeof localStorage === "undefined") return;
-    if (!executedSkill || !evidenceBundle) return;
-    if (!findingText.trim()) return;
+    if (!executedSkill || !finding) return;
 
-    const trigger = evidenceBundle.trigger;
-    const finding = {
+    const handoffFinding = {
+      ...finding,
       kind: "DetectionFinding",
-      verdict: "Produced",
       skill: executedSkill.metadata.name,
-      compositeScore: trigger.score,
-      triggerCandidate: {
-        id: trigger.id,
-        type: trigger.type,
-        host: trigger.host,
-        destIp: trigger.destIp,
-        processName: trigger.processName,
-        score: trigger.score,
-      },
-      candidateId: trigger.id,
-      evidenceRefs: {
-        relatedCandidateIds: evidenceBundle.related.map((candidate) => candidate.id),
-        eventIds: trigger.eventIds,
-      },
-      findingText,
       model: findingModel,
+      // The typed object above is the source of truth; triggerCandidate is carried only so
+      // Lab 07's upstream-display can show the trigger line. It is not part of the finding.
+      triggerCandidate: evidenceBundle?.trigger ?? null,
     };
 
     localStorage.setItem(
       LAB06_HANDOFF_KEY,
       JSON.stringify({
-        version: 1,
+        version: 2,
         source: "lab06",
         generatedAt: new Date().toISOString(),
-        execution: {
-          skill: executedSkill,
-          finding,
-        },
-        finding,
+        execution: { skill: executedSkill, finding: handoffFinding },
+        finding: handoffFinding,
+        raw: findingText,
       }),
     );
   }
@@ -408,9 +423,13 @@
                 <span class="flow-where">DetectionFinding · Execution Detail</span>
               </div>
               <p>
-                The <strong>DetectionFinding</strong> is a structured result — verdict, composite
-                score, and the evidence behind it. Expand <strong>Execution Detail</strong> below
-                to see the trace and the exact evidence bundle the finding was built from.
+                Step 03 shows three things in order: <strong>(1)</strong> the model's real output — a
+                <strong>JSON DetectionFinding</strong> (the reasoning in named fields, not a prose
+                blob); <strong>(2)</strong> the deterministic <strong>schema gate</strong> validating
+                it into the typed object; and <strong>(3)</strong> a readable card
+                <em>rendered from</em> that object. The pretty view is a rendering for humans — the
+                model's output is the JSON, and the typed object is what the harness persists (never
+                the prose). Expand <strong>Execution Detail</strong> for the trace and evidence bundle.
               </p>
             </div>
           </li>
@@ -1274,18 +1293,52 @@ How to combine the evidence into a verdict.</code></pre>
     </div>
 
     <p class="real-call-note">
-      The skill procedure is the system prompt; the evidence bundle is the user prompt. The model
-      reads them and writes the finding below.
+      The model's real output is the <strong>structured JSON object</strong> below — the reasoning
+      lives in named fields, never a prose blob. The harness then <strong>validates it (the schema
+      gate)</strong>, and the readable card at the bottom is a <strong>deterministic rendering of the
+      typed object</strong> — <em>not</em> the model's output, and <em>not</em> what the harness
+      persists (it persists the object, not the prose).
     </p>
 
-    {#if findingText}
-      <div class="markdown-body finding-markdown">
-        {@render MarkdownView({ blocks: findingBlocks })}
+    <!-- 1 · the model's real output: the JSON DetectionFinding (streams live) -->
+    <div class="finding-stage">
+      <span class="stage-label">1 · Model output — JSON <code>DetectionFinding</code></span>
+      {#if findingText}
+        <pre class="finding-json">{findingText}</pre>
+      {:else if modelStreaming}
+        <p class="empty">Waiting for the first tokens from the model.</p>
+      {:else}
+        <p class="empty">No output yet.</p>
+      {/if}
+    </div>
+
+    <!-- 2 · the deterministic schema gate -->
+    {#if gate}
+      <div class="finding-stage">
+        <span class="stage-label">2 · Schema gate — deterministic, no LLM</span>
+        {#if gate.pass}
+          <p class="gate-pass">PASS — the JSON validates into the typed DetectionFinding.</p>
+        {:else}
+          <p class="gate-fail">
+            REJECTED — {gate.errors.length} issue(s). In the real framework this triggers a correction retry:
+          </p>
+          <ul class="gate-errors">
+            {#each gate.errors as err}
+              <li>{err}</li>
+            {/each}
+          </ul>
+        {/if}
       </div>
-    {:else if modelStreaming}
-      <p class="empty">Waiting for the first tokens from the model.</p>
-    {:else}
-      <p class="empty">No finding text yet.</p>
+    {/if}
+
+    <!-- 3 · the readable rendering, FROM the typed object -->
+    {#if finding}
+      <div class="finding-stage">
+        <span class="stage-label">
+          3 · Rendered for reading — a deterministic view of the typed object (not the model output)
+        </span>
+        {@render RenderedFinding({ finding })}
+      </div>
     {/if}
 
     {#if findingUsage}
@@ -1295,6 +1348,56 @@ How to combine the evidence into a verdict.</code></pre>
       </details>
     {/if}
   </article>
+{/snippet}
+
+{#snippet RenderedFinding({ finding }: { finding: DetectionFindingObject })}
+  <div class="rendered-finding">
+    <div class="rf-row">
+      <span class="rf-verdict rf-{finding.verdict}">{finding.verdict.replace("_", " ")}</span>
+      <span class="rf-score">compositeScore <strong>{finding.compositeScore.toFixed(2)}</strong> = max(dimensions)</span>
+    </div>
+
+    {#if finding.evidenceSummary}
+      <p class="rf-summary">{finding.evidenceSummary}</p>
+    {/if}
+
+    {#if finding.dimensions.length}
+      <table class="rf-dimensions">
+        <thead><tr><th>dimension</th><th>score</th><th>decisive evidence</th></tr></thead>
+        <tbody>
+          {#each finding.dimensions as dim}
+            <tr>
+              <td><code>{dim.name}</code></td>
+              <td>{dim.score.toFixed(2)}</td>
+              <td>{dim.evidence}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if finding.attackNarrative}
+      <p class="rf-field"><span class="rf-key">attackNarrative</span> {finding.attackNarrative}</p>
+    {/if}
+    {#if finding.uncertainty}
+      <p class="rf-field"><span class="rf-key">uncertainty</span> {finding.uncertainty}</p>
+    {/if}
+
+    {#if finding.benignFallbackRuledOut.length}
+      <div class="rf-field">
+        <span class="rf-key">benignFallbackRuledOut</span>
+        <ul class="rf-fallbacks">
+          {#each finding.benignFallbackRuledOut as bf}
+            <li><strong>{bf.fallback}</strong> — {bf.ruledOutBecause}</li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+
+    {#if finding.mitreTechniques.length}
+      <p class="rf-field"><span class="rf-key">mitreTechniques</span> {finding.mitreTechniques.join(", ")}</p>
+    {/if}
+  </div>
 {/snippet}
 
 {#snippet PromptView()}
@@ -2303,4 +2406,39 @@ How to combine the evidence into a verdict.</code></pre>
     .cv-hero { animation: none; opacity: 1; }
     .flow-step::before { animation: none; }
   }
+
+  /* structure-first finding: model JSON -> gate -> rendered view */
+  .finding-stage { display: grid; gap: .45rem; margin-top: .7rem; }
+  .stage-label { font-family: var(--font-heading); font-size: .72rem; letter-spacing: .02em; color: var(--dracula-comment); }
+  .stage-label code { color: var(--dracula-cyan); }
+  .finding-json {
+    margin: 0; padding: .75rem .85rem; border-radius: 8px;
+    background: rgba(25, 26, 33, .82); border: 1px solid rgba(98, 114, 164, .42);
+    color: var(--dracula-fg); font-size: .76rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .gate-pass { margin: 0; font-size: .8rem; color: var(--dracula-green, #50fa7b); font-family: var(--font-heading); }
+  .gate-fail { margin: 0; font-size: .8rem; color: var(--dracula-pink); font-family: var(--font-heading); }
+  .gate-errors { margin: .3rem 0 0; padding-left: 1.1rem; display: grid; gap: .2rem; }
+  .gate-errors li { font-size: .76rem; color: var(--dracula-muted); }
+
+  .rendered-finding {
+    display: grid; gap: .65rem; padding: .85rem .9rem; border-radius: 9px;
+    background: rgba(80, 250, 123, 0.05); border: 1px solid rgba(80, 250, 123, .34);
+  }
+  .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+  .rf-verdict { font-family: var(--font-heading); font-size: .74rem; padding: .2rem .55rem; border-radius: 6px; text-transform: uppercase; letter-spacing: .03em; border: 1px solid rgba(98, 114, 164, .5); }
+  .rf-true_positive { color: var(--dracula-pink); border-color: rgba(255, 121, 198, .6); }
+  .rf-false_positive { color: var(--dracula-green, #50fa7b); border-color: rgba(80, 250, 123, .6); }
+  .rf-inconclusive { color: var(--dracula-comment); }
+  .rf-score { font-size: .8rem; color: var(--dracula-muted); }
+  .rf-score strong { color: var(--dracula-fg); }
+  .rf-summary { margin: 0; font-size: .85rem; color: var(--dracula-fg); }
+  .rf-dimensions { width: 100%; border-collapse: collapse; font-size: .76rem; }
+  .rf-dimensions th { text-align: left; padding: .3rem .5rem; color: var(--dracula-comment); border-bottom: 1px solid rgba(98, 114, 164, .4); font-weight: 600; }
+  .rf-dimensions td { padding: .35rem .5rem; vertical-align: top; border-bottom: 1px solid rgba(98, 114, 164, .18); color: var(--dracula-fg); }
+  .rf-dimensions code { color: var(--dracula-cyan); }
+  .rf-field { margin: 0; font-size: .82rem; color: var(--dracula-fg); }
+  .rf-key { font-family: var(--font-heading); font-size: .7rem; color: var(--dracula-purple); margin-right: .45rem; }
+  .rf-fallbacks { margin: .3rem 0 0; padding-left: 1.1rem; display: grid; gap: .2rem; font-size: .8rem; color: var(--dracula-muted); }
+  .rf-fallbacks strong { color: var(--dracula-fg); }
 </style>

@@ -396,7 +396,7 @@ function renderDetectionSkillSystemPrompt(skill: SkillDocument): string {
     "## Workshop execution constraints",
     "The harness has already run the candidate-query tool for you and assembled the evidence bundle in the user message.",
     "Use ONLY the supplied candidate evidence bundle. Do not invent candidates, events, payload contents, or external asset / threat-intel context beyond what the candidates carry.",
-    "If the skill references production graph writes or an output-shape document, represent the finding as Markdown text in this workshop run.",
+    "Your output is a STRUCTURED OBJECT, not a report. Emit the finding as a single JSON object in the exact shape the user message specifies — no prose, no markdown, no fences. The reasoning is the payload, and it lives in NAMED FIELDS (per-dimension evidence, narrative, uncertainty, benign-fallbacks-ruled-out), never one prose blob.",
     "",
     "## Loaded skill procedure",
     skill.body,
@@ -409,18 +409,125 @@ function buildDetectionUserPrompt(evidenceBundle: unknown): string {
   return [
     "Run the loaded detection skill against this candidate evidence bundle.",
     "Treat an absent correlating candidate as absent evidence (score 0 on its dimension), not as failure.",
-    "Return a DetectionFinding as concise Markdown. For teaching clarity, include:",
-    "- which candidate categories were present vs absent",
-    "- each scored dimension as a passthrough of the source candidate's compositeScore, with the decisive evidence",
-    "- compositeScore = max(statistical_beacon_pattern, infrastructure_reputation, tls_anomaly_signature, exfil_volume_anomaly)",
-    "- exfil_volume_anomaly = the data_transfer candidate's composite (0 if none fired on the same tuple); when present it is part of the composite and asserts T1041",
-    "- benignFallbackRuledOut",
-    "- a short reasoningChain where every claim traces to a candidate field",
-    "- evidenceRefs: the candidate IDs that fired and their constituent event IDs",
+    "",
+    "Return ONLY a single JSON object — no prose, no markdown, no code fences — a DetectionFinding with EXACTLY these keys:",
+    '  "verdict":        "true_positive" | "false_positive" | "inconclusive"',
+    '  "dimensions":     array of { "name": string, "score": number 0..1 (passthrough of the source candidate\'s composite), "evidence": string (the DECISIVE observation, citing the candidate field that drove it) }',
+    '  "compositeScore": number — the MAX of dimensions[].score (NEVER an average)',
+    '  "evidenceSummary":  string — one or two sentences: what fired',
+    '  "attackNarrative":  string — the story a human reads: process lineage -> behaviour -> channel',
+    '  "uncertainty":      string — what is NOT confirmed + any alternative hypothesis',
+    '  "benignFallbackRuledOut": array of { "fallback": string, "ruledOutBecause": string } — why this is not EDR / OS-update / M365 / backup / normal browsing',
+    '  "mitreTechniques":  array of ATT&CK technique IDs you assert (basis cited in dimensions[].evidence)',
+    '  "evidenceRefs":     { "candidateIds": string[], "eventIds": string[] } — provenance back to the telemetry',
+    "",
+    "Rules: every score and claim must trace to a field in the evidence bundle. Do NOT collapse the reasoning into one blob — each piece is its own named field. exfil_volume_anomaly = the data_transfer candidate's composite (0 if none fired on the same tuple); when present it is part of the composite and asserts T1041.",
     "",
     "## Candidate Evidence Bundle",
     JSON.stringify(evidenceBundle, null, 2),
   ].join("\n");
+}
+
+// ── The schema gate (workshop-scale, DETERMINISTIC, no LLM) ─────────────────────────────
+// The model emits JSON; this gate parses + validates it into the typed DetectionFinding shape
+// the skills declare. In the real framework this is an Ajv JSON-Schema check with a correction
+// retry; here we surface a pass/fail + the reasons so students see WHY the gate exists — a
+// TypeScript interface is erased at runtime, so this validation is what actually makes the type
+// real on live model output. compositeScore is DERIVED here (= max of dimensions), never trusted.
+type GatedDimension = { name: string; score: number; evidence: string };
+type GatedFinding = {
+  layer: "detection";
+  skillName: string;
+  candidateId: string;
+  verdict: "true_positive" | "false_positive" | "inconclusive";
+  compositeScore: number;
+  dimensions: GatedDimension[];
+  evidenceSummary: string;
+  attackNarrative: string;
+  uncertainty: string;
+  benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];
+  mitreTechniques: string[];
+  evidenceRefs: { candidateIds: string[]; eventIds: string[] };
+  scope: { host: string };
+};
+type GateResult = { pass: boolean; errors: string[]; finding: GatedFinding | null };
+
+function extractJsonObject(text: string): string | undefined {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced?.[1] ?? text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return undefined;
+  return candidate.slice(start, end + 1);
+}
+
+function gateDetectionFinding(rawText: string, skill: SkillDocument, trigger: Candidate): GateResult {
+  const errors: string[] = [];
+  const jsonText = extractJsonObject(rawText);
+  if (!jsonText) {
+    return { pass: false, errors: ["Model did not return a JSON object — output was prose/empty."], finding: null };
+  }
+
+  let parsed: JsonRecord;
+  try {
+    parsed = JSON.parse(jsonText) as JsonRecord;
+  } catch {
+    return { pass: false, errors: ["Model output was not valid JSON and could not be parsed."], finding: null };
+  }
+
+  const dimensions: GatedDimension[] = asArray(parsed.dimensions).map((item) => {
+    const record = asRecord(item);
+    return { name: asString(record.name), score: numberValue(record.score), evidence: asString(record.evidence) };
+  });
+  if (dimensions.length === 0) errors.push("dimensions[] is missing or empty — the per-dimension evidence is the payload.");
+  for (const dimension of dimensions) {
+    if (!dimension.name) errors.push("a dimension is missing its name.");
+    if (!dimension.evidence) errors.push(`dimension "${dimension.name || "?"}" is missing its evidence string.`);
+    if (dimension.score < 0 || dimension.score > 1) errors.push(`dimension "${dimension.name}" score ${dimension.score} is outside [0,1].`);
+  }
+
+  const verdictRaw = asString(parsed.verdict);
+  const verdictAllowed = ["true_positive", "false_positive", "inconclusive"];
+  if (!verdictAllowed.includes(verdictRaw)) errors.push(`verdict "${verdictRaw}" is not one of ${verdictAllowed.join(", ")}.`);
+  const verdict = (verdictAllowed.includes(verdictRaw) ? verdictRaw : "inconclusive") as GatedFinding["verdict"];
+
+  // compositeScore is recomputed deterministically = max(dimensions). We compare the model's
+  // claim to teach the rule, but the stored value is always the derived max.
+  const derivedComposite = dimensions.length ? Math.max(...dimensions.map((d) => d.score)) : candidateScore(trigger);
+  const claimedComposite = numberValue(parsed.compositeScore);
+  if (dimensions.length && Math.abs(claimedComposite - derivedComposite) > 0.001) {
+    errors.push(`compositeScore ${claimedComposite} != max(dimensions) ${derivedComposite.toFixed(2)} — recomputed to the max.`);
+  }
+
+  const evidenceSummary = asString(parsed.evidenceSummary);
+  const attackNarrative = asString(parsed.attackNarrative);
+  if (!evidenceSummary) errors.push("evidenceSummary is missing.");
+  if (!attackNarrative) errors.push("attackNarrative is missing.");
+
+  const evidenceRefs = asRecord(parsed.evidenceRefs);
+  const finding: GatedFinding = {
+    layer: "detection",
+    skillName: skill.metadata.name,
+    candidateId: candidateId(trigger),
+    verdict,
+    compositeScore: Number(derivedComposite.toFixed(2)),
+    dimensions,
+    evidenceSummary,
+    attackNarrative,
+    uncertainty: asString(parsed.uncertainty),
+    benignFallbackRuledOut: asArray(parsed.benignFallbackRuledOut).map((item) => {
+      const record = asRecord(item);
+      return { fallback: asString(record.fallback), ruledOutBecause: asString(record.ruledOutBecause) };
+    }),
+    mitreTechniques: asArray(parsed.mitreTechniques).map(String),
+    evidenceRefs: {
+      candidateIds: asArray(evidenceRefs.candidateIds).map(String),
+      eventIds: asArray(evidenceRefs.eventIds).map(String),
+    },
+    scope: { host: asString(trigger.host) },
+  };
+
+  return { pass: errors.length === 0, errors, finding };
 }
 
 // Full candidate records (not the compact display view) so the model can cite real fields.
@@ -501,8 +608,8 @@ function buildTrace(
       phase: "execute",
       title: "Invoke the model to execute the skill",
       status: "ok",
-      detail: "The harness sends the skill procedure (system prompt) + the candidate evidence bundle (user prompt) to the model. The model reasons over the evidence and produces the DetectionFinding.",
-      result: "Streaming the model's DetectionFinding below.",
+      detail: "The harness sends the skill procedure (system prompt) + the candidate evidence bundle (user prompt) to the model. The model reasons over the evidence and emits a structured JSON DetectionFinding, which the harness then validates (the schema gate).",
+      result: "Streaming the model's JSON DetectionFinding below; the gate validates it into the typed object.",
     },
   ];
 }
@@ -592,9 +699,15 @@ export const POST: RequestHandler = async ({ request }) => {
             onToken: (token) => send({ type: "token", value: token }),
           });
 
+          // Deterministic schema gate (no LLM): parse + validate the model's JSON into the
+          // typed DetectionFinding. We send the raw model output, the gated typed object, and
+          // the gate result so the lesson can show all three.
+          const gate = gateDetectionFinding(result.text, skill, trigger);
           send({
             type: "finding",
-            text: result.text,
+            raw: result.text,
+            finding: gate.finding,
+            gate: { pass: gate.pass, errors: gate.errors },
             model: result.model,
             usage: result.usage ?? null,
           });

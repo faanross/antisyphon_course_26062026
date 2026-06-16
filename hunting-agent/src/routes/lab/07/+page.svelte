@@ -131,7 +131,9 @@
     | { type: "token"; value: string }
     | {
         type: "finding";
-        text: string;
+        raw: string;
+        finding: AssessmentFindingObject | null;
+        gate: { pass: boolean; errors: string[] };
         model: string;
         usage: Record<string, unknown> | null;
         assessmentType: string;
@@ -149,10 +151,36 @@
     | { type: "prompt"; systemPrompt: string; userPrompt: string }
     | { type: "model-start"; message: string }
     | { type: "token"; value: string }
-    | { type: "finding"; text: string; model: string; usage: Record<string, unknown> | null }
+    | { type: "finding"; raw: string; finding: DetectionFindingObject | null; gate: { pass: boolean; errors: string[] }; model: string; usage: Record<string, unknown> | null }
     | { type: "done" }
     | { type: "error"; message: string };
 
+  // The typed objects the gates produce (mirror the servers' GatedFinding / GatedAssessment).
+  // The model emits these as JSON; the readable cards render FROM them — they are NOT the model's
+  // output and NOT what the harness persists (the harness persists the object, not the prose).
+  type DetectionFindingObject = {
+    layer: "detection";
+    skillName: string;
+    candidateId: string;
+    verdict: "true_positive" | "false_positive" | "inconclusive";
+    compositeScore: number;
+    dimensions: { name: string; score: number; evidence: string }[];
+    evidenceSummary: string;
+    attackNarrative: string;
+    uncertainty: string;
+    benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];
+    mitreTechniques: string[];
+    evidenceRefs: { candidateIds: string[]; eventIds: string[] };
+    scope: { host: string };
+  };
+  type AssessmentFindingObject = {
+    layer: "assessment";
+    skillName: string;
+    assessmentType: "severity" | "behavioral_context";
+    basedOn: string;
+    severity: "Low" | "Medium" | "High" | "Critical" | null;
+    fields: { key: string; value: string }[];
+  };
 
   const LAB06_HANDOFF_KEY = "antisiphon.lab06.detectionFinding";
   const FALLBACK_DETECTION_SKILL = "skills/detection/hunt-c2-over-https.md";
@@ -175,7 +203,9 @@
   let systemPrompt = $state("");
   let userPrompt = $state("");
   let modelStreaming = $state(false);
-  let findingText = $state("");
+  let findingText = $state(""); // RAW model output (streamed JSON) — the model's actual output
+  let finding = $state<AssessmentFindingObject | null>(null); // typed object after the gate
+  let gate = $state<{ pass: boolean; errors: string[] } | null>(null); // schema-gate result
   let findingModel = $state("");
   let findingUsage = $state<Record<string, unknown> | null>(null);
   let findingAssessmentType = $state("");
@@ -185,7 +215,6 @@
   let promptTab = $state<"system" | "user">("system");
 
   const hasExecution = $derived(Boolean(executedSkill));
-  const findingBlocks = $derived(findingText ? parseMarkdown(findingText) : []);
 
   const assessmentSkills = $derived(skills.filter((skill) => skill.metadata.layer === "assessment"));
   const selectedAssessmentSkill = $derived(
@@ -310,7 +339,7 @@
 
     let detectionSkill: SkillSummary | null = null;
     let detectionEvidence: { trigger: CompactCandidate; related: CompactCandidate[] } | null = null;
-    let detectionFindingText = "";
+    let detectionTyped: DetectionFindingObject | null = null;
     let detectionModel = "";
     let streamError = "";
 
@@ -323,7 +352,7 @@
           detectionEvidence = { trigger: event.evidenceBundle.trigger, related: event.evidenceBundle.related };
           break;
         case "finding":
-          detectionFindingText = event.text;
+          detectionTyped = event.finding;
           detectionModel = event.model;
           break;
         case "error":
@@ -341,28 +370,28 @@
     const evidence = detectionEvidence as { trigger: CompactCandidate; related: CompactCandidate[] };
     const trigger = evidence.trigger;
 
-    // Mirror Lab 06's persistDetectionFinding() finding shape exactly.
-    const finding: Record<string, unknown> = {
-      kind: "DetectionFinding",
-      verdict: "Produced",
-      skill: skill.metadata.name,
-      compositeScore: trigger.score,
-      triggerCandidate: {
-        id: trigger.id,
-        type: trigger.type,
-        host: trigger.host,
-        destIp: trigger.destIp,
-        processName: trigger.processName,
-        score: trigger.score,
-      },
-      candidateId: trigger.id,
-      evidenceRefs: {
-        relatedCandidateIds: evidence.related.map((candidate) => candidate.id),
-        eventIds: trigger.eventIds,
-      },
-      findingText: detectionFindingText,
-      model: detectionModel,
+    // Mirror Lab 06's persistDetectionFinding(): the typed object the gate produced is the source
+    // of truth; we add kind + triggerCandidate only so the upstream-display can show a trigger line.
+    const triggerCandidate = {
+      id: trigger.id,
+      type: trigger.type,
+      host: trigger.host,
+      destIp: trigger.destIp,
+      processName: trigger.processName,
+      score: trigger.score,
     };
+    const finding: Record<string, unknown> = detectionTyped
+      ? { ...(detectionTyped as DetectionFindingObject), kind: "DetectionFinding", skill: skill.metadata.name, model: detectionModel, triggerCandidate }
+      : {
+          kind: "DetectionFinding",
+          verdict: "inconclusive",
+          skill: skill.metadata.name,
+          compositeScore: trigger.score,
+          candidateId: trigger.id,
+          triggerCandidate,
+          evidenceRefs: { candidateIds: evidence.related.map((candidate) => candidate.id), eventIds: trigger.eventIds },
+          model: detectionModel,
+        };
 
     const execution: DetectionExecution = { skill, finding };
 
@@ -370,7 +399,7 @@
       localStorage.setItem(
         LAB06_HANDOFF_KEY,
         JSON.stringify({
-          version: 1,
+          version: 2,
           source: "lab06-fallback",
           generatedAt: new Date().toISOString(),
           execution,
@@ -391,6 +420,8 @@
     userPrompt = "";
     modelStreaming = false;
     findingText = "";
+    finding = null;
+    gate = null;
     findingModel = "";
     findingUsage = null;
     findingAssessmentType = "";
@@ -421,7 +452,9 @@
         findingText += event.value;
         break;
       case "finding":
-        findingText = event.text;
+        findingText = event.raw;
+        finding = event.finding;
+        gate = event.gate;
         findingModel = event.model;
         findingUsage = event.usage;
         findingAssessmentType = event.assessmentType;
@@ -1209,8 +1242,10 @@
     </div>
 
     <p class="real-call-note">
-      The assessment procedure is the system prompt; the upstream finding plus the injected
-      context and evidence are the user prompt. The model reads them and writes the finding below.
+      The model's real output is the <strong>structured JSON object</strong> below — each judgement a
+      named field. The harness then <strong>validates it (the schema gate)</strong>, and the readable
+      card at the bottom is a <strong>deterministic rendering of the typed object</strong> — <em>not</em>
+      the model's output, and <em>not</em> what the harness persists (it persists the object).
     </p>
 
     {#if detectionBaseline}
@@ -1243,14 +1278,43 @@
       </p>
     {/if}
 
-    {#if findingText}
-      <div class="markdown-body finding-markdown">
-        {@render MarkdownView({ blocks: findingBlocks })}
+    <!-- 1 · the model's real output: the JSON AssessmentFinding (streams live) -->
+    <div class="finding-stage">
+      <span class="stage-label">1 · Model output — JSON <code>AssessmentFinding</code></span>
+      {#if findingText}
+        <pre class="finding-json">{findingText}</pre>
+      {:else if modelStreaming}
+        <p class="empty">Waiting for the first tokens from the model.</p>
+      {:else}
+        <p class="empty">No output yet.</p>
+      {/if}
+    </div>
+
+    <!-- 2 · the deterministic schema gate -->
+    {#if gate}
+      <div class="finding-stage">
+        <span class="stage-label">2 · Schema gate — deterministic, no LLM</span>
+        {#if gate.pass}
+          <p class="gate-pass">PASS — the JSON validates into the typed AssessmentFinding.</p>
+        {:else}
+          <p class="gate-fail">
+            REJECTED — {gate.errors.length} issue(s). In the real framework this triggers a correction retry:
+          </p>
+          <ul class="gate-errors">
+            {#each gate.errors as err}<li>{err}</li>{/each}
+          </ul>
+        {/if}
       </div>
-    {:else if modelStreaming}
-      <p class="empty">Waiting for the first tokens from the model.</p>
-    {:else}
-      <p class="empty">No finding text yet.</p>
+    {/if}
+
+    <!-- 3 · the readable rendering, FROM the typed object -->
+    {#if finding}
+      <div class="finding-stage">
+        <span class="stage-label">
+          3 · Rendered for reading — a deterministic view of the typed object (not the model output)
+        </span>
+        {@render RenderedAssessment({ finding })}
+      </div>
     {/if}
 
     {#if findingUsage}
@@ -1262,7 +1326,51 @@
   </article>
 {/snippet}
 
+{#snippet RenderedAssessment({ finding }: { finding: AssessmentFindingObject })}
+  <div class="rendered-finding">
+    <div class="rf-row">
+      <span class="rf-verdict rf-assess">{finding.assessmentType.replace("_", " ")}</span>
+      {#if finding.severity}
+        <span class="rf-sev rf-sev-{finding.severity.toLowerCase()}">{finding.severity}</span>
+      {/if}
+      <span class="rf-score">enriches <code>{finding.basedOn}</code></span>
+    </div>
+    {#each finding.fields as field}
+      <p class="rf-field"><span class="rf-key">{field.key}</span> {field.value}</p>
+    {/each}
+  </div>
+{/snippet}
+
 <style>
+  /* structure-first finding: model JSON -> gate -> rendered view */
+  .finding-stage { display: grid; gap: .45rem; margin-top: .7rem; }
+  .stage-label { font-family: var(--font-heading); font-size: .72rem; letter-spacing: .02em; color: var(--dracula-comment); }
+  .stage-label code { color: var(--dracula-cyan); }
+  .finding-json {
+    margin: 0; padding: .75rem .85rem; border-radius: 8px;
+    background: rgba(25, 26, 33, .82); border: 1px solid rgba(98, 114, 164, .42);
+    color: var(--dracula-fg); font-size: .76rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .gate-pass { margin: 0; font-size: .8rem; color: var(--dracula-green, #50fa7b); font-family: var(--font-heading); }
+  .gate-fail { margin: 0; font-size: .8rem; color: var(--dracula-pink); font-family: var(--font-heading); }
+  .gate-errors { margin: .3rem 0 0; padding-left: 1.1rem; display: grid; gap: .2rem; }
+  .gate-errors li { font-size: .76rem; color: var(--dracula-muted); }
+
+  .rendered-finding {
+    display: grid; gap: .55rem; padding: .85rem .9rem; border-radius: 9px;
+    background: rgba(189, 147, 249, 0.05); border: 1px solid rgba(189, 147, 249, .34);
+  }
+  .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+  .rf-verdict { font-family: var(--font-heading); font-size: .74rem; padding: .2rem .55rem; border-radius: 6px; text-transform: uppercase; letter-spacing: .03em; border: 1px solid rgba(98, 114, 164, .5); color: var(--dracula-purple); }
+  .rf-sev { font-family: var(--font-heading); font-size: .74rem; padding: .2rem .55rem; border-radius: 6px; border: 1px solid rgba(98, 114, 164, .5); }
+  .rf-sev-critical, .rf-sev-high { color: var(--dracula-pink); border-color: rgba(255, 121, 198, .6); }
+  .rf-sev-medium { color: var(--dracula-yellow, #f1fa8c); }
+  .rf-sev-low { color: var(--dracula-green, #50fa7b); }
+  .rf-score { font-size: .8rem; color: var(--dracula-muted); }
+  .rf-score code { color: var(--dracula-cyan); }
+  .rf-field { margin: 0; font-size: .82rem; color: var(--dracula-fg); }
+  .rf-key { font-family: var(--font-heading); font-size: .7rem; color: var(--dracula-purple); margin-right: .45rem; }
+
   main {
     width: min(1500px, calc(100% - 2rem));
     margin: 0 auto;
