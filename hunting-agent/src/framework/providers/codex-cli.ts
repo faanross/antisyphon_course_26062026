@@ -55,6 +55,9 @@ export function createCodexCliProvider(
       // codex exec --json exposes the final assistant message, but not token
       // deltas. The adapter still returns AsyncIterable chunks so the UI can
       // consume the same stream contract as the API-backed providers.
+      // Pass the prompt via stdin, not argv: Windows caps the command line at
+      // ~32K chars, and tool-heavy prompts (e.g. Lab 05's decide step) exceed it.
+      // `codex exec` reads instructions from stdin when no positional prompt is given.
       const child = spawn(
         binary,
         [
@@ -76,10 +79,11 @@ export function createCodexCliProvider(
           "shell_snapshot",
           "--model",
           model,
-          prompt,
         ],
-        { stdio: ["ignore", "pipe", "pipe"] },
+        { stdio: ["pipe", "pipe", "pipe"] },
       );
+      child.stdin.write(prompt);
+      child.stdin.end();
       let stderr = "";
       child.stderr.on("data", (chunk) => {
         stderr = `${stderr}${chunk.toString()}`.slice(-4000);
