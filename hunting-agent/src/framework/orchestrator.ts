@@ -13,6 +13,8 @@ import type { DetectionFinding, PipelineState } from "./types.js";
 export interface ProgressEvent {
   readonly stage: string;
   readonly message: string;
+  /** Optional structured payload for visualisations (the capstone orchestration graph). */
+  readonly data?: Record<string, unknown>;
 }
 
 // Fan-out / fan-in: load detection skills, pair each with every candidate that
@@ -32,34 +34,58 @@ export async function runDetectionFanOut(
     message: `Dispatching ${invocations.length} detection skill execution(s) concurrently: ${invocations
       .map((invocation) => `${invocation.skill.metadata.name} → ${invocation.trigger.candidate_id}`)
       .join(", ")}`,
+    // Structured plan so a visualiser can pre-create one node per worker before any completes.
+    data: {
+      invocations: invocations.map((invocation) => ({
+        id: `${invocation.skill.metadata.name}::${invocation.trigger.candidate_id}`,
+        skill: invocation.skill.metadata.name,
+        candidateId: invocation.trigger.candidate_id,
+      })),
+    },
   });
 
   const provider = getProvider();
+  // Emit each worker's result the moment IT resolves (not after the whole batch), so the graph
+  // animates real concurrency — nodes light up as their model call returns.
   const settled = await Promise.allSettled(
-    invocations.map((invocation) => executeDetectionInvocation(provider, invocation)),
+    invocations.map(async (invocation) => {
+      const id = `${invocation.skill.metadata.name}::${invocation.trigger.candidate_id}`;
+      try {
+        const value = await executeDetectionInvocation(provider, invocation);
+        onProgress({
+          stage: "worker",
+          message: `${invocation.skill.metadata.name} on ${invocation.trigger.candidate_id} → ${value.finding.verdict} (${value.finding.compositeScore.toFixed(2)})`,
+          data: {
+            id,
+            skill: invocation.skill.metadata.name,
+            candidateId: invocation.trigger.candidate_id,
+            verdict: value.finding.verdict,
+            score: Number(value.finding.compositeScore.toFixed(2)),
+          },
+        });
+        return value;
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        onProgress({
+          stage: "worker-error",
+          message: `${invocation.skill.metadata.name} on ${invocation.trigger.candidate_id} failed: ${reason}`,
+          data: { id, skill: invocation.skill.metadata.name, candidateId: invocation.trigger.candidate_id, error: true },
+        });
+        throw err;
+      }
+    }),
   );
 
   const findings: DetectionFinding[] = [];
   let model = "";
-  settled.forEach((outcome, index) => {
-    const invocation = invocations[index];
+  settled.forEach((outcome) => {
     if (outcome.status === "fulfilled") {
       findings.push(outcome.value.finding);
       model = outcome.value.model || model;
-      onProgress({
-        stage: "worker",
-        message: `${invocation.skill.metadata.name} on ${invocation.trigger.candidate_id} → ${outcome.value.finding.verdict} (${outcome.value.finding.compositeScore.toFixed(2)})`,
-      });
-    } else {
-      const reason = outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-      onProgress({
-        stage: "worker-error",
-        message: `${invocation.skill.metadata.name} on ${invocation.trigger.candidate_id} failed: ${reason}`,
-      });
     }
   });
 
-  onProgress({ stage: "fan-in", message: `Collected ${findings.length} detection finding(s)` });
+  onProgress({ stage: "fan-in", message: `Collected ${findings.length} detection finding(s)`, data: { count: findings.length } });
   return { findings, model };
 }
 

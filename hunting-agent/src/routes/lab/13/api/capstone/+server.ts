@@ -23,7 +23,7 @@ export const POST: RequestHandler = async () => {
           // The full hunt, end to end, on REAL model output: fan-out detection findings,
           // shared entity graph, graph-grounded narrative, and the assembled report + notification.
           const { findings, narrative, graph } = await runInvestigationState("capstone", (ev) =>
-            send({ type: "progress", stage: ev.stage, message: ev.message }),
+            send({ type: "progress", stage: ev.stage, message: ev.message, data: ev.data }),
           );
 
           send({ stage: "report", type: "progress", message: "Assembling final report and notification" });
