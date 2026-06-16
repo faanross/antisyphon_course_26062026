@@ -46,6 +46,11 @@ export function createClaudeCodeProvider(
       // ~32K chars, and tool-heavy prompts (e.g. Lab 05's decide step) exceed it.
       const child = spawn(binary, args, {
         stdio: ["pipe", "pipe", "pipe"],
+        // Detection/assessment/narrative are structured-extraction + rubric tasks, not open-ended
+        // reasoning. Sonnet's adaptive extended thinking adds ~75s per call here and is never shown
+        // to the student (only text_delta is forwarded below) — pure hidden latency. Disable it by
+        // default; override by setting MAX_THINKING_TOKENS in the environment if a lab wants it.
+        env: { ...process.env, MAX_THINKING_TOKENS: process.env.MAX_THINKING_TOKENS ?? "0" },
       });
       child.stdin.write(combined);
       child.stdin.end();
