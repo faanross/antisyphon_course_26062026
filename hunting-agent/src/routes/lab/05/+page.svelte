@@ -621,7 +621,7 @@
           <p class="cv-lead">You trade tokens for round-trips and a good index:</p>
           <div class="scl-tradeoff">
             <div class="scl-col scl-win"><h4>You gain</h4><ul><li>far fewer tokens per call</li><li>cost stops growing with every server</li></ul></div>
-            <div class="scl-col scl-cost"><h4>You pay</h4><ul><li>extra model turns (discover → load → call) = more latency</li><li>the model can only pick what the index makes legible — terse descriptions hide tools</li><li>harder to eval/debug than one-shot tool-use</li></ul></div>
+            <div class="scl-col scl-cost"><h4>You pay</h4><ul><li>extra model turns (discover → load → call) = more latency</li><li>the model can only pick what the index makes legible — terse descriptions hide tools</li><li>harder to test and debug than one-shot tool-use</li></ul></div>
           </div>
           <p class="cv-note">Worth it exactly when you have many servers — increasingly the norm.</p>
         </details>

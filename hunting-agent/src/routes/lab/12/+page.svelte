@@ -142,7 +142,7 @@
               <p>
                 The <strong>Final Report</strong> panel shows the Markdown written to
                 <code>reports/</code> — metadata, the narrative as executive summary, the confirmed
-                finding, the verdicts, and eval results. It's the durable artifact a human reads.
+                finding, and the verdicts. It's the durable artifact a human reads.
               </p>
             </div>
           </li>
@@ -268,7 +268,7 @@
               <span class="flow-rail"><RocketLaunchIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Run the real investigation</span><span class="flow-where">server · orchestrator.ts</span></div>
-                <p><code>runInvestigationState()</code> produces the findings, graph, and narrative (the model calls from Labs 09–11), then evals run over the result.</p>
+                <p><code>runInvestigationState()</code> produces the findings, graph, and narrative — the model calls from Labs 09–11.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 90ms">
@@ -282,7 +282,7 @@
               <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Build &amp; save the report</span><span class="flow-badge">the artifact</span><span class="flow-where">server · report.ts</span></div>
-                <p><code>buildFinalReport()</code> assembles a Markdown report — metadata, the narrative as executive summary, the confirmed finding, verdicts, and eval results — and <code>saveFinalReport()</code> writes it to <code>reports/</code>.</p>
+                <p><code>buildFinalReport()</code> assembles a Markdown report — metadata, the narrative as executive summary, the confirmed finding, and verdicts — and <code>saveFinalReport()</code> writes it to <code>reports/</code>.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -336,7 +336,7 @@
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><FileTextIcon size={26} weight="duotone" /><h4>The report is assembled, not improvised</h4></div>
-              <p>Building the report is deterministic templating over real outputs — verdicts, evals, and the model's narrative as the executive summary. The same investigation always yields the same document.</p>
+              <p>Building the report is deterministic templating over real outputs — verdicts and the model's narrative as the executive summary. The same investigation always yields the same document.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><PlugsConnectedIcon size={26} weight="duotone" /><h4>Notifications use a swappable adapter</h4></div>

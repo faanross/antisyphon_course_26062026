@@ -76,7 +76,7 @@ export async function runInvestigation(
 
 // Runs the real investigation and folds its REAL findings + narrative into a
 // PipelineState, recording each verdict as structured feedback. This is what the
-// downstream labs (feedback/report, eval harness, capstone) evaluate — real model
+// downstream labs (feedback/report, capstone) consume — real model
 // output, never a hand-seeded mock analysis.
 export async function runInvestigationState(
   sessionId: string,

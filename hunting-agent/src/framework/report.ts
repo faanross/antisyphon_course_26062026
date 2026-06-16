@@ -1,6 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { EvalResult } from "./evals.js";
 import type { VerdictRecord } from "./feedback.js";
 
 export interface FinalReport {
@@ -38,23 +37,12 @@ function renderVerdicts(verdicts: readonly VerdictRecord[]): string {
     .join("\n");
 }
 
-function renderEvals(evals: readonly EvalResult[]): string {
-  return evals
-    .map((row) => `| ${row.id} | ${row.category} | ${row.passed ? "PASS" : "FAIL"} | ${row.detail} |`)
-    .join("\n");
-}
-
 export function buildFinalReport(input: {
   readonly verdicts: readonly VerdictRecord[];
-  readonly evals?: readonly EvalResult[];
   readonly narrative?: string;
   readonly generatedAt?: string;
 }): FinalReport {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
-  // evals are optional — the capstone omits them; Lab 12 still supplies them.
-  const evals = input.evals ?? [];
-  const hasEvals = evals.length > 0;
-  const passed = evals.filter((row) => row.passed).length;
   const truePositive = input.verdicts.find((row) => row.verdict === "true_positive");
   // Prefer the model-generated campaign narrative; fall back to the static summary
   // only when no narrative was supplied (e.g. report built outside an investigation).
@@ -73,7 +61,7 @@ BEA-002 was intentionally retained as a high-scoring false positive. Its CrowdFa
 - **Scenario:** Poisoned Coding Assistant
 - **Primary candidate:** ${truePositive?.candidateId ?? "None confirmed"}
 - **Final verdict:** ${truePositive ? "Confirmed compromise" : "No true positive confirmed"}
-${hasEvals ? `- **Eval result:** ${passed}/${evals.length} checks passed\n` : ""}
+
 ## Executive Summary
 
 ${executiveSummary}
@@ -111,13 +99,7 @@ ${executiveSummary}
 |---|---|---|
 ${renderVerdicts(input.verdicts)}
 
-${hasEvals ? `## Eval Results
-
-| Check | Category | Status | Detail |
-|---|---|---|---|
-${renderEvals(evals)}
-
-` : ""}## Recommended Actions
+## Recommended Actions
 
 1. Isolate DEV-WS03 and preserve volatile evidence.
 2. Block 185.225.73.217 at the egress boundary.

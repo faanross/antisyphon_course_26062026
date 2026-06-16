@@ -31,11 +31,11 @@
       ],
     },
     {
-      title: "Evals and feedback",
+      title: "Feedback loops",
       icon: BookOpenTextIcon,
       items: [
-        "Expand task, dataset, and scorer coverage before changing prompts, tools, or skills.",
         "Treat analyst verdicts, false positives, reports, and notifications as structured feedback data.",
+        "Feed that signal back to tune candidates, skills, and thresholds over time.",
       ],
     },
   ];
@@ -45,11 +45,6 @@
       label: "Anthropic — Building Effective Agents",
       url: "https://www.anthropic.com/engineering/building-effective-agents",
       note: "Harness patterns, bounded autonomy, and practical agent design.",
-    },
-    {
-      label: "Anthropic — Demystifying Evals for AI Agents",
-      url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
-      note: "Task, dataset, scorer, and the eval improvement loop.",
     },
     {
       label: "Detection at Scale",
@@ -88,7 +83,6 @@
     "Which context is injected, retrieved, or withheld?",
     "Which outputs are accepted by schema?",
     "Which human decision points remain explicit?",
-    "Which evals prove the behavior is stable?",
     "Which logs let you reconstruct what happened?",
   ];
 </script>
@@ -169,7 +163,7 @@
   <section class="closing">
     <h2>Keep the primitives</h2>
     <p>
-      State, tools, skills, context, orchestration, graph memory, feedback, and evals
+      State, tools, skills, context, orchestration, graph memory, and feedback
       are the reusable design pieces. Add one piece at a time, measure the behavior,
       and keep every important output inspectable.
     </p>
