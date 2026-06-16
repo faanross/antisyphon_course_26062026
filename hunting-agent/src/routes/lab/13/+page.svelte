@@ -19,15 +19,58 @@
     notification: { channel: string; delivered: boolean; detail: string };
   };
 
+  type ProgressLine = { stage: string; message: string };
+  type StreamEvent =
+    | { type: "progress"; stage: string; message: string }
+    | { type: "result"; result: Result }
+    | { type: "error"; message: string }
+    | { type: "done" };
+
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
   let result = $state<Result | null>(null);
+  let progress = $state<ProgressLine[]>([]);
+  let runError = $state("");
   let busy = $state(false);
+
+  function applyEvent(event: StreamEvent) {
+    if (event.type === "progress") progress = [...progress, { stage: event.stage, message: event.message }];
+    else if (event.type === "result") result = event.result;
+    else if (event.type === "error") runError = event.message;
+  }
 
   async function run() {
     busy = true;
-    const response = await fetch("/lab/13/api/capstone", { method: "POST" });
-    result = await response.json();
-    busy = false;
+    result = null;
+    progress = [];
+    runError = "";
+    try {
+      const response = await fetch("/lab/13/api/capstone", { method: "POST" });
+      if (!response.ok) throw new Error(`Capstone API returned HTTP ${response.status}`);
+      if (!response.body) throw new Error("Capstone API returned an empty stream.");
+
+      // Read the NDJSON stream: split on newlines, parse each complete line, buffer the partial tail.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line) applyEvent(JSON.parse(line) as StreamEvent);
+          newlineIndex = buffer.indexOf("\n");
+        }
+      }
+      const tail = buffer.trim();
+      if (tail) applyEvent(JSON.parse(tail) as StreamEvent);
+    } catch (err) {
+      runError = err instanceof Error ? err.message : "Capstone run failed";
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
@@ -163,6 +206,25 @@
       </div>
     </div>
   {:else if activeTab === "lab"}
+  {#if runError}
+    <section class="panel error"><h2>Run failed</h2><p>{runError}</p></section>
+  {/if}
+  {#if progress.length}
+    <section class="panel">
+      <h2>Pipeline Progress</h2>
+      <ol class="progress-log">
+        {#each progress as line}
+          <li class:done={line.stage === "done"}>
+            <span class="stage">{line.stage}</span>
+            <span class="msg">{line.message}</span>
+          </li>
+        {/each}
+        {#if busy}
+          <li class="running"><span class="stage">…</span><span class="msg">running</span></li>
+        {/if}
+      </ol>
+    </section>
+  {/if}
   {#if result}
     <section class="panel">
       <h2>Integrated Result</h2>
@@ -334,6 +396,15 @@
   article strong { color: #8be9fd; font-size: 2rem; }
   article span { color: rgba(255,255,255,.58); }
   pre { white-space: pre-wrap; color: rgba(255,255,255,.76); }
+  .panel.error { border-color: rgba(255,85,85,.5); }
+  .panel.error p { color: #ff8b8b; }
+  .progress-log { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; font-family: var(--font-mono, ui-monospace, monospace); }
+  .progress-log li { display: grid; grid-template-columns: 7.5rem 1fr; gap: .75rem; align-items: baseline; padding: .4rem .6rem; border: 1px solid rgba(255,255,255,.08); border-radius: 4px; background: rgba(255,255,255,.02); }
+  .progress-log .stage { color: #bd93f9; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; }
+  .progress-log .msg { color: rgba(255,255,255,.78); font-size: .86rem; }
+  .progress-log li.done { border-color: rgba(80,250,123,.4); }
+  .progress-log li.done .stage { color: #50fa7b; }
+  .progress-log li.running .stage, .progress-log li.running .msg { color: #f5e663; }
   @media (max-width: 850px) { .stats { grid-template-columns: 1fr 1fr; } }
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top { display: flex; gap: 0; border-bottom: 1px solid #1a1a2e; margin-bottom: 1rem; }
