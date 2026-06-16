@@ -16,6 +16,7 @@ type Candidate = JsonRecord & {
   candidate_id?: string;
   type?: string;
   host?: string;
+  user?: string;
   src_ip?: string;
   dest_ip?: string;
   dest_port?: number;
@@ -43,14 +44,18 @@ type CorrelationSpec = {
 
 type ContextRequirement = {
   id: string;
-  mode: "static" | "retrieval" | string;
-  path: string;
+  mode: "static" | "resolve" | "retrieval" | string;
+  path: string; // mode:static — a fixed, org-wide file (e.g. an escalation policy)
+  entity?: string; // mode:resolve — which finding entity to key off (host | user | subnet)
+  layer?: string; // mode:resolve — the context layer directory to look in
+  suffix?: string; // mode:resolve — optional filename suffix (e.g. "-history")
   reason: string;
 };
 
 type ResolvedContext = ContextRequirement & {
   content: string;
   approxTokens: number;
+  resolvedFrom?: string; // mode:resolve — the entity value it resolved to (e.g. "host=dev-ws03")
 };
 
 type TraceStep = {
@@ -261,18 +266,28 @@ function contextRequirements(metadata: SkillMetadata): ContextRequirement[] {
       id: asString(record.id || `context-${index + 1}`),
       mode: asString(record.mode || "static"),
       path: asString(record.path),
+      entity: record.entity ? asString(record.entity) : undefined,
+      layer: record.layer ? asString(record.layer) : undefined,
+      suffix: record.suffix ? asString(record.suffix) : undefined,
       reason: asString(record.reason || "Required by skill frontmatter."),
     };
   });
 }
 
+// Assessment context is one of two kinds:
+//   mode:static  — a fixed, org-wide file (escalation policy, evidence-preservation): identical for EVERY finding.
+//   mode:resolve — entity-scoped: the asset / user / incident-history file FOR THE FINDING'S entities.
+//                  The skill declares WHICH entity + layer; the harness deterministically picks the right
+//                  file from the finding — it is NOT pinned in the YAML. (Workshop note: there is a single
+//                  scenario, so it resolves to dev-ws03 / jane-roberts — but the mechanism is the production
+//                  one: resolve by entity key from the finding, never hardcode the host/user in the skill.)
 function isLab06AssessmentSkill(skill: SkillDocument): boolean {
   const requirements = contextRequirements(skill.metadata);
   return (
     skill.metadata.layer === "assessment" &&
     skill.path.startsWith("skills/assessment/") &&
     requirements.length > 0 &&
-    requirements.every((requirement) => requirement.mode === "static")
+    requirements.every((requirement) => requirement.mode === "static" || requirement.mode === "resolve")
   );
 }
 
@@ -281,7 +296,7 @@ function assertLab06AssessmentSkill(skill: SkillDocument) {
     throw error(400, "Lab 07 only executes assessment skills.");
   }
   if (!isLab06AssessmentSkill(skill)) {
-    throw error(400, "Lab 07 only runs assessment skills with static context requirements. Retrieval-backed skills move to Lab 08.");
+    throw error(400, "Lab 07 runs assessment skills whose context is static or entity-resolved. Retrieval-backed skills move to Lab 08.");
   }
 }
 
@@ -290,7 +305,50 @@ function approxTokens(content: string): number {
   return Math.max(1, Math.ceil(words * 1.35));
 }
 
-async function resolveContextRequirement(requirement: ContextRequirement): Promise<ResolvedContext> {
+// Deterministically derive the entity keys the resolver uses, from the finding's trigger candidate.
+// host "DEV-WS03" -> "dev-ws03"; user "NORTHWIND\\jane.roberts" -> "jane-roberts"; src_ip -> a subnet slug.
+function slugifyEntity(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^[^\\]*\\/, "") // strip a leading DOMAIN\ from a user principal
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function findingEntities(candidate: Candidate): Record<string, string> {
+  const ip = asString(candidate.src_ip);
+  const subnet = ip ? `subnet-${ip.split(".").slice(0, 3).join("-")}` : "";
+  return {
+    host: slugifyEntity(asString(candidate.host)),
+    user: slugifyEntity(asString(candidate.user)),
+    subnet,
+  };
+}
+
+async function resolveContextRequirement(
+  requirement: ContextRequirement,
+  entities: Record<string, string>,
+): Promise<ResolvedContext> {
+  // Entity-scoped context: pick the file for the FINDING'S entity — deterministic, never hardcoded.
+  if (requirement.mode === "resolve") {
+    const entityKey = requirement.entity ?? "";
+    const entityValue = entities[entityKey] ?? "";
+    if (!entityValue) {
+      throw error(400, `Could not resolve entity '${entityKey}' from the finding for context '${requirement.id}'.`);
+    }
+    const builtPath = `context/layers/${requirement.layer ?? "layer_1_assets"}/${entityValue}${requirement.suffix ?? ""}.md`;
+    const normalizedPath = normalizeContextPath(builtPath);
+    const content = await readTextFile(normalizedPath);
+    return {
+      ...requirement,
+      path: normalizedPath,
+      content,
+      approxTokens: approxTokens(content),
+      resolvedFrom: `${entityKey}=${entityValue}`,
+    };
+  }
+
   if (requirement.mode !== "static") {
     throw error(400, `Lab 07 cannot resolve ${requirement.mode} context. Use Lab 08 for retrieval-backed context.`);
   }
@@ -305,15 +363,20 @@ async function resolveContextRequirement(requirement: ContextRequirement): Promi
   };
 }
 
-async function resolveContextBundle(skill: SkillDocument) {
-  const schema = await resolveContextRequirement({
-    id: "schema.candidate-field-guide",
-    mode: "static",
-    path: FIELD_GUIDE_PATH,
-    reason: "Shared candidate field definitions used by all assessment skills.",
-  });
+async function resolveContextBundle(skill: SkillDocument, entities: Record<string, string>) {
+  const schema = await resolveContextRequirement(
+    {
+      id: "schema.candidate-field-guide",
+      mode: "static",
+      path: FIELD_GUIDE_PATH,
+      reason: "Shared candidate field definitions used by all assessment skills.",
+    },
+    entities,
+  );
 
-  const requirements = await Promise.all(contextRequirements(skill.metadata).map(resolveContextRequirement));
+  const requirements = await Promise.all(
+    contextRequirements(skill.metadata).map((requirement) => resolveContextRequirement(requirement, entities)),
+  );
   return { schema, requirements };
 }
 
@@ -596,7 +659,7 @@ function buildTrace(
       phase: "discover",
       title: "Discover assessment catalog",
       status: "ok",
-      detail: "The harness loaded Markdown skills and filtered to static-context assessment skills for Lab 07.",
+      detail: "The harness loaded Markdown skills and filtered to assessment skills whose context is static or entity-resolved for Lab 07.",
       result: `Selected ${skill.metadata.name}.`,
     },
     {
@@ -612,10 +675,14 @@ function buildTrace(
       phase: "context",
       title: "Resolve declared context",
       status: "ok",
-      detail: contextRequirements(skill.metadata)
-        .map((requirement) => `${requirement.id} -> ${requirement.path}`)
+      detail: contextBundle.requirements
+        .map((requirement) =>
+          requirement.mode === "resolve"
+            ? `${requirement.id} [resolve ${requirement.resolvedFrom}] -> ${requirement.path}`
+            : `${requirement.id} [static] -> ${requirement.path}`,
+        )
         .join("; "),
-      result: `${contextBundle.requirements.length} task context file(s), ${contextBundle.schema.approxTokens} schema-token estimate, ${contextBundle.requirements.reduce((sum, item) => sum + item.approxTokens, 0)} task-token estimate.`,
+      result: `${contextBundle.requirements.length} task context file(s), ${contextBundle.schema.approxTokens} schema-token estimate, ${contextBundle.requirements.reduce((sum, item) => sum + item.approxTokens, 0)} task-token estimate. Entity-scoped files were chosen deterministically from the finding (${trigger.host ?? "?"} / ${trigger.user ?? "?"}), not hardcoded in the skill.`,
     },
     {
       step: 4,
@@ -650,12 +717,15 @@ async function loadWorkshopState() {
 
 export const GET: RequestHandler = async () => {
   const { skills, candidates } = await loadWorkshopState();
-  const schema = await resolveContextRequirement({
-    id: "schema.candidate-field-guide",
-    mode: "static",
-    path: FIELD_GUIDE_PATH,
-    reason: "Shared candidate field definitions used by all assessment skills.",
-  });
+  const schema = await resolveContextRequirement(
+    {
+      id: "schema.candidate-field-guide",
+      mode: "static",
+      path: FIELD_GUIDE_PATH,
+      reason: "Shared candidate field definitions used by all assessment skills.",
+    },
+    {},
+  );
   const guide = parseFieldGuide(await readTextFile(FIELD_GUIDE_PATH));
   const candidateReference = buildAssessmentCandidateReference(guide);
   const byType = candidates.reduce<Record<string, number>>((counts, candidate) => {
@@ -693,8 +763,10 @@ export const POST: RequestHandler = async ({ request }) => {
   assertLab06AssessmentSkill(skill);
 
   const upstreamFinding = asRecord(body.upstreamFinding);
-  const contextBundle = await resolveContextBundle(skill);
   const { trigger, relatedGroups, related, resolutionNote } = chooseAssessmentEvidence(upstreamFinding, candidates);
+  // Entity-scoped context resolves from the FINDING's own entities — not from anything pinned in the skill.
+  const entities = findingEntities(trigger);
+  const contextBundle = await resolveContextBundle(skill, entities);
   const bundle = uniqueCandidates([trigger, ...related]);
   const rawEvents = collectEvents(bundle, events);
   const trace = buildTrace(skill, trigger, relatedGroups, contextBundle, bundle, rawEvents, resolutionNote);

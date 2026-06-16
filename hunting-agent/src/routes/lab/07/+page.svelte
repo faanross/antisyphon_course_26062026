@@ -21,12 +21,16 @@
     id: string;
     mode: string;
     path: string;
+    entity?: string;
+    layer?: string;
+    suffix?: string;
     reason: string;
   };
 
   type ResolvedContext = ContextRequirement & {
     content: string;
     approxTokens: number;
+    resolvedFrom?: string;
   };
 
   type SkillMetadata = {
@@ -581,9 +585,10 @@
                 <span class="flow-where">panel 03 · Context Resolution</span>
               </div>
               <p>
-                Panel <strong>03</strong> lists the exact org-context files the skill declared — asset
-                records, escalation policy, incident history — plus the shared field guide. This is the
-                <strong>net-new input</strong> a detection alone never had.
+                Panel <strong>03</strong> lists the exact org-context files in play — the org-wide ones
+                the skill named directly (escalation policy) and the entity-scoped ones the harness
+                resolved <em>from this finding</em> (the host's asset record and incident history) — plus
+                the shared field guide. This is the <strong>net-new input</strong> a detection alone never had.
               </p>
             </div>
           </li>
@@ -729,6 +734,11 @@
               <details>
                 <summary>
                   <span>{contextFile.id}</span>
+                  {#if contextFile.mode === "resolve"}
+                    <small class="ctx-resolve">resolved · {contextFile.resolvedFrom}</small>
+                  {:else}
+                    <small class="ctx-static">static · org-wide</small>
+                  {/if}
                   <small>{contextFile.approxTokens} est. tokens</small>
                 </summary>
                 <pre>{contextFile.content}</pre>
@@ -922,21 +932,21 @@
               <span class="flow-rail"><ListMagnifyingGlassIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Discover assessment skills</span><span class="flow-where">server · skill-loader.ts</span></div>
-                <p>The harness lists skills and keeps the <code>layer: assessment</code> ones with static context. (Retrieval-backed skills are Lab 08.)</p>
+                <p>The harness lists skills and keeps the <code>layer: assessment</code> ones whose context is static or entity-resolved. (Retrieval-backed skills are Lab 08.)</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 90ms">
               <span class="flow-rail"><BracketsCurlyIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Inspect inputs &amp; context requirements</span><span class="flow-where">server · api/skills</span></div>
-                <p>The frontmatter declares its input (a <code>DetectionFinding</code>) and a list of <code>contextRequirements</code> — each with an <code>id</code>, a <code>mode</code>, and a file <code>path</code>.</p>
+                <p>The frontmatter declares its input (a <code>DetectionFinding</code>) and a list of <code>contextRequirements</code> — each with a <code>mode</code>: a <code>static</code> file <code>path</code>, or a <code>resolve</code> entity + layer the harness fills in from the finding.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 180ms">
               <span class="flow-rail"><FoldersIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Resolve &amp; inject the context</span><span class="flow-badge">the key step</span><span class="flow-where">server · api/skills</span></div>
-                <p><code>resolveContextBundle()</code> reads each declared file — asset record, escalation policy, incident history — plus the shared field guide. These become the injected context bundle.</p>
+                <p><code>resolveContextBundle()</code> reads each requirement. Org-wide ones (escalation policy) are fixed paths; entity-scoped ones (the host's asset record, its incident history) are resolved from the finding's own host/user/subnet — deterministically, never hardcoded. Plus the shared field guide. These become the injected bundle.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -1019,8 +1029,8 @@
               </div>
             </article>
             <article class="cv-card">
-              <div class="cv-card-head"><GitBranchIcon size={26} weight="duotone" /><h4>Static now, retrieval next</h4></div>
-              <p>Each requirement has a <code>mode</code>. This lab only resolves <code>static</code> — fixed file paths. When the right context isn't known in advance, you retrieve it instead — that's Lab 08 (RAG).</p>
+              <div class="cv-card-head"><GitBranchIcon size={26} weight="duotone" /><h4>The skill declares <em>what</em>, not <em>which</em></h4></div>
+              <p>Each requirement has a <code>mode</code>. <code>static</code> is one fixed org-wide file (the escalation policy is the same for every finding). <code>resolve</code> is entity-scoped: the skill says "the asset profile for <em>this finding's host</em>" — the harness picks the file deterministically from the finding, never a hardcoded host. When you can't even name the entities ahead of time, you retrieve — Lab 08 (RAG).</p>
             </article>
           </div>
         </details>
@@ -1390,6 +1400,16 @@
     display: grid;
     gap: .85rem;
   }
+
+  small.ctx-resolve, small.ctx-static {
+    font-family: var(--font-mono, monospace);
+    font-size: .68rem;
+    font-weight: 700;
+    padding: .1rem .4rem;
+    border-radius: 4px;
+  }
+  small.ctx-resolve { color: var(--dracula-green, #50fa7b); background: rgba(80, 250, 123, 0.12); }
+  small.ctx-static { color: var(--dracula-comment, #6272a4); background: rgba(98, 114, 164, 0.16); }
 
   .flow-card, .panel, .picker, .trace article, .context-list article, .narrative {
     min-width: 0;

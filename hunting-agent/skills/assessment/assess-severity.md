@@ -6,22 +6,25 @@ description: "Assess operational severity of a DetectionFinding using business a
 inputs:
   - "DetectionFinding (primary)"
 contextRequirements:
-  - id: asset.dev-ws03
-    mode: static
-    path: context/layers/layer_1_assets/dev-ws03.md
-    reason: "Host role, criticality, owner team, and blast radius."
+  - id: asset.host
+    mode: resolve
+    entity: host
+    layer: layer_1_assets
+    reason: "Host role, criticality, owner team, and blast radius, for the host named in the finding."
   - id: compliance.escalation-policy
     mode: static
     path: context/layers/layer_2_compliance/escalation-policy.md
-    reason: "Severity-to-response mapping and escalation deadlines."
+    reason: "Severity-to-response mapping and escalation deadlines (org-wide)."
   - id: compliance.evidence-preservation
     mode: static
     path: context/layers/layer_2_compliance/evidence-preservation.md
-    reason: "Evidence handling constraints before containment."
-  - id: incidents.dev-ws03-history
-    mode: static
-    path: context/layers/layer_5_incidents/dev-ws03-history.md
-    reason: "Prior host-specific investigation history."
+    reason: "Evidence handling constraints before containment (org-wide)."
+  - id: incidents.host-history
+    mode: resolve
+    entity: host
+    layer: layer_5_incidents
+    suffix: "-history"
+    reason: "Prior investigation history for the host named in the finding."
 ---
 
 # Objective
