@@ -151,6 +151,24 @@
   let findingModel = $state("");
   let findingUsage = $state<Record<string, unknown> | null>(null);
 
+  // The typed object a detection skill emits — shown verbatim in the Code tab. Held as a string so
+  // the braces aren't parsed as Svelte interpolation.
+  const DETECTION_FINDING_TYPE = `type DetectionFinding = {
+  layer: "detection";
+  skillName: string;            // which skill judged
+  candidateId: string;          // which candidate it judged
+  verdict: "true_positive" | "false_positive" | "inconclusive";
+  compositeScore: number;       // = max(dimensions[].score), never an average
+  dimensions: { name: string; score: number; evidence: string }[];
+  evidenceSummary: string;      // ┐
+  attackNarrative: string;      // │ the reasoning the model adds —
+  uncertainty: string;          // │ each in its own named field
+  benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];  // ┘
+  mitreTechniques: string[];    // ATT&CK techniques asserted, with basis
+  evidenceRefs: { candidateIds: string[]; eventIds: string[] };  // back to the evidence
+  scope: { host: string };      // where it happened
+};`;
+
   // Active tab within the glass cards that hold more than one peer view.
   let activeTab = $state<"instructions" | "lab" | "targeting" | "scoring" | "code" | "author">("instructions");
   let skillTab = $state<"frontmatter" | "procedure" | "reference">("frontmatter");
@@ -353,13 +371,17 @@
       <div class="code-inner">
         <header class="cv-hero">
           <span class="cv-eyebrow">Lab 06 · Walkthrough</span>
-          <h2>Run a detection skill — a procedure written in Markdown</h2>
+          <h2>Run a detection skill — where signals become a verdict</h2>
           <p>
-            This is where <strong>skills</strong> arrive. A detection skill is just a Markdown
-            file with a YAML header: the header declares what it targets and how it scores, and
-            the body is the step-by-step procedure the model follows. You pick one, see exactly
-            what it instructs, run it against the distilled candidates, and watch it emit a
-            structured <strong>DetectionFinding</strong> — a verdict with evidence.
+            The candidates the pipeline produced are statistics — a beacon score, a rarity number.
+            They are <em>signals, not verdicts</em>. A detection skill is where an agent judges one
+            candidate against a hypothesis and adds the meaning those numbers can't carry on their
+            own: it <strong>fuses the correlated evidence</strong>, <strong>rules out the benign
+            explanations</strong> (EDR, an update service, ordinary browsing), writes the
+            <strong>attack narrative</strong>, calibrates what is still uncertain, and maps the
+            activity to <strong>MITRE</strong> with its basis. What streams out is a structured
+            <strong>DetectionFinding</strong> — not just a score, but a verdict with the reasoning
+            behind it.
           </p>
         </header>
 
@@ -375,7 +397,7 @@
               <p>
                 Go to the <strong>Lab</strong> tab and choose a skill from the catalog (start with
                 <code>hunt-c2-over-https</code>). Each card is a real <code>.md</code> file the
-                harness discovered on disk — nothing is hard-coded.
+                harness discovered on disk.
               </p>
             </div>
           </li>
@@ -407,8 +429,8 @@
               </div>
               <p>
                 Hit <strong>Run Detection Skill</strong>. The harness picks the target candidate
-                automatically, parses the skill into a <strong>system + user prompt</strong> (step
-                02 — a real model call), and the model works the procedure. Watch the
+                automatically, parses the skill into a <strong>system + user prompt</strong>, and the
+                model works the procedure. Watch the
                 <strong>DetectionFinding</strong> stream out in step 03.
               </p>
             </div>
@@ -985,9 +1007,47 @@ compositeScore = max(beacon, intel, tls)</code></pre>
           </p>
         </details>
 
-        <!-- C · Four ideas -->
+        <!-- C · The finding it emits -->
         <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">C</span> Four ideas worth understanding<span class="cv-chev" aria-hidden="true">▸</span></summary>
+          <summary class="cv-h3"><span class="cv-num">C</span> The finding it emits — the <code>DetectionFinding</code> shape<span class="cv-chev" aria-hidden="true">▸</span></summary>
+          <p class="cv-lead">
+            Detection's output is one typed object. The reasoning lives in <strong>named fields</strong>,
+            not a prose blob: the model fills them in, the deterministic schema gate validates the shape,
+            and the readable card in step 03 is rendered <em>from</em> this object — never the other way
+            round.
+          </p>
+
+          <div class="sf-zone sf-body cv-typeblock">
+            <div class="sf-tag"><BracketsCurlyIcon size={14} weight="bold" /> the typed shape the model fills in</div>
+            <pre><code>{DETECTION_FINDING_TYPE}</code></pre>
+          </div>
+
+          <table class="cv-fieldtable">
+            <tbody>
+              <tr><td class="hd">Field</td><td class="hd">What it carries</td></tr>
+              <tr><td class="fld"><code>layer</code> · <code>skillName</code> · <code>candidateId</code></td><td>Identity — which detection skill judged which candidate.</td></tr>
+              <tr><td class="fld"><code>verdict</code></td><td>The call: <code>true_positive</code>, <code>false_positive</code>, or <code>inconclusive</code> (still human-confirmed downstream).</td></tr>
+              <tr><td class="fld"><code>compositeScore</code></td><td>The single rankable number — <code>= max(dimensions[].score)</code>, never an average. On its own, the <em>least</em> informative field.</td></tr>
+              <tr><td class="fld"><code>dimensions[]</code></td><td>Per-signal <code>score</code> plus the <strong>decisive evidence string</strong> behind it — the agent's selection and sourcing, not bare numbers.</td></tr>
+              <tr><td class="fld"><code>evidenceSummary</code></td><td>A tight one-line synopsis of what fired.</td></tr>
+              <tr><td class="fld"><code>attackNarrative</code></td><td>The story a human reads — process lineage → behaviour → channel.</td></tr>
+              <tr><td class="fld"><code>uncertainty</code></td><td>What is <em>not</em> confirmed, plus alternative explanations.</td></tr>
+              <tr><td class="fld"><code>benignFallbackRuledOut[]</code></td><td>The malicious-vs-benign work — <em>why</em> it isn't EDR, an update service, or ordinary browsing.</td></tr>
+              <tr><td class="fld"><code>mitreTechniques[]</code></td><td>ATT&amp;CK techniques asserted, with their basis cited in <code>dimensions[].evidence</code>.</td></tr>
+              <tr><td class="fld"><code>evidenceRefs</code></td><td>Pointers back to the candidates and raw events the finding rests on.</td></tr>
+              <tr><td class="fld"><code>scope</code></td><td>The host the activity is bound to.</td></tr>
+            </tbody>
+          </table>
+
+          <p class="cv-note">
+            This is the contract: every claim sits in a named field, so the finding is auditable and the
+            later stages (connect, narrate, report) read it directly — never by re-parsing prose.
+          </p>
+        </details>
+
+        <!-- D · Four ideas -->
+        <details class="cv-section" open>
+          <summary class="cv-h3"><span class="cv-num">D</span> Four ideas worth understanding<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <div class="cv-cards">
             <article class="cv-card">
               <div class="cv-card-head"><FileMdIcon size={26} weight="duotone" /><h4>Skills are data, not code</h4></div>
@@ -1010,7 +1070,7 @@ compositeScore = max(beacon, intel, tls)</code></pre>
 
         <!-- D · File tree -->
         <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">D</span> Where each piece lives<span class="cv-chev" aria-hidden="true">▸</span></summary>
+          <summary class="cv-h3"><span class="cv-num">E</span> Where each piece lives<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">Skills are content; the loader and endpoint are the machinery that runs them.</p>
           <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/</span>
 │
@@ -1377,15 +1437,15 @@ How to combine the evidence into a verdict.</code></pre>
     {/if}
 
     {#if finding.attackNarrative}
-      <p class="rf-field"><span class="rf-key">attackNarrative</span> {finding.attackNarrative}</p>
+      <p class="rf-field"><span class="rf-key">Attack narrative</span> {finding.attackNarrative}</p>
     {/if}
     {#if finding.uncertainty}
-      <p class="rf-field"><span class="rf-key">uncertainty</span> {finding.uncertainty}</p>
+      <p class="rf-field"><span class="rf-key">Uncertainty</span> {finding.uncertainty}</p>
     {/if}
 
     {#if finding.benignFallbackRuledOut.length}
       <div class="rf-field">
-        <span class="rf-key">benignFallbackRuledOut</span>
+        <span class="rf-key">Benign fallbacks ruled out</span>
         <ul class="rf-fallbacks">
           {#each finding.benignFallbackRuledOut as bf}
             <li><strong>{bf.fallback}</strong> — {bf.ruledOutBecause}</li>
@@ -1395,7 +1455,7 @@ How to combine the evidence into a verdict.</code></pre>
     {/if}
 
     {#if finding.mitreTechniques.length}
-      <p class="rf-field"><span class="rf-key">mitreTechniques</span> {finding.mitreTechniques.join(", ")}</p>
+      <p class="rf-field"><span class="rf-key">MITRE techniques</span> {finding.mitreTechniques.join(", ")}</p>
     {/if}
   </div>
 {/snippet}
@@ -1698,6 +1758,24 @@ How to combine the evidence into a verdict.</code></pre>
     font-weight: 800;
     text-transform: uppercase;
   }
+
+  .cv-typeblock { margin-top: .9rem; }
+
+  .cv-fieldtable { margin-top: .9rem; }
+  .cv-fieldtable td { font-size: .86rem; line-height: 1.5; }
+  .cv-fieldtable td.hd {
+    color: var(--dracula-purple);
+    font-family: var(--font-heading);
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .cv-fieldtable td.fld {
+    width: 32%;
+    color: var(--dracula-pink);
+    font-family: var(--font-mono, ui-monospace, monospace);
+  }
+  .cv-fieldtable td.fld code { color: inherit; background: none; padding: 0; }
 
   .stage-actions { margin-top: .85rem; }
   button { min-height: 2.35rem; padding: .35rem .85rem; }
@@ -2422,23 +2500,24 @@ How to combine the evidence into a verdict.</code></pre>
   .gate-errors li { font-size: .76rem; color: var(--dracula-muted); }
 
   .rendered-finding {
-    display: grid; gap: .65rem; padding: .85rem .9rem; border-radius: 9px;
+    display: grid; gap: 1.35rem; padding: 1.4rem 1.5rem; border-radius: 9px;
     background: rgba(80, 250, 123, 0.05); border: 1px solid rgba(80, 250, 123, .34);
   }
-  .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
-  .rf-verdict { font-family: var(--font-heading); font-size: .74rem; padding: .2rem .55rem; border-radius: 6px; text-transform: uppercase; letter-spacing: .03em; border: 1px solid rgba(98, 114, 164, .5); }
+  .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: .85rem; }
+  .rf-verdict { font-family: var(--font-heading); font-size: .82rem; padding: .3rem .75rem; border-radius: 6px; text-transform: uppercase; letter-spacing: .04em; border: 1px solid rgba(98, 114, 164, .5); }
   .rf-true_positive { color: var(--dracula-pink); border-color: rgba(255, 121, 198, .6); }
   .rf-false_positive { color: var(--dracula-green, #50fa7b); border-color: rgba(80, 250, 123, .6); }
   .rf-inconclusive { color: var(--dracula-comment); }
-  .rf-score { font-size: .8rem; color: var(--dracula-muted); }
-  .rf-score strong { color: var(--dracula-fg); }
-  .rf-summary { margin: 0; font-size: .85rem; color: var(--dracula-fg); }
-  .rf-dimensions { width: 100%; border-collapse: collapse; font-size: .76rem; }
-  .rf-dimensions th { text-align: left; padding: .3rem .5rem; color: var(--dracula-comment); border-bottom: 1px solid rgba(98, 114, 164, .4); font-weight: 600; }
-  .rf-dimensions td { padding: .35rem .5rem; vertical-align: top; border-bottom: 1px solid rgba(98, 114, 164, .18); color: var(--dracula-fg); }
+  .rendered-finding .rf-score { font-size: .92rem; color: var(--dracula-muted); text-transform: none; font-weight: 400; letter-spacing: 0; }
+  .rf-score strong { color: var(--dracula-fg); font-weight: 700; }
+  .rf-summary { margin: 0; font-size: 1.02rem; line-height: 1.65; color: var(--dracula-fg); }
+  .rf-dimensions { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  .rf-dimensions th { display: table-cell; text-align: left; padding: .55rem .65rem; color: var(--dracula-comment); border-bottom: 1px solid rgba(98, 114, 164, .4); font-weight: 700; font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  .rf-dimensions td { padding: .7rem .65rem; vertical-align: top; border-bottom: 1px solid rgba(98, 114, 164, .18); color: var(--dracula-fg); line-height: 1.6; }
+  .rf-dimensions td:nth-child(2) { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .rf-dimensions code { color: var(--dracula-cyan); }
-  .rf-field { margin: 0; font-size: .82rem; color: var(--dracula-fg); }
-  .rf-key { font-family: var(--font-heading); font-size: .7rem; color: var(--dracula-purple); margin-right: .45rem; }
-  .rf-fallbacks { margin: .3rem 0 0; padding-left: 1.1rem; display: grid; gap: .2rem; font-size: .8rem; color: var(--dracula-muted); }
+  .rf-field { margin: 0; font-size: 1.02rem; line-height: 1.65; color: var(--dracula-fg); }
+  .rendered-finding .rf-key { display: block; font-family: var(--font-heading); font-size: .76rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--dracula-purple); margin: 0 0 .5rem; }
+  .rf-fallbacks { margin: .6rem 0 0; padding-left: 1.3rem; display: grid; gap: .65rem; font-size: 1rem; line-height: 1.6; color: var(--dracula-muted); }
   .rf-fallbacks strong { color: var(--dracula-fg); }
 </style>
