@@ -284,7 +284,7 @@
   <h1>Build Your Own<br/>AI Security Agent<br/>Setup Guide</h1>
   <p class="sub">Please complete setup <strong>before</strong> the course. It takes ~15 minutes. Stuck? Ask in Discord — and check the guided <strong>Troubleshooting</strong> in Section&nbsp;8.</p>
   <div class="meta">
-    <span class="pill y">8 hours · 15 labs</span>
+    <span class="pill y">8 hours · 14 labs</span>
     <span class="pill">Bring a laptop</span>
     <span class="pill">macOS · Linux · Windows</span>
   </div>
@@ -378,6 +378,7 @@
 CLAUDE_CODE_MODEL=sonnet
 <span class="c"># CLAUDE_CODE_MODEL=opus   # if your plan includes it</span></code></pre>
   <div class="callout"><span class="tag">If you later see "exited with code 1"</span><p>That's usually a one-time auth hiccup when the tool is run non-interactively. Run <code>claude setup-token</code> to mint a token for programmatic use, then retry. Full steps in <a href="#f-cc-exit1">Section&nbsp;8 → Fix CC-1</a>.</p></div>
+  <div class="callout"><span class="tag">Possible billing change — status in flux</span><p>Anthropic announced that from <strong>June&nbsp;15&nbsp;2026</strong>, <code>claude -p</code> / Agent SDK usage would move off your normal plan limits onto a separate monthly credit (one-time opt-in; Pro&nbsp;$20 / Max&nbsp;5x&nbsp;$100 / Max&nbsp;20x&nbsp;$200, metered at API rates). As of writing the rollout is <strong>unsettled</strong> — there are reports it may be paused. <strong>So: nothing to do up front.</strong> If <code>claude-code</code> works normally, you're on the existing behavior and can ignore this. If it suddenly stops or mentions a "credit," see <a href="#f-cc-credit">Fix CC-3</a>. (If the change does go live, <strong>Free-plan</strong> accounts can't run <code>claude-code</code> — use Part&nbsp;B local or Part&nbsp;C API key.)</p></div>
 
   <h4>A2 · Codex CLI (OpenAI / ChatGPT subscription)</h4>
   <div class="step-row"><div class="step-n">1</div><p>Install the <strong>Codex</strong> CLI (needs Node 22+, which Section&nbsp;2 set up): <code>npm install -g @openai/codex</code></p></div>
@@ -521,6 +522,7 @@ GEMINI_MODEL=gemini-2.5-flash
     <tr><th>Symptom</th><th>Fix</th></tr>
     <tr><td><code>claude-code</code>: <em>"Claude Code exited with code 1"</em></td><td class="go"><a href="#f-cc-exit1">→ Fix CC-1</a></td></tr>
     <tr><td><code>spawn claude ENOENT</code> / <code>spawn codex ENOENT</code> (may crash the server → <em>"NetworkError when attempting to fetch resource"</em>)</td><td class="go"><a href="#f-cc-enoent">→ Fix CC-2</a></td></tr>
+    <tr><td><code>claude-code</code>: requests suddenly stop / "credit" or quota errors (<strong>only if the Agent SDK credit change is live</strong>)</td><td class="go"><a href="#f-cc-credit">→ Fix CC-3</a></td></tr>
   </table>
 
   <h4>Path B — Local / Ollama</h4>
@@ -629,6 +631,15 @@ GEMINI_MODEL=gemini-2.5-flash
     <div class="step-row"><div class="step-n">1</div><p>Stop the server. In a <strong>fresh</strong> terminal run <code>claude --version</code> (or <code>codex --version</code>).</p></div>
     <div class="step-row"><div class="step-n">2</div><p>Not recognized? Install it (Claude Code: <code>npm install -g @anthropic-ai/claude-code</code>; Codex: <code>npm install -g @openai/codex</code>), then close and reopen the terminal.</p></div>
     <div class="step-row"><div class="step-n">3</div><p>Sign in (<code>claude</code> → <code>/login</code>; or run <code>codex</code> → <strong>Sign in with ChatGPT</strong>). Then start <code>npm run dev</code> <strong>from that same terminal</strong> — the server inherits its PATH.</p></div>
+  </div>
+
+  <div class="fix" id="f-cc-credit">
+    <h4>Fix CC-3 — <code>claude-code</code> stopped working after June 15 (Agent SDK credit)</h4>
+    <p class="sym">If Anthropic's Agent SDK credit change is active for your account (announced for June&nbsp;15 2026; rollout status was in flux), <code>claude -p</code> draws from a separate monthly credit you must claim — it no longer rides your normal plan limits</p>
+    <div class="step-row"><div class="step-n">1</div><p>Be on a <strong>paid</strong> plan. The <strong>Free</strong> plan gets no Agent SDK credit, so <code>claude-code</code> won't run — use Path&nbsp;B (local) or Path&nbsp;C (API key) instead.</p></div>
+    <div class="step-row"><div class="step-n">2</div><p><strong>Claim the credit (one-time).</strong> Open your Claude account and opt in to the Agent SDK monthly credit (eligible users were emailed instructions). Until you claim it, headless <code>claude -p</code> may have no allowance to draw on.</p></div>
+    <div class="step-row"><div class="step-n">3</div><p>Mind the cap: Pro <strong>$20</strong>/mo, Max&nbsp;5x <strong>$100</strong>, Max&nbsp;20x <strong>$200</strong> — metered at API rates, reset monthly. Tool-heavy labs (esp. Lab&nbsp;05) spend it. When it's gone, requests <strong>stop</strong> until next cycle — unless you've enabled paid usage credits, in which case they bill at standard API rates. To avoid watching a meter, switch <code>.env</code> to a local model (Path&nbsp;B) or an API key (Path&nbsp;C).</p></div>
+    <p>Official details: <a href="https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan">Anthropic — Use the Claude Agent SDK with your Claude plan</a>.</p>
   </div>
 
   <h3>8.5 · Fixes — Path B (local / Ollama)</h3>
