@@ -8,6 +8,11 @@ import {
 } from "./skill-execution.js";
 import { addAnalysis, addInput, createPipelineState } from "./state.js";
 import { recordSkillFinding, recordVerdict } from "./feedback.js";
+import {
+  planAssessmentInvocations,
+  executeAssessmentInvocation,
+  type AssessmentFinding,
+} from "./assessment-execution.js";
 import type { DetectionFinding, PipelineState } from "./types.js";
 
 export interface ProgressEvent {
@@ -89,15 +94,87 @@ export async function runDetectionFanOut(
   return { findings, model };
 }
 
+// Assessment fan-out: each SIGNIFICANT (true_positive) finding fans out into one REAL model call
+// per assessment skill (severity, behavioural-context), run concurrently. Each worker emits its
+// result the moment it resolves, so a visualiser animates real concurrency.
+export async function runAssessmentFanOut(
+  findings: readonly DetectionFinding[],
+  candidates: readonly import("./loaders.js").Candidate[],
+  onProgress: (event: ProgressEvent) => void = () => {},
+): Promise<{ assessments: AssessmentFinding[]; model: string }> {
+  const invocations = await planAssessmentInvocations(findings, candidates);
+  onProgress({
+    stage: "assess-fan-out",
+    message: `Dispatching ${invocations.length} assessment(s) concurrently: ${invocations
+      .map((i) => `${i.skill.metadata.name} → ${i.finding.candidateId}`)
+      .join(", ")}`,
+    data: {
+      invocations: invocations.map((i) => ({
+        id: `${i.skill.metadata.name}::${i.finding.candidateId}`,
+        skill: i.skill.metadata.name,
+        candidateId: i.finding.candidateId,
+      })),
+    },
+  });
+
+  const provider = getProvider();
+  const settled = await Promise.allSettled(
+    invocations.map(async (inv) => {
+      const id = `${inv.skill.metadata.name}::${inv.finding.candidateId}`;
+      try {
+        const res = await executeAssessmentInvocation(provider, inv);
+        const a = res.assessment;
+        onProgress({
+          stage: "assess-worker",
+          message: `${inv.skill.metadata.name} on ${inv.finding.candidateId} → ${a?.assessmentType ?? "?"}${a?.severity ? ` (${a.severity})` : ""}${res.pass ? "" : " [gate fail]"}`,
+          data: {
+            id,
+            skill: inv.skill.metadata.name,
+            candidateId: inv.finding.candidateId,
+            assessmentType: a?.assessmentType ?? null,
+            severity: a?.severity ?? null,
+            pass: res.pass,
+          },
+        });
+        return res;
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        onProgress({
+          stage: "assess-worker-error",
+          message: `${inv.skill.metadata.name} on ${inv.finding.candidateId} failed: ${reason}`,
+          data: { id, skill: inv.skill.metadata.name, candidateId: inv.finding.candidateId, error: true },
+        });
+        throw err;
+      }
+    }),
+  );
+
+  const assessments: AssessmentFinding[] = [];
+  let model = "";
+  settled.forEach((o) => {
+    if (o.status === "fulfilled") {
+      if (o.value.assessment) assessments.push(o.value.assessment);
+      model = o.value.model || model;
+    }
+  });
+  onProgress({ stage: "assess-fan-in", message: `Collected ${assessments.length} assessment finding(s)`, data: { count: assessments.length } });
+  return { assessments, model };
+}
+
 export async function runInvestigation(
   onProgress: (event: ProgressEvent) => void = () => {},
-): Promise<{ findings: DetectionFinding[]; narrative: string; model: string }> {
-  const { findings, model } = await runDetectionFanOut(onProgress);
+): Promise<{ findings: DetectionFinding[]; assessments: AssessmentFinding[]; narrative: string; model: string }> {
+  const { findings, model: detModel } = await runDetectionFanOut(onProgress);
+  const candidates = await loadCandidates();
+
+  // Detection → ASSESSMENT → narrative. Assessment enriches the significant findings (real calls).
+  const { assessments, model: assessModel } = await runAssessmentFanOut(findings, candidates, onProgress);
+
   onProgress({ stage: "graph", message: "Building shared entity graph" });
-  const graph = buildCandidateSubgraph(await loadCandidates());
+  const graph = buildCandidateSubgraph(candidates);
   onProgress({ stage: "narrative", message: "Synthesizing campaign narrative" });
   const narrative = await synthesizeNarrative(findings, graph);
-  return { findings, narrative, model };
+  return { findings, assessments, narrative, model: assessModel || detModel };
 }
 
 // Runs the real investigation and folds its REAL findings + narrative into a
@@ -110,11 +187,12 @@ export async function runInvestigationState(
 ): Promise<{
   state: PipelineState;
   findings: DetectionFinding[];
+  assessments: AssessmentFinding[];
   narrative: string;
   graph: Subgraph;
   model: string;
 }> {
-  const { findings, narrative, model } = await runInvestigation(onProgress);
+  const { findings, assessments, narrative, model } = await runInvestigation(onProgress);
   const timestamp = new Date().toISOString();
   const inputId = `input-${sessionId}`;
   const analysisModel = model || "unknown-model";
@@ -142,6 +220,18 @@ export async function runInvestigationState(
     recordSkillFinding(finding.skillName, finding.verdict);
   }
 
+  // Fold each REAL assessment finding into the state, linked to the detection finding it enriches.
+  for (const a of assessments) {
+    const summary = a.fields.map((f) => `${f.key}: ${f.value}`).join(" ");
+    state = addAnalysis(state, {
+      id: `analysis-assess-${a.basedOn}-${a.assessmentType}`,
+      basedOnId: inputId,
+      insight: `${a.assessmentType} of ${a.basedOn} via ${a.skillName}${a.severity ? ` → ${a.severity}` : ""}. ${summary}`.trim(),
+      model: analysisModel || "unknown-model",
+      timestamp,
+    });
+  }
+
   state = addAnalysis(state, {
     id: "analysis-campaign-narrative",
     basedOnId: inputId,
@@ -151,5 +241,5 @@ export async function runInvestigationState(
   });
 
   const graph = buildCandidateSubgraph(await loadCandidates());
-  return { state: { ...state, findings }, findings, narrative, graph, model };
+  return { state: { ...state, findings }, findings, assessments, narrative, graph, model };
 }

@@ -14,6 +14,7 @@
   type Result = {
     graph: { nodes: unknown[]; edges: unknown[] };
     findings: unknown[];
+    assessments?: unknown[];
     narrative: string;
     report: { fileName: string; path: string };
     notification: { channel: string; delivered: boolean; detail: string };
@@ -26,15 +27,19 @@
     | { type: "error"; message: string }
     | { type: "done" };
 
-  // ── Orchestration-graph model (driven live by the progress stream) ───────────
-  type StageKey = "initiate" | "detect" | "graph" | "narrative" | "report";
+  // ── Live flow model (driven by the progress stream) ───────────
+  type StageKey = "initiate" | "detect" | "assess" | "store" | "kg" | "narrative" | "report" | "analyst";
   type StageState = "idle" | "active" | "done";
   type Worker = {
     id: string; skill: string; candidateId: string;
     state: "running" | "done" | "error"; verdict?: string; score?: number;
   };
+  type AssessWorker = {
+    id: string; skill: string; candidateId: string;
+    state: "running" | "done" | "error"; assessmentType?: string; severity?: string | null;
+  };
   const IDLE_STAGES: Record<StageKey, StageState> = {
-    initiate: "idle", detect: "idle", graph: "idle", narrative: "idle", report: "idle",
+    initiate: "idle", detect: "idle", assess: "idle", store: "idle", kg: "idle", narrative: "idle", report: "idle", analyst: "idle",
   };
 
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
@@ -44,6 +49,7 @@
   let busy = $state(false);
   let stages = $state<Record<StageKey, StageState>>({ ...IDLE_STAGES });
   let workers = $state<Worker[]>([]);
+  let assessWorkers = $state<AssessWorker[]>([]);
 
   function setStage(key: StageKey, s: StageState) { stages = { ...stages, [key]: s }; }
 
@@ -53,13 +59,13 @@
       driveGraph(event.stage, event.data);
     } else if (event.type === "result") {
       result = event.result;
-      (["graph", "narrative", "report"] as StageKey[]).forEach((k) => setStage(k, "done"));
+      (["store", "kg", "narrative", "report", "analyst"] as StageKey[]).forEach((k) => setStage(k, "done"));
     } else if (event.type === "error") {
       runError = event.message;
     }
   }
 
-  // Translate each progress event into a state transition on the flow map.
+  // Translate each progress event into a state transition on the flow map(s).
   function driveGraph(stage: string, data?: Record<string, unknown>) {
     switch (stage) {
       case "load": setStage("initiate", "active"); break;
@@ -77,11 +83,25 @@
       case "worker-error":
         workers = workers.map((w) => w.id === String(data?.id) ? { ...w, state: "error" } : w);
         break;
-      case "fan-in": setStage("detect", "done"); break;
-      case "graph": setStage("graph", "active"); break;
-      case "narrative": setStage("graph", "done"); setStage("narrative", "active"); break;
+      case "fan-in": setStage("detect", "done"); setStage("store", "active"); break;
+      case "assess-fan-out": {
+        setStage("assess", "active");
+        const inv = (data?.invocations as Array<{ id: string; skill: string; candidateId: string }>) ?? [];
+        assessWorkers = inv.map((i) => ({ id: i.id, skill: i.skill, candidateId: i.candidateId, state: "running" }));
+        break;
+      }
+      case "assess-worker":
+        assessWorkers = assessWorkers.map((w) => w.id === String(data?.id)
+          ? { ...w, state: "done", assessmentType: String(data?.assessmentType ?? ""), severity: (data?.severity as string) ?? null } : w);
+        break;
+      case "assess-worker-error":
+        assessWorkers = assessWorkers.map((w) => w.id === String(data?.id) ? { ...w, state: "error" } : w);
+        break;
+      case "assess-fan-in": setStage("assess", "done"); setStage("store", "done"); break;
+      case "graph": setStage("kg", "active"); break;
+      case "narrative": setStage("kg", "done"); setStage("narrative", "active"); break;
       case "report": setStage("narrative", "done"); setStage("report", "active"); break;
-      case "done": setStage("report", "done"); break;
+      case "done": setStage("report", "done"); setStage("analyst", "done"); break;
     }
   }
 
@@ -261,67 +281,59 @@
 
   {#if busy || progress.length || result}
     <section class="panel">
-      <h2>Orchestration</h2>
-      <p class="flow-caption">The hunt as it runs — one request fans out into a detection call per gate-passing candidate, fans back in, then graph → narrative → report.</p>
-      <div class="flowmap">
-        <!-- Initiate -->
-        <div class="stage {stages.initiate}">
-          <span class="stage-dot"></span>
-          <div class="stage-body"><strong>Initiate</strong><small>one hunt request</small></div>
-        </div>
-        <div class="connector {stages.detect !== 'idle' ? 'lit' : ''}"></div>
+      <h2>System overview</h2>
+      <p class="flow-caption">The whole hunt as a map — each node lights up as it runs. Detection &amp; assessment findings persist <em>up</em> to the Knowledge Graph and <em>down</em> to the Findings Store; the narrative then reads connections from the graph and reasoning from the store.</p>
 
-        <!-- Detection fan-out -->
-        <div class="stage {stages.detect}">
-          <span class="stage-dot"></span>
-          <div class="stage-body">
-            <strong>Detection — fan-out / fan-in</strong>
-            <small>one model call per gate-passing candidate, concurrent</small>
-            {#if workers.length}
-              <div class="chips">
-                {#each workers as w}
-                  <span class="chip {w.state} {w.verdict ? 'v-' + w.verdict : ''}">
-                    <span class="chip-skill">{w.skill.replace('hunt-', '')}</span>
-                    <span class="chip-cand">{w.candidateId}</span>
-                    <span class="chip-verdict">
-                      {#if w.state === 'running'}…{:else if w.state === 'error'}err{:else if w.verdict === 'true_positive'}TP {w.score?.toFixed(2)}{:else if w.verdict === 'false_positive'}FP {w.score?.toFixed(2)}{:else}? {w.score?.toFixed(2)}{/if}
-                    </span>
-                  </span>
-                {/each}
-              </div>
-            {/if}
+      <div class="archmap">
+        <!-- top band -->
+        <div class="band {stages.kg}">
+          <div class="band-title">Knowledge Graph</div>
+          <div class="band-sub">structural index (lossy) · ids · scores · edges · {result ? `${result.graph.nodes.length} nodes · ${result.graph.edges.length} edges` : "persisted"}</div>
+        </div>
+        <div class="rail up" aria-hidden="true"><span>↑ persist (lossy structural index) ↑</span></div>
+
+        <!-- pipeline -->
+        <div class="pipe">
+          <div class="anode {stages.initiate}"><span class="anode-dot"></span><div class="anode-txt"><strong>Initiation</strong><small>one hunt request</small></div></div>
+          <span class="sep {stages.detect !== 'idle' ? 'lit' : ''}">▸</span>
+
+          <div class="anode wide {stages.detect}">
+            <div class="anode-head"><span class="anode-dot"></span><strong>Detection</strong><small>fan-out / fan-in</small></div>
+            <div class="mini-chips">
+              {#each workers as w}
+                <span class="mini {w.state} {w.verdict ? 'v-' + w.verdict : ''}" title="{w.skill} · {w.candidateId}">{w.candidateId}{#if w.state === 'done'} · {w.verdict === 'true_positive' ? 'TP' : w.verdict === 'false_positive' ? 'FP' : '?'}{/if}</span>
+              {/each}
+            </div>
           </div>
-        </div>
-        <div class="connector {stages.detect === 'done' ? 'lit' : ''}"></div>
+          <span class="sep {stages.assess !== 'idle' ? 'lit' : ''}">▸</span>
 
-        <!-- Assessment (structural — not a live stage in this capstone yet) -->
-        <div class="stage structural">
-          <span class="stage-dot"></span>
-          <div class="stage-body">
-            <strong>Assessment — per-finding fan-out</strong>
-            <small>architecture: each confirmed (TP) finding fans out into isolated severity / campaign-match / behavioural calls (Lab 07). Not yet wired into this capstone run.</small>
+          <div class="anode wide {stages.assess}">
+            <div class="anode-head"><span class="anode-dot"></span><strong>Assessment</strong><small>per-TP-finding fan-out · live</small></div>
+            <div class="mini-chips">
+              {#each assessWorkers as a}
+                <span class="mini {a.state} sev-{(a.severity ?? '').toLowerCase()}" title="{a.skill} · {a.candidateId}">{a.candidateId} · {a.state === 'done' ? (a.assessmentType === 'severity' ? (a.severity ?? 'sev') : 'beh') : '…'}</span>
+              {/each}
+            </div>
           </div>
-        </div>
-        <div class="connector {stages.graph !== 'idle' ? 'lit' : ''}"></div>
+          <span class="sep {stages.narrative !== 'idle' ? 'lit' : ''}">▸</span>
 
-        <!-- Graph -->
-        <div class="stage {stages.graph}">
-          <span class="stage-dot"></span>
-          <div class="stage-body"><strong>Graph</strong><small>{result ? `${result.graph.nodes.length} nodes · ${result.graph.edges.length} edges` : 'shared entity index'}</small></div>
-        </div>
-        <div class="connector {stages.narrative !== 'idle' ? 'lit' : ''}"></div>
+          <div class="anode narr {stages.narrative}">
+            <div class="anode-line"><span class="anode-dot"></span><div class="anode-txt"><strong>Narrative P1</strong><small>read graph connections</small></div></div>
+            <div class="anode-line"><span class="anode-dot"></span><div class="anode-txt"><strong>Narrative P2</strong><small>read store reasoning</small></div></div>
+          </div>
+          <span class="sep {stages.report !== 'idle' ? 'lit' : ''}">▸</span>
 
-        <!-- Narrative -->
-        <div class="stage {stages.narrative}">
-          <span class="stage-dot"></span>
-          <div class="stage-body"><strong>Narrative</strong><small>weave the connected significant findings into one story</small></div>
-        </div>
-        <div class="connector {stages.report !== 'idle' ? 'lit' : ''}"></div>
+          <div class="anode {stages.report}"><span class="anode-dot"></span><div class="anode-txt"><strong>Report</strong><small>{result ? result.report.fileName : "single artifact"}</small></div></div>
+          <span class="sep {stages.analyst === 'done' ? 'lit' : ''}">▸</span>
 
-        <!-- Report -->
-        <div class="stage {stages.report}">
-          <span class="stage-dot"></span>
-          <div class="stage-body"><strong>Report + Notification</strong><small>{result ? result.report.fileName : 'the single human-facing artifact'}</small></div>
+          <div class="anode {stages.analyst}"><span class="anode-dot"></span><div class="anode-txt"><strong>Analyst</strong><small>human review</small></div></div>
+        </div>
+
+        <div class="rail down" aria-hidden="true"><span>↓ persist (lossless source of truth) ↓</span></div>
+        <!-- bottom band -->
+        <div class="band {stages.store}">
+          <div class="band-title">Findings Store</div>
+          <div class="band-sub">source of truth (lossless) · full objects, incl. prose · {result ? `${result.findings.length} findings · ${result.assessments?.length ?? 0} assessments` : "persisted"}</div>
         </div>
       </div>
     </section>
@@ -526,52 +538,54 @@
 
   /* ═══ Orchestration flow map ═══════════════════════════ */
   .flow-caption { color: rgba(255,255,255,.6); font-size: .9rem; line-height: 1.55; margin-bottom: 1.1rem; }
-  .flowmap { display: grid; justify-items: start; gap: 0; }
-  .stage {
-    display: grid; grid-template-columns: 1.5rem 1fr; gap: .85rem; align-items: start;
-    width: 100%; padding: .9rem 1rem; border: 1px solid rgba(255,255,255,.1); border-radius: 8px;
-    background: rgba(255,255,255,.02); transition: border-color .35s, background .35s, opacity .35s; opacity: .55;
-  }
-  .stage-dot {
-    width: 1.05rem; height: 1.05rem; border-radius: 50%; margin-top: .15rem;
-    background: #2c2c3c; border: 2px solid #44445a; transition: all .35s;
-  }
-  .stage-body { min-width: 0; }
-  .stage-body strong { display: block; color: rgba(255,255,255,.92); font-size: 1rem; }
-  .stage-body small { display: block; color: rgba(255,255,255,.55); font-size: .82rem; line-height: 1.45; margin-top: .15rem; }
-  .stage.active { opacity: 1; border-color: rgba(245,230,99,.5); background: rgba(245,230,99,.05); }
-  .stage.active .stage-dot { background: #f5e663; border-color: #f5e663; box-shadow: 0 0 0 0 rgba(245,230,99,.6); animation: pulse 1.4s infinite; }
-  .stage.done { opacity: 1; border-color: rgba(80,250,123,.42); }
-  .stage.done .stage-dot { background: #50fa7b; border-color: #50fa7b; }
-  .stage.structural { opacity: .8; border-style: dashed; border-color: rgba(189,147,249,.4); }
-  .stage.structural .stage-dot { background: transparent; border-color: rgba(189,147,249,.55); border-style: dashed; }
-  .stage.structural .stage-body strong { color: #bd93f9; }
+  .flow-caption em { color: rgba(255,255,255,.85); font-style: normal; font-weight: 700; }
 
-  .connector { width: 2px; height: 1.4rem; margin-left: .73rem; background: #33334a; transition: background .35s; }
-  .connector.lit { background: linear-gradient(#50fa7b, #44445a); }
+  /* ── architectural overview map ── */
+  .archmap { display: grid; gap: .5rem; }
+  .band { border: 1.5px dashed rgba(255,255,255,.22); border-radius: 8px; padding: .7rem 1rem; text-align: center; opacity: .5; transition: opacity .4s, border-color .4s; }
+  .band-title { font-weight: 800; letter-spacing: .02em; }
+  .band-sub { font-size: .74rem; color: rgba(255,255,255,.55); margin-top: .12rem; font-family: var(--font-mono, ui-monospace, monospace); }
+  .archmap .band:first-of-type { border-color: rgba(245,230,99,.4); }
+  .archmap .band:first-of-type .band-title { color: #f5e663; }
+  .archmap .band:last-of-type { border-color: rgba(255,121,198,.4); }
+  .archmap .band:last-of-type .band-title { color: #ff79c6; }
+  .band.active, .band.done { opacity: 1; }
+  .band.done { border-style: solid; }
 
-  .chips { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .7rem; }
-  .chip {
-    display: inline-flex; align-items: center; gap: .4rem; padding: .28rem .55rem; border-radius: 6px;
-    border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.03);
-    font-family: var(--font-mono, ui-monospace, monospace); font-size: .76rem; transition: all .3s;
-  }
-  .chip-skill { color: #8be9fd; }
-  .chip-cand { color: rgba(255,255,255,.7); }
-  .chip-verdict { font-weight: 700; color: rgba(255,255,255,.55); }
-  .chip.running { border-color: rgba(245,230,99,.4); animation: pulse-soft 1.4s infinite; }
-  .chip.running .chip-verdict { color: #f5e663; }
-  .chip.error { border-color: rgba(255,85,85,.5); }
-  .chip.error .chip-verdict { color: #ff5555; }
-  .chip.v-true_positive { border-color: rgba(255,121,198,.55); background: rgba(255,121,198,.08); }
-  .chip.v-true_positive .chip-verdict { color: #ff79c6; }
-  .chip.v-false_positive { border-color: rgba(80,250,123,.5); background: rgba(80,250,123,.06); }
-  .chip.v-false_positive .chip-verdict { color: #50fa7b; }
-  .chip.v-inconclusive .chip-verdict { color: #f5e663; }
+  .rail { text-align: center; line-height: 1; }
+  .rail span { font-size: .66rem; color: rgba(255,255,255,.32); font-family: var(--font-mono, ui-monospace, monospace); }
 
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(245,230,99,.55); } 70% { box-shadow: 0 0 0 8px rgba(245,230,99,0); } 100% { box-shadow: 0 0 0 0 rgba(245,230,99,0); } }
-  @keyframes pulse-soft { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
-  @media (prefers-reduced-motion: reduce) { .stage.active .stage-dot, .chip.running { animation: none; } }
+  .pipe { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: .4rem; padding: .4rem 0; }
+  .anode { display: flex; align-items: center; gap: .55rem; padding: .6rem .8rem; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(255,255,255,.02); opacity: .5; transition: opacity .4s, border-color .4s, background .4s; min-width: 0; }
+  .anode.wide { flex-direction: column; align-items: flex-start; gap: .45rem; min-width: 11rem; }
+  .anode.narr { flex-direction: column; align-items: flex-start; gap: .4rem; }
+  .anode-dot { width: .9rem; height: .9rem; border-radius: 50%; background: #2c2c3c; border: 2px solid #44445a; flex-shrink: 0; transition: all .4s; }
+  .anode-head { display: flex; align-items: baseline; gap: .45rem; }
+  .anode-txt strong, .anode-head strong { display: block; font-size: .88rem; color: rgba(255,255,255,.92); }
+  .anode-txt small, .anode-head small { display: block; font-size: .7rem; color: rgba(255,255,255,.5); }
+  .anode-line { display: flex; align-items: center; gap: .5rem; }
+  .anode.active { opacity: 1; border-color: rgba(245,230,99,.5); background: rgba(245,230,99,.05); }
+  .anode.active .anode-dot { background: #f5e663; border-color: #f5e663; animation: pulse 1.4s infinite; }
+  .anode.done { opacity: 1; border-color: rgba(80,250,123,.4); }
+  .anode.done .anode-dot { background: #50fa7b; border-color: #50fa7b; }
+
+  .sep { align-self: center; color: rgba(255,255,255,.25); font-size: 1.05rem; transition: color .4s; }
+  .sep.lit { color: #50fa7b; }
+
+  .mini-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .mini { font-size: .66rem; font-family: var(--font-mono, ui-monospace, monospace); padding: .12rem .4rem; border-radius: 5px; border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.7); white-space: nowrap; transition: all .3s; }
+  .mini.running { border-color: rgba(245,230,99,.4); color: #f5e663; animation: pulse-soft 1.4s infinite; }
+  .mini.error { border-color: rgba(255,85,85,.5); color: #ff5555; }
+  .mini.v-true_positive { border-color: rgba(255,121,198,.5); color: #ff79c6; }
+  .mini.v-false_positive { border-color: rgba(80,250,123,.45); color: #50fa7b; }
+  .mini.sev-critical { border-color: rgba(255,85,85,.55); color: #ff6b6b; }
+  .mini.sev-high { border-color: rgba(255,184,108,.55); color: #ffb86c; }
+  .mini.sev-medium { border-color: rgba(245,230,99,.5); color: #f5e663; }
+  .mini.sev-low { border-color: rgba(80,250,123,.45); color: #50fa7b; }
+
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(245,230,99,.55); } 70% { box-shadow: 0 0 0 7px rgba(245,230,99,0); } 100% { box-shadow: 0 0 0 0 rgba(245,230,99,0); } }
+  @keyframes pulse-soft { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { .anode.active .anode-dot, .mini.running { animation: none; } }
 
   @media (max-width: 850px) { .stats { grid-template-columns: 1fr 1fr; } }
   /* ═══ Top tab bar ══════════════════════════════════════ */
