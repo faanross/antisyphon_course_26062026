@@ -638,7 +638,8 @@
             You never tell the agent which candidate to hunt. The <strong>skill</strong> declares its
             own target in frontmatter, and the harness selects <strong>deterministically</strong>.
             Here's exactly why it landed on <strong>BEA-001</strong> — even though it's only the
-            <em>second</em>-highest score.
+            <em>second</em>-highest score. (In production, detection judges <strong>every</strong>
+            in-scope candidate — one finding each; we follow a single pick here for one clean run.)
           </p>
           <div class="cv-mental-model">
             <BracketsCurlyIcon size={20} weight="duotone" />
