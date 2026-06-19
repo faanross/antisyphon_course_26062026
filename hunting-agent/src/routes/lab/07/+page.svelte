@@ -848,18 +848,19 @@
           <summary class="cv-h3"><span class="cv-num">B</span> What gets handed over<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">The finding is a structured object. The assessment harness reads specific fields from it to gather evidence:</p>
           <pre class="cv-code"><code>&#123;
-  <span class="c-key">"kind"</span>: <span class="c-str">"DetectionFinding"</span>,
-  <span class="c-key">"skill"</span>: <span class="c-str">"hunt-c2-over-https"</span>,
-  <span class="c-key">"verdict"</span>: <span class="c-str">"Produced"</span>,
+  <span class="c-key">"layer"</span>: <span class="c-str">"detection"</span>,
+  <span class="c-key">"skillName"</span>: <span class="c-str">"hunt-c2-over-https"</span>,
+  <span class="c-key">"verdict"</span>: <span class="c-str">"true_positive"</span>,
   <span class="c-key">"compositeScore"</span>: 0.90,
   <span class="c-key">"candidateId"</span>: <span class="c-str">"BEA-001"</span>,              <span class="c-cm">// → resolve the trigger candidate</span>
-  <span class="c-key">"triggerCandidate"</span>: &#123; <span class="c-key">"id"</span>: <span class="c-str">"BEA-001"</span>, &#8230; &#125;,
+  <span class="c-key">"scope"</span>: &#123; <span class="c-key">"host"</span>: <span class="c-str">"FIN-WS-04"</span> &#125;,        <span class="c-cm">// → resolve org context for THIS host</span>
+  <span class="c-key">"attackNarrative"</span>: <span class="c-str">"the model's detection write-up…"</span>,  <span class="c-cm">// a typed field, not a blob</span>
   <span class="c-key">"evidenceRefs"</span>: &#123;
-    <span class="c-key">"relatedCandidateIds"</span>: [<span class="c-str">"TLS-001"</span>, <span class="c-str">"INTEL-001"</span>, <span class="c-str">"DT-001"</span>]  <span class="c-cm">// → pull supporting evidence</span>
-  &#125;,
-  <span class="c-key">"findingText"</span>: <span class="c-str">"## BEA-001 — the model's detection write-up…"</span>  <span class="c-cm">// → read in the prompt</span>
+    <span class="c-key">"candidateIds"</span>: [<span class="c-str">"TLS-001"</span>, <span class="c-str">"INTEL-001"</span>, <span class="c-str">"DT-001"</span>],  <span class="c-cm">// → pull supporting evidence</span>
+    <span class="c-key">"eventIds"</span>: [<span class="c-str">"EVT-1180"</span>, <span class="c-str">"EVT-1182"</span>]
+  &#125;
 &#125;</code></pre>
-          <p class="cv-note">The harness uses <code>candidateId</code> / <code>triggerCandidate.id</code> to re-load the candidate, and <code>evidenceRefs.relatedCandidateIds</code> to pull its correlated evidence — then runs the assessment over all of it plus the injected org context.</p>
+          <p class="cv-note">The DetectionFinding is a <strong>typed object</strong> — its reasoning lives in named fields (<code>attackNarrative</code>, <code>evidenceSummary</code>), never one prose blob. The harness uses <code>candidateId</code> to re-load the candidate and <code>evidenceRefs.candidateIds</code> to pull its correlated evidence, reads org context from the finding's own <code>scope.host</code>, then runs the assessment over all of it plus that context.</p>
         </details>
 
         <!-- C · Why hand it off -->
@@ -946,7 +947,7 @@
               <span class="flow-rail"><FoldersIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Resolve &amp; inject the context</span><span class="flow-badge">the key step</span><span class="flow-where">server · api/skills</span></div>
-                <p><code>resolveContextBundle()</code> reads each requirement. Org-wide ones (escalation policy) are fixed paths; entity-scoped ones (the host's asset record, its incident history) are resolved from the finding's own host/user/subnet — deterministically, never hardcoded. Plus the shared field guide. These become the injected bundle.</p>
+                <p><code>resolveContextBundle()</code> reads each requirement. Org-wide ones (escalation policy) are fixed paths; entity-scoped ones (the host's asset record, its incident history) are resolved from the finding's own <code>scope.host</code> / <code>scope.user</code> — deterministically, never hardcoded. Plus the shared field guide. These become the injected bundle.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -1075,7 +1076,7 @@
   <article class="finding-summary">
     <div class="finding-head">
       <span>{finding.kind ?? "DetectionFinding"}</span>
-      <strong>{finding.verdict ?? "Produced"}</strong>
+      <strong>{finding.verdict ?? "inconclusive"}</strong>
     </div>
     <p class="source-note">{source}</p>
     <dl>

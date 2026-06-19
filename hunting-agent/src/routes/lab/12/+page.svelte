@@ -344,7 +344,7 @@
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><FlagCheckeredIcon size={26} weight="duotone" /><h4>This closes the loop</h4></div>
-              <p>Detect → assess → connect → narrate → and now record, report, and alert. The investigation becomes a durable artifact, a human gets pulled in, and the verdicts feed back into the system.</p>
+              <p>Detect → assess → connect → narrate → and now record, report, and alert. The investigation becomes a durable artifact, a human gets pulled in, and the verdicts feed a terminal feedback step that turns them into <em>reviewed suggestions</em> — a human approves each change; the system never tunes itself automatically.</p>
             </article>
           </div>
         </details>

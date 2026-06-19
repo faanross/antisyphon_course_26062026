@@ -211,7 +211,7 @@
               <span class="flow-rail"><GraphIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Build the shared graph</span><span class="flow-where">server · graph.ts</span></div>
-                <p>The candidates are turned into the shared entity graph from Lab 10 — the hosts, IPs, processes, and users that link the findings together.</p>
+                <p>The findings are projected into the shared entity graph from Lab 10 — each becomes a finding node linked to the hosts, IPs, processes, and users that connect the findings to one another.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 180ms">

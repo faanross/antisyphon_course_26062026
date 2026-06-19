@@ -35,7 +35,7 @@
       icon: BookOpenTextIcon,
       items: [
         "Treat analyst verdicts, false positives, reports, and notifications as structured feedback data.",
-        "Feed that signal back to tune candidates, skills, and thresholds over time.",
+        "Turn that signal into reviewed suggestions for candidates, skills, and thresholds — a human approves each one; feedback never auto-applies a change.",
       ],
     },
   ];
