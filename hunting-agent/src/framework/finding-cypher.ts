@@ -53,9 +53,9 @@ export function findingToCypher(f: ProjectableFinding): CypherProjection {
   };
 
   if (f.scope.host) link(`host:${f.scope.host}`, f.scope.host, "host", "h:Host", "TARGETS");
-  if (f.scope.user) link(`user:${f.scope.user}`, f.scope.user, "user", "u:User", "ATTRIBUTED_TO");
+  if (f.scope.user) link(`user:${f.scope.user}`, f.scope.user, "user", "u:User", "INVOLVES");
   for (const c of f.evidenceRefs.candidateIds) link(`candidate:${c}`, c, "candidate", "c:Candidate", "BASED_ON");
-  for (const t of f.mitreTechniques) link(`technique:${t}`, t, "technique", "t:Technique", "USES");
+  for (const t of f.mitreTechniques) link(`technique:${t}`, t, "technique", "t:Technique", "USES_TECHNIQUE");
 
   return { cypher, nodes, edges };
 }

@@ -386,8 +386,8 @@
           <h2>The whole pipeline, end to end</h2>
           <p>
             Optional reading for the curious. Every lab before this one isolated a single stage. The
-            capstone runs them <strong>all in sequence</strong> on one click — detect, connect,
-            narrate, grade, report, notify. There's nothing new here: it's the earlier labs
+            capstone runs them <strong>all in sequence</strong> on one click — detect, assess,
+            connect, narrate, report, notify. There's nothing new here: it's the earlier labs
             <strong>composed</strong>. That composition is the real shape of an agent system.
           </p>
           <div class="cv-mental-model">
@@ -417,20 +417,27 @@
               </div>
             </li>
             <li class="flow-step" style="--d: 90ms">
+              <span class="flow-rail"><StackIcon size={22} weight="duotone" /></span>
+              <div class="flow-body">
+                <div class="flow-top"><span class="flow-title">Assess the true-positive findings</span><span class="flow-where">assessment skill</span></div>
+                <p>Each true-positive detection finding is enriched by an assessment skill — a per-finding model call that judges severity or behavioral context, emitted as a typed <code>AssessmentFinding</code> referencing the detection by <code>basedOn</code>.</p>
+              </div>
+            </li>
+            <li class="flow-step" style="--d: 180ms">
               <span class="flow-rail"><GraphIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Build the shared graph</span><span class="flow-where">Lab 10 · graph.ts</span></div>
                 <p>Candidates and their entities become deduplicated nodes and edges — the shared state that links findings.</p>
               </div>
             </li>
-            <li class="flow-step" style="--d: 180ms">
+            <li class="flow-step" style="--d: 270ms">
               <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Synthesize the narrative</span><span class="flow-where">Lab 11 · narrative.ts</span></div>
                 <p>The model writes a campaign story, grounded strictly in the graph's entities and edges.</p>
               </div>
             </li>
-            <li class="flow-step" style="--d: 360ms">
+            <li class="flow-step" style="--d: 450ms">
               <span class="flow-rail"><FileTextIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Report &amp; notify</span><span class="flow-badge">closes the loop</span><span class="flow-where">Lab 12 · report.ts · notifications.ts</span></div>
@@ -467,11 +474,11 @@
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><StackIcon size={26} weight="duotone" /><h4>One call wires the core</h4></div>
-              <p><code>runInvestigationState()</code> already chains detect → connect → narrate. The endpoint just adds report and notify around it — the same functions from Labs 11 and 12.</p>
+              <p><code>runInvestigationState()</code> already chains detect → assess → connect → narrate. The endpoint just adds report and notify around it — the same functions from Labs 11 and 12.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><CpuIcon size={26} weight="duotone" /><h4>A deterministic shell around model steps</h4></div>
-              <p>Only detection and narrative call the model. Everything else — fan-out, graph, report, notify — is deterministic code. The agent is a thin layer of judgement inside a sturdy machine.</p>
+              <p>The model is called only where judgement is needed — detection, assessment, and narrative synthesis. Everything else — fan-out/fan-in, the graph, report, notify — is deterministic code. The agent is a thin layer of judgement inside a sturdy machine.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><FlagCheckeredIcon size={26} weight="duotone" /><h4>This is the real shape of an agent</h4></div>
@@ -489,7 +496,7 @@
 │  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← chains the whole pipeline in one handler</span>
 │
 └─ <span class="tr-dir">framework/</span>
-   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runInvestigationState: detect + graph + narrative</span>
+   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runInvestigationState: detect + assess + graph + narrative</span>
    ├─ <span class="tr-file">report.ts</span>             <span class="tr-cm">← assemble + save the report</span>
    └─ <span class="tr-file">notifications.ts</span>       <span class="tr-cm">← fire the notification</span></code></pre>
         </details>

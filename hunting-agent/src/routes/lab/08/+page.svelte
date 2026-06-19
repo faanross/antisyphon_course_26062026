@@ -170,7 +170,7 @@
         <aside class="cv-callout">
           <BooksIcon size={22} weight="duotone" />
           <p>
-            <strong>Why retrieval matters here:</strong> often you don't know in advance which past
+            <strong>Why retrieval helps here:</strong> often you don't know in advance which past
             case is relevant. RAG lets the agent find precedent by relevance across a large, growing
             body of prior work — so its judgement is grounded in what the team has already learned,
             not invented fresh each time.

@@ -963,7 +963,7 @@
               <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Execute — the model runs the procedure</span><span class="flow-where">server · providers/*</span></div>
-                <p>The skill's body becomes the <strong>system prompt</strong>; the evidence bundle becomes the <strong>user prompt</strong>. The model reasons over the evidence and streams back a <code>DetectionFinding</code> — scored dimensions, a reasoning chain, and evidence refs.</p>
+                <p>The skill's body becomes the <strong>system prompt</strong>; the evidence bundle becomes the <strong>user prompt</strong>. The model reasons over the evidence and streams back a <code>DetectionFinding</code> — scored dimensions, the reasoning in named fields (narrative, uncertainty, benign-fallbacks), and evidence refs.</p>
               </div>
             </li>
           </ol>

@@ -189,16 +189,18 @@
       <p>When a finding clears the gate, the deterministic write path projects it into the graph. There is <strong>no model</strong> here — it's pure code reading the finding's typed fields.</p>
 
       <h3>The projection</h3>
-      <pre class="code"><code>{`function findingToCypher(f: DetectionFinding) {
+      <pre class="code"><code>{`function projectDetectionFinding(f: DetectionFinding) {
   // 1 · the finding itself
   MERGE (f:Finding {id: f.findingId}) SET f.skill=…, f.score=…
   // 2 · one node + one edge per entity it touches
   MERGE (h:Host {id: f.scope.host})            MERGE (f)-[:TARGETS]->(h)
-  MERGE (u:User {id: f.scope.user})            MERGE (f)-[:ATTRIBUTED_TO]->(u)
+  MERGE (u:User {id: f.scope.user})            MERGE (f)-[:INVOLVES]->(u)
   for each candidateId:  MERGE (c:Candidate …) MERGE (f)-[:BASED_ON]->(c)
-  for each technique:    MERGE (t:Technique …) MERGE (f)-[:USES]->(t)
+  for each technique:    MERGE (t:Technique …) MERGE (f)-[:USES_TECHNIQUE]->(t)
 }`}</code></pre>
-      <p class="filehint">Real source: <code>src/framework/finding-cypher.ts</code></p>
+      <p class="filehint">Real source: <code>src/framework/graph-projection.ts</code> (this lab uses a trimmed <code>finding-cypher.ts</code> shim).</p>
+      <p>One detail the labels above gloss for readability: the real engine does <strong>not</strong> create a Neo4j label per entity type. Every node is a generic <code>:Entity</code> and every edge a generic <code>:REL</code>; the semantic type is a <em>property</em> — <code>(:Entity &#123;type:'host'&#125;)</code>, <code>[:REL &#123;type:'targets'&#125;]</code>. The five canonical edge types are <code>targets</code>, <code>involves</code>, <code>based_on</code>, <code>uses_technique</code>, and <code>matches_campaign</code>. Pretty <code>:Host</code> / <code>:TARGETS</code> labels are a teaching aid only.</p>
+      <p>And writes flow through this one deterministic path. Ad-hoc Cypher against the graph is <strong>read-only</strong> — conclusions enter the graph only as projected findings, never by hand-written <code>MERGE</code>.</p>
 
       <h3>Why <code>MERGE</code> is the whole trick</h3>
       <p><code>MERGE</code> means <em>“match if it exists, else create.”</em> It is <strong>idempotent</strong> and keyed by <code>id</code>. So when Finding B does <code>MERGE (h:Host &#123;id:'DEV-WS03'&#125;)</code>, it does <strong>not</strong> create a second host — it <em>reuses</em> the one Finding A already created. Both findings end up pointing at the <strong>same</strong> node. That shared node <em>is</em> the connection — discovered structurally, asserted by no one.</p>
