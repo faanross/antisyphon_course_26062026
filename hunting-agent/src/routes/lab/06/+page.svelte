@@ -385,8 +385,7 @@
             Upstream, <strong>initiation</strong> has already run (we've simulated it), and the
             <strong>hypothesis</strong> it produced is waiting on the <strong>Lab</strong> tab. This
             lab takes that hypothesis, runs <em>one</em> detection skill against the candidates it
-            scopes, and shows you every step. Below is <strong>what's happening and what to do</strong>
-            — the concepts are in the slides; this is the operating manual.
+            scopes, and shows you every step. Below is <strong>what's happening and what to do</strong>.
           </p>
         </header>
 
