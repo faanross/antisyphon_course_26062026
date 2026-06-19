@@ -509,15 +509,14 @@
           <span>HYPOTHESIS (received from initiation)</span>
         </div>
         <p class="hyp-text">
-          Hunt C2-over-HTTPS originating from the developer subnet <code>10.42.10.0/24</code>.
+          We suspect <strong>command-and-control over HTTPS</strong> is beaconing out of the developer
+          subnet <code>10.42.10.0/24</code> — a workstation quietly phoning home. The hunt: confirm or
+          refute it on the beacons in that scope.
         </p>
         <pre class="hyp-scope"><code><span class="c-key">entityScope</span>: &#123; subnets: ["10.42.10.0/24"], axis: "source" &#125;</code></pre>
         <p class="hyp-note">
-          This entity scope is a <strong>selection filter</strong> applied <em>before</em> the skill
-          runs — it scopes <em>which</em> beacon candidates are judged (subnet
-          <code>10.42.10.0/24</code> in scope; beacons on other subnets are filtered out). It
-          <strong>never enters the model prompt</strong>, so the verdict on any selected candidate
-          stays hypothesis-agnostic.
+          The <code>entityScope</code> is that hypothesis in machine-readable form — it narrows
+          detection to the in-scope beacons (others drop out) before the skill runs.
         </p>
       </section>
 
