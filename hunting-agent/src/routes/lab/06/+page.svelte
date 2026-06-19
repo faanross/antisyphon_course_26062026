@@ -678,8 +678,7 @@
           </p>
           <pre class="cv-code"><code><span class="c-key">invocationTriggerCandidate</span>: beacon            <span class="c-cm"># only consider beacons</span>
 <span class="c-key">invocationGate</span>:
-  observedService: ssl
-  minBeaconScore: 0.85                       <span class="c-cm"># must clear the gate</span>
+  observedService: ssl                        <span class="c-cm"># routes by type, not a score floor</span>
 <span class="c-key">correlatingCandidates</span>:                        <span class="c-cm"># what corroboration to seek</span>
   - type: tls_anomaly    scope: same_network_tuple
   - type: intel_match    scope: destination
@@ -689,7 +688,7 @@
         <!-- B · The funnel -->
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">B</span> The selection funnel<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Every candidate runs through three deterministic stages. The pool shrinks at each one.</p>
+          <p class="cv-lead">Every candidate runs through four deterministic stages — and notice it's the <strong>hypothesis scope</strong>, not a score floor, that shrinks the pool.</p>
           <div class="funnel-stages">
             <div class="funnel-stage">
               <div class="fs-left"><ListMagnifyingGlassIcon size={20} weight="duotone" /><span class="fs-tag">1 · Filter by type</span></div>
@@ -698,13 +697,19 @@
             </div>
             <div class="fs-arrow"><ArrowRightIcon size={16} weight="bold" /></div>
             <div class="funnel-stage">
-              <div class="fs-left"><FunnelIcon size={20} weight="duotone" /><span class="fs-tag">2 · Gate</span></div>
-              <div class="fs-detail"><code>ssl</code> + <code>score ≥ 0.85</code> · drops BEA-005 (0.81), BEA-004 (0.72)</div>
+              <div class="fs-left"><FunnelIcon size={20} weight="duotone" /><span class="fs-tag">2 · Entity scope</span></div>
+              <div class="fs-detail">source in <code>10.42.10.0/24</code> · drops FIN-WS11 (0.88), DB-SVR02 (0.81) — off-subnet</div>
+              <div class="fs-num">3</div>
+            </div>
+            <div class="fs-arrow"><ArrowRightIcon size={16} weight="bold" /></div>
+            <div class="funnel-stage">
+              <div class="fs-left"><FunnelIcon size={20} weight="duotone" /><span class="fs-tag">3 · Gate</span></div>
+              <div class="fs-detail"><code>observed_service == ssl</code> · routes by type — all 3 pass, no score floor</div>
               <div class="fs-num">3</div>
             </div>
             <div class="fs-arrow"><ArrowRightIcon size={16} weight="bold" /></div>
             <div class="funnel-stage win">
-              <div class="fs-left"><ScalesIcon size={20} weight="duotone" /><span class="fs-tag">3 · Rank</span></div>
+              <div class="fs-left"><ScalesIcon size={20} weight="duotone" /><span class="fs-tag">4 · Rank</span></div>
               <div class="fs-detail">highest-ranked of the survivors</div>
               <div class="fs-num fs-winner">BEA-001</div>
             </div>
@@ -986,7 +991,7 @@
               <span class="flow-rail"><FunnelIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Query &amp; gate the trigger</span><span class="flow-where">server · api/skills</span></div>
-                <p><code>chooseTrigger()</code> finds candidates of the trigger type, applies the gate (e.g. <code>minBeaconScore ≥ 0.85</code>), and ranks them to pick the one that fired.</p>
+                <p><code>chooseTrigger()</code> finds candidates of the trigger type, narrows them to the hypothesis's entity scope, applies the gate (<code>observed_service == ssl</code> — a type router, not a score floor), and ranks the survivors to pick the one that fired.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -1022,7 +1027,6 @@ layer: detection
 invocationTriggerCandidate: beacon
 invocationGate:
   observedService: ssl
-  minBeaconScore: 0.85
 correlatingCandidates:
   - type: tls_anomaly   scope: same_network_tuple
   - type: intel_match   scope: destination

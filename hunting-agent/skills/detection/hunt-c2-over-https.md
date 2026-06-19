@@ -8,7 +8,6 @@ mitreTechniques: [T1071.001, T1573.002, T1041]
 invocationTriggerCandidate: beacon
 invocationGate:
   observedService: ssl
-  minBeaconScore: 0.85
 correlatingCandidates:
   - type: tls_anomaly
     scope: same_network_tuple
