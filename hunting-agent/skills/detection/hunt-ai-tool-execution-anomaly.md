@@ -7,7 +7,9 @@ description: "Detect a coding / AI assistant spawning a rare child process — t
 mitreTechniques: [T1059.001, T1027, T1204.002]
 invocationTriggerCandidate: unusual_parent_child_anomaly
 invocationGate:
-  minParentChildRarity: 0.85
+  anyOf:
+    - parentImageContains: [code.exe, cursor.exe, cline.exe, claude-code, windsurf.exe, cody.exe, continue.exe]
+    - minParentChildRarity: 0.85
 correlatingCandidates:
   - type: powershell_invocation_anomaly
     scope: same_process_secondary_flow
@@ -32,20 +34,19 @@ Then inspect the correlating `powershell_invocation_anomaly` candidate on the `s
 
 # Scoring
 
-The dimensions are **passthroughs of the candidates' own composite scores** — you select and fuse them, you do not re-derive lineage rarity from raw Sysmon EID 1 events:
+Two dimensions are **passthroughs** of the candidates' own composites; the third is **skill-computed** — the AI-tool-foothold pattern this skill exists to catch. You do not re-derive lineage rarity from raw Sysmon EID 1 events:
 
-- `lineage_rarity`     = `unusual_parent_child_anomaly.compositeScore` — the rare parent→child spawn itself
-- `payload_amplifier`  = `powershell_invocation_anomaly.compositeScore` (0.0 if absent) — an encoded payload on the spawned child sharply raises confidence that the spawn is malicious
-
-`compositeScore = max(lineage_rarity, payload_amplifier)` — the **maximum decisive malicious dimension, never an average** that washes out strong evidence.
-
-**High-fidelity amplifier — AI-tool parentage.** When `parent_image` is one of the recognised coding / AI assistants, this is a high-fidelity *initial-access* signal (a developer's trusted tool was the launch point) and you should assert **T1204.002 (User Execution)** and lead the narrative with it:
+- `lineage_rarity` (passthrough)    = `unusual_parent_child_anomaly.compositeScore` — the rare parent→child spawn itself
+- `payload_amplifier` (passthrough) = `powershell_invocation_anomaly.compositeScore` (0.0 if absent) — an encoded payload on the spawned child sharply raises confidence the spawn is malicious
+- `ai_tool_parent_pattern` (skill-computed) — **your own score** for *"a coding / AI assistant spawned this"*: high when `parent_image` ∈ AI_TOOL_PARENTS **and** the child is suspicious (a never-seen binary in a `\Temp` path, an encoded / hidden command line); 0 when the parent is not an AI tool. This is the **eponymous signal** — it contributes a **number**, not just narrative. Assert **T1204.002 (User Execution)** when it fires and lead the narrative with it.
 
 ```
 AI_TOOL_PARENTS = Code.exe, Cursor.exe, cline.exe, claude-code, windsurf.exe, cody.exe, continue.exe
 ```
 
-This list is an evidence amplifier, **not** the gate — the candidate also fires when the parent is an already-compromised process (e.g. `powershell.exe` spawning a masquerading implant), caught by the high `parent_child_pair_rarity`.
+`compositeScore = max(lineage_rarity, payload_amplifier, ai_tool_parent_pattern)` — the **maximum decisive dimension, never an average** that washes out strong evidence.
+
+The AI-tool list is an evidence signal, **not** the gate — the candidate also fires when the parent is an already-compromised process (e.g. `powershell.exe` spawning a masquerading implant), caught by the high `parent_child_pair_rarity`.
 
 For each fired dimension, write an `evidence` string citing the **decisive observation** (e.g. *"Code.exe → powershell.exe, pair_rarity 0.95 — never seen on 200-host fleet"*), not just the score.
 

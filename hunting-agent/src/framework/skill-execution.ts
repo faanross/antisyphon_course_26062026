@@ -82,6 +82,17 @@ function gatePasses(candidate: Candidate, gate: Record<string, unknown>): boolea
     // Mirrors the canonical hunt-ai-tool-execution-anomaly gate's rarity branch.
     if (numberValue(field(candidate, "parent_child_pair_rarity")) < gate.minParentChildRarity) return false;
   }
+  if (Array.isArray(gate.anyOf)) {
+    // OR-group: the candidate must satisfy at least one sub-gate; other top-level
+    // keys remain AND. Mirrors the canonical hunt-ai-tool-execution-anomaly gate:
+    // "parent_image ∈ AI_TOOL_PARENTS OR parent_child_pair_rarity ≥ 0.85".
+    const subGates = gate.anyOf.filter(
+      (sub): sub is Record<string, unknown> => typeof sub === "object" && sub !== null,
+    );
+    if (subGates.length > 0 && !subGates.some((sub) => gatePasses(candidate, sub))) {
+      return false;
+    }
+  }
   return true;
 }
 

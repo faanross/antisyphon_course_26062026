@@ -29,13 +29,14 @@ Match the command-line / script-block content against the payload token categori
 
 # Scoring
 
-The numeric is a **passthrough** — the upstream candidate already scored *how anomalous* the invocation is; this skill does not re-derive it from raw Sysmon EID 1:
+**The score comes from the payload *content*, not the candidate's composite.** The `powershell_invocation_anomaly` composite tells you the invocation is *anomalous* — but it can be high for reasons that are **not** malicious payload content (an unusual parent, a rename, a rare command line). So do **not** pass it through as the score. Instead, score the **content dimensions** below from the command line and any 4104 script-block content, and fuse with `max`:
 
-- `encoded_payload_signal` = `powershell_invocation_anomaly.compositeScore`
+- `encoded_or_compressed_payload` — encoded / compressed / runtime-reconstructed payload (ENCODED_PAYLOAD_TOKENS; amplified by `encoded_flag`, high `entropy_score`, long `cmdline_length`) → assert **T1027**
+- `download_and_execute_cradle` — retrieves remote content **and** executes/stages it (DOWNLOAD_TOKENS + EXECUTION_SINK_TOKENS together) → assert **T1105**
+- `defense_evasion_prelude` — disables/bypasses AMSI / ETW / logging before the payload (DEFENSE_EVASION_TOKENS) → assert **T1562.001**
+- `known_offensive_payload` — references a known offensive PowerShell framework / function (OFFENSIVE_PS_TOKENS)
 
-`compositeScore = encoded_payload_signal`.
-
-What this skill **adds** is *content reasoning*: the token taxonomy below drives the `evidence` strings and **which MITRE techniques you assert** — it does not invent a second number. Cite the decisive tokens you matched.
+Match each dimension's tokens against the command line / script-block below; cite the decisive tokens in that dimension's `evidence` string.
 
 ```
 ENCODED_PAYLOAD_TOKENS   -EncodedCommand, -enc, FromBase64String, GZipStream,
@@ -50,7 +51,9 @@ OFFENSIVE_PS_TOKENS      Invoke-Mimikatz, Invoke-Shellcode, PowerSploit, PowerVi
                           Empire, PowerUp, Invoke-Obfuscation
 ```
 
-The most decisive shape is an **encoded blob + a download token + an execution sink** in one invocation (a download-and-execute cradle). Always assert **T1059.001 (PowerShell)** for the invocation itself.
+`compositeScore = max(encoded_or_compressed_payload, download_and_execute_cradle, defense_evasion_prelude, known_offensive_payload)` — the maximum decisive content dimension, never an average. The most decisive shape is an **encoded blob + a download token + an execution sink** in one invocation (a download-and-execute cradle). Always assert **T1059.001 (PowerShell)** for the invocation itself.
+
+**Emit only when at least one content dimension fires.** A candidate that is anomalous only on *metadata* (parent / rename / rare command line) with a benign command line and no payload content is **context for assessment, not a payload finding here** — do not emit. The `encoded_flag` / `entropy_score` / `cmdline_length` signals are amplifiers for the content dimensions, not the score itself.
 
 # Benign fallbacks
 
@@ -62,6 +65,6 @@ Return a `DetectionFinding` with `compositeScore`, `dimensions`, `evidenceSummar
 
 # Anti-patterns — do not do
 
-- Re-scoring *how anomalous* the invocation is from raw `sysmon_eid1_process_create` — the candidate already did that; consume its composite and reason about **content**.
+- Passing the candidate's composite through as the score — it measures *how anomalous the invocation is*, which can be high for non-payload reasons (parent, rename, rare cmdline). Score the **content** dimensions instead, and don't emit unless one fires.
 - Ignoring the 4104 script-block evidence when it is present — it is the highest-fidelity payload source.
 - Raising a finding on `-ExecutionPolicy Bypass` / `-WindowStyle Hidden` alone — those are weak amplifiers; require encoded / download / execution-sink content.
