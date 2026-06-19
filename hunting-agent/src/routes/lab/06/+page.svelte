@@ -171,7 +171,7 @@
 
   // Active tab within the glass cards that hold more than one peer view.
   let activeTab = $state<"instructions" | "lab" | "targeting" | "scoring" | "code">("instructions");
-  let skillTab = $state<"frontmatter" | "procedure" | "reference">("frontmatter");
+  let skillTab = $state<"frontmatter" | "procedure">("frontmatter");
   let scoringTab = $state<"tls" | "intel" | "data">("tls");
   let promptTab = $state<"system" | "user">("system");
 
@@ -414,13 +414,13 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">2 · Read the skill contract</span>
-                <span class="flow-where">Frontmatter · Procedure · Reference</span>
+                <span class="flow-where">Frontmatter · Procedure</span>
               </div>
               <p>
-                Inspect the three sub-tabs. <strong>Frontmatter</strong> is the YAML header — what
-                the skill targets and how it scores. <strong>Procedure</strong> is the actual
-                step-by-step the model is told to follow. <strong>Reference</strong> is supporting
-                detail. This <em>is</em> the detection logic, in plain text.
+                Inspect the two sub-tabs. <strong>Frontmatter</strong> is the YAML header — what the
+                skill targets and how it scores. <strong>Procedure</strong> is the actual
+                step-by-step the model is told to follow. This <em>is</em> the detection logic, in
+                plain text.
               </p>
             </div>
           </li>
@@ -470,12 +470,12 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">5 · Go deeper</span>
-                <span class="flow-where">Targeting · Code</span>
+                <span class="flow-where">Targeting · Scoring · Code</span>
               </div>
               <p>
-                Two more tabs when you're ready: <strong>Targeting</strong> shows how the
-                candidate gets chosen (you never pick it — the skill and harness do), and
-                <strong>Code</strong> covers the architecture.
+                Three more tabs when you're ready: <strong>Targeting</strong> shows how the candidate
+                gets chosen (you never pick it — the skill and harness do), <strong>Scoring</strong>
+                is the rubric the skill applies, and <strong>Code</strong> covers the architecture.
               </p>
             </div>
           </li>
@@ -1148,9 +1148,6 @@ compositeScore = max(beacon, intel, tls)</code></pre>
       <button class="tab" class:active={skillTab === "procedure"} role="tab" aria-selected={skillTab === "procedure"} onclick={() => (skillTab = "procedure")}>
         Procedure
       </button>
-      <button class="tab" class:active={skillTab === "reference"} role="tab" aria-selected={skillTab === "reference"} onclick={() => (skillTab = "reference")}>
-        Reference
-      </button>
     </div>
 
     {#if skillTab === "frontmatter"}
@@ -1165,10 +1162,6 @@ compositeScore = max(beacon, intel, tls)</code></pre>
         <div class="markdown-body">
           {@render MarkdownView({ blocks: parseMarkdown(skill.body) })}
         </div>
-      </div>
-    {:else}
-      <div class="tab-panel">
-        {@render ReferenceView({ refs: skill.candidateReference ?? [] })}
       </div>
     {/if}
   </section>
