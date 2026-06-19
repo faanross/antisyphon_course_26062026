@@ -381,8 +381,6 @@
     <div class="code-view">
       <div class="code-inner">
         <header class="cv-hero">
-          <span class="cv-eyebrow">Lab 06 · Walkthrough</span>
-          <h2>One detection skill, run once — signal to verdict</h2>
           <p>
             Upstream, <strong>initiation</strong> has already run (we've simulated it), and the
             <strong>hypothesis</strong> it produced is waiting on the <strong>Lab</strong> tab. This
