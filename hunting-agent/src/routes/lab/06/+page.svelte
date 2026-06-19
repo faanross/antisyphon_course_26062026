@@ -170,7 +170,7 @@
 };`;
 
   // Active tab within the glass cards that hold more than one peer view.
-  let activeTab = $state<"instructions" | "lab" | "targeting" | "scoring" | "code" | "author">("instructions");
+  let activeTab = $state<"instructions" | "lab" | "targeting" | "scoring" | "code">("instructions");
   let skillTab = $state<"frontmatter" | "procedure" | "reference">("frontmatter");
   let scoringTab = $state<"tls" | "intel" | "data">("tls");
   let promptTab = $state<"system" | "user">("system");
@@ -180,9 +180,21 @@
   const LAB06_HANDOFF_KEY = "antisiphon.lab06.detectionFinding";
 
   const detectionSkills = $derived(skills.filter((skill) => skill.metadata.layer === "detection"));
+  // This lab scopes the picker to the one skill the seeded hypothesis targets.
+  const pickerSkills = $derived(
+    detectionSkills.filter((skill) => skill.metadata.name === "hunt-c2-over-https"),
+  );
   const selectedDetectionSkill = $derived(
     detectionSkills.find((skill) => skill.path === detectionSkillPath) ?? null,
   );
+
+  // Default the selection to hunt-c2-over-https once the catalog loads.
+  $effect(() => {
+    if (!detectionSkillPath) {
+      const c2 = pickerSkills[0];
+      if (c2) detectionSkillPath = c2.path;
+    }
+  });
 
   onMount(async () => {
     await loadCatalog();
@@ -360,7 +372,6 @@
     <button class="tab-btn-top" class:active={activeTab === "targeting"} onclick={() => (activeTab = "targeting")}>Targeting</button>
     <button class="tab-btn-top" class:active={activeTab === "scoring"} onclick={() => (activeTab = "scoring")}>Scoring</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
-    <button class="tab-btn-top" class:active={activeTab === "author"} onclick={() => (activeTab = "author")}>Author</button>
   </div>
 
   {#if activeTab === "instructions"}
@@ -462,12 +473,11 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">5 · Go deeper</span>
-                <span class="flow-where">Targeting · Author · Code</span>
+                <span class="flow-where">Targeting · Code</span>
               </div>
               <p>
-                Three more tabs when you're ready: <strong>Targeting</strong> shows how the
-                candidate gets chosen (you never pick it — the skill and harness do),
-                <strong>Author</strong> walks you through writing your own skill, and
+                Two more tabs when you're ready: <strong>Targeting</strong> shows how the
+                candidate gets chosen (you never pick it — the skill and harness do), and
                 <strong>Code</strong> covers the architecture.
               </p>
             </div>
@@ -497,13 +507,31 @@
         <h2>Detection Skill</h2>
       </div>
 
+      <section class="hyp-card">
+        <div class="hyp-head">
+          <TargetIcon size={16} weight="duotone" />
+          <span>HYPOTHESIS (received from initiation)</span>
+        </div>
+        <p class="hyp-text">
+          Hunt C2-over-HTTPS originating from the developer subnet <code>10.42.10.0/24</code>.
+        </p>
+        <pre class="hyp-scope"><code><span class="c-key">entityScope</span>: &#123; subnets: ["10.42.10.0/24"], axis: "source" &#125;</code></pre>
+        <p class="hyp-note">
+          This entity scope is a <strong>selection filter</strong> applied <em>before</em> the skill
+          runs — it scopes <em>which</em> beacon candidates are judged (subnet
+          <code>10.42.10.0/24</code> in scope; beacons on other subnets are filtered out). It
+          <strong>never enters the model prompt</strong>, so the verdict on any selected candidate
+          stays hypothesis-agnostic.
+        </p>
+      </section>
+
       <section class="picker">
         <h3>Detection Skills</h3>
         {#if loading}
           <p class="empty">Loading catalog.</p>
         {:else}
           <div class="skill-list horizontal">
-            {#each detectionSkills as skill}
+            {#each pickerSkills as skill}
               <button
                 class="skill-card"
                 class:active={detectionSkillPath === skill.path}
@@ -622,7 +650,10 @@
             <span>skill declares target</span>
             <span class="cv-mm-sep">→</span>
             <FunnelIcon size={20} weight="duotone" />
-            <span>filter + gate</span>
+            <span>entity-scope filter (from hypothesis)</span>
+            <span class="cv-mm-sep">→</span>
+            <FunnelIcon size={20} weight="duotone" />
+            <span>gate</span>
             <span class="cv-mm-sep">→</span>
             <ScalesIcon size={20} weight="duotone" />
             <span>rank</span>
@@ -630,6 +661,16 @@
             <TargetIcon size={20} weight="duotone" />
             <span>BEA-001</span>
           </div>
+          <p class="cv-note">
+            Before the gate runs, the hypothesis's <strong>entity scope</strong> filters the candidate
+            pool <em>first</em> — here it keeps only beacons whose source is in
+            <code>10.42.10.0/24</code>, so beacons on other subnets (FIN-WS11
+            <code>10.42.12.88</code>, DB-SVR02 <code>10.42.11.22</code>) drop out before scoring. The
+            gate and corroboration ranking then pick <strong>BEA-001</strong> (host DEV-WS03,
+            <code>10.42.10.45</code>) from the survivors. This is <strong>selection, not judgment</strong>:
+            the scope shapes <em>which</em> candidates are considered, but the verdict on a selected
+            candidate is unchanged — and the scope <strong>never enters the prompt</strong>.
+          </p>
         </header>
 
         <!-- A · The skill targets -->
@@ -1095,141 +1136,6 @@ compositeScore = max(beacon, intel, tls)</code></pre>
             detections as plain Markdown — like documentation — and the agent picks them up with no
             code change. The frontmatter keeps the gathering deterministic; the body lets an expert
             write the reasoning in prose. That's how you scale an agent's capabilities safely.
-          </p>
-        </aside>
-      </div>
-    </div>
-  {:else}
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!-- AUTHOR VIEW — write your own detection skill          -->
-    <!-- ═══════════════════════════════════════════════════ -->
-    <div class="code-view">
-      <div class="code-inner">
-        <header class="cv-hero">
-          <span class="cv-eyebrow">Make It Your Own</span>
-          <h2>Author your own detection skill</h2>
-          <p>
-            A skill is just a Markdown file. Drop one into the skills folder, refresh, and it appears
-            in the picker and runs through the exact same lifecycle — no rebuild, no code change.
-          </p>
-          <div class="cv-mental-model">
-            <FileMdIcon size={20} weight="duotone" />
-            <span>write a .md</span>
-            <span class="cv-mm-sep">→</span>
-            <FoldersIcon size={20} weight="duotone" />
-            <span>drop in skills/detection/</span>
-            <span class="cv-mm-sep">→</span>
-            <ArrowsClockwiseIcon size={20} weight="duotone" />
-            <span>refresh</span>
-            <span class="cv-mm-sep">→</span>
-            <CheckCircleIcon size={20} weight="duotone" />
-            <span>it runs</span>
-          </div>
-        </header>
-
-        <!-- A · Steps -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">A</span> Three steps<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <ol class="flow">
-            <li class="flow-step" style="--d: 0ms">
-              <span class="flow-rail"><FileMdIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Create the file</span><span class="flow-where">skills/detection/</span></div>
-                <p>Add a Markdown file, e.g. <code>skills/detection/hunt-my-detection.md</code>. The filename is yours; the <code>name</code> in the frontmatter is what shows in the picker.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 90ms">
-              <span class="flow-rail"><BracketsCurlyIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Write frontmatter + body</span><span class="flow-where">the contract + the procedure</span></div>
-                <p>YAML frontmatter tells the harness what to target (machine-read); the Markdown body is the procedure the model executes (it becomes the system prompt). Template below.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 180ms">
-              <span class="flow-rail"><ArrowsClockwiseIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Refresh the Lab tab</span><span class="flow-badge">no rebuild</span><span class="flow-where">it's discovered live</span></div>
-                <p>The harness re-reads <code>skills/</code> on every request, so your skill shows up in the picker immediately. Select it and Run.</p>
-              </div>
-            </li>
-          </ol>
-        </details>
-
-        <!-- B · Template -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">B</span> The template<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Copy this and change the logic — or duplicate <code>hunt-c2-over-https.md</code> and edit it:</p>
-          <pre class="cv-code"><code><span class="c-cm">---</span>
-<span class="c-key">name</span>: hunt-my-detection
-<span class="c-key">layer</span>: detection
-<span class="c-key">description</span>: "One line on what this detects"
-<span class="c-key">invocationTriggerCandidate</span>: beacon        <span class="c-cm"># which candidate type fires it</span>
-<span class="c-key">invocationGate</span>:
-  minBeaconScore: 0.85                       <span class="c-cm"># must clear this to run</span>
-<span class="c-key">correlatingCandidates</span>:
-  - type: tls_anomaly
-    scope: same_network_tuple               <span class="c-cm"># how to pull related evidence</span>
-<span class="c-key">mitreTechniques</span>: [T1071.001]
-<span class="c-cm">---</span>
-
-<span class="c-key"># Objective</span>
-What you're deciding, and from what evidence.
-
-<span class="c-key"># Procedure</span>
-Step-by-step reasoning the model should follow.
-
-<span class="c-key"># Scoring</span>
-How to combine the evidence into a verdict.</code></pre>
-        </details>
-
-        <!-- C · Supported values -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">C</span> Use values the dataset &amp; harness understand<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">
-            Any valid frontmatter will <em>load</em> — but to actually fire and gather evidence, use a
-            trigger type that exists in the workshop dataset and gate/scope keys the harness evaluates.
-            (Unknown keys are ignored, not errors.)
-          </p>
-          <div class="auth-group">
-            <div class="auth-group-label"><TargetIcon size={14} weight="duotone" /> invocationTriggerCandidate — candidate types in the data</div>
-            <div class="auth-chips">
-              <span class="auth-chip">beacon</span><span class="auth-chip">tls_anomaly</span><span class="auth-chip">intel_match</span><span class="auth-chip">data_transfer</span><span class="auth-chip">unusual_parent_child_anomaly</span><span class="auth-chip">powershell_invocation_anomaly</span>
-            </div>
-          </div>
-          <div class="auth-group">
-            <div class="auth-group-label"><FunnelIcon size={14} weight="duotone" /> invocationGate — supported keys</div>
-            <div class="auth-chips">
-              <span class="auth-chip">minBeaconScore</span><span class="auth-chip">minScore</span><span class="auth-chip">observedService</span><span class="auth-chip">parentImageContains</span>
-            </div>
-          </div>
-          <div class="auth-group">
-            <div class="auth-group-label"><ArrowsInIcon size={14} weight="duotone" /> correlatingCandidates — supported scopes</div>
-            <div class="auth-chips">
-              <span class="auth-chip">same_network_tuple</span><span class="auth-chip">destination</span><span class="auth-chip">same_process_secondary_flow</span><span class="auth-chip">same_host</span>
-            </div>
-          </div>
-        </details>
-
-        <!-- D · Why it loads -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">D</span> Why it loads with no rebuild<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">
-            Skills aren't compiled into the app. <code>listSkills()</code> does a live <code>readdir</code>
-            of <code>skills/</code> on every request and parses the frontmatter — so the folder <em>is</em>
-            the registry. Add a file → discovered; remove it → gone.
-          </p>
-          <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/skills/detection/</span>
-├─ <span class="tr-file">hunt-c2-over-https.md</span>          <span class="tr-cm">← the one we ship (your template)</span>
-└─ <span class="tr-file">hunt-my-detection.md</span>           <span class="tr-cm">← drop yours here → it's in the picker</span></code></pre>
-        </details>
-
-        <aside class="cv-callout">
-          <FileMdIcon size={22} weight="duotone" />
-          <p>
-            <strong>Fastest start:</strong> duplicate <code>hunt-c2-over-https.md</code>, rename it, tweak
-            the <code>name</code>, gate, and procedure, and drop it back in <code>skills/detection/</code>.
-            Refresh the Lab tab and your skill is in the picker — running the same discover → gate →
-            bundle → execute lifecycle as the built-in one.
           </p>
         </aside>
       </div>
@@ -2257,6 +2163,58 @@ How to combine the evidence into a verdict.</code></pre>
     color: #c2c2d2;
     font-size: 0.92rem;
     line-height: 1.7;
+  }
+
+  /* ── Hypothesis card (Lab view) ── */
+  .hyp-card {
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(189, 147, 249, 0.28);
+    border-left: 3px solid #bd93f9;
+    border-radius: 8px;
+    background: rgba(189, 147, 249, 0.06);
+  }
+  .hyp-head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #bd93f9;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hyp-head :global(svg) { flex-shrink: 0; }
+  .hyp-text {
+    margin: 0.55rem 0 0;
+    color: #f0f0f5;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .hyp-text code,
+  .hyp-note code {
+    background: rgba(139, 233, 253, 0.1);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.86em;
+    color: #8be9fd;
+  }
+  .hyp-scope {
+    margin: 0.6rem 0;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid rgba(98, 114, 164, 0.35);
+    border-radius: 6px;
+    background: rgba(13, 14, 22, 0.6);
+    overflow-x: auto;
+    font-size: 0.82rem;
+  }
+  .hyp-scope code { background: none; border: none; padding: 0; color: #c2c2d2; }
+  .hyp-scope .c-key { color: #8be9fd; }
+  .hyp-note {
+    margin: 0;
+    color: #c2c2d2;
+    font-size: 0.86rem;
+    line-height: 1.65;
   }
 
   /* ── Scoring tab ── */
