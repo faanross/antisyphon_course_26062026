@@ -382,17 +382,13 @@
       <div class="code-inner">
         <header class="cv-hero">
           <span class="cv-eyebrow">Lab 06 · Walkthrough</span>
-          <h2>Run a detection skill — where signals become a verdict</h2>
+          <h2>One detection skill, run once — signal to verdict</h2>
           <p>
-            The candidates the pipeline produced are statistics — a beacon score, a rarity number.
-            They are <em>signals, not verdicts</em>. A detection skill is where an agent judges one
-            candidate against a hypothesis and adds the meaning those numbers can't carry on their
-            own: it <strong>fuses the correlated evidence</strong>, <strong>rules out the benign
-            explanations</strong> (EDR, an update service, ordinary browsing), writes the
-            <strong>attack narrative</strong>, calibrates what is still uncertain, and maps the
-            activity to <strong>MITRE</strong> with its basis. What streams out is a structured
-            <strong>DetectionFinding</strong> — not just a score, but a verdict with the reasoning
-            behind it.
+            Upstream, <strong>initiation</strong> has already run (we've simulated it), and the
+            <strong>hypothesis</strong> it produced is waiting on the <strong>Lab</strong> tab. This
+            lab takes that hypothesis, runs <em>one</em> detection skill against the candidates it
+            scopes, and shows you every step. Below is <strong>what's happening and what to do</strong>
+            — the concepts are in the slides; this is the operating manual.
           </p>
         </header>
 
@@ -402,13 +398,15 @@
             <span class="flow-rail"><FileMdIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">1 · Pick a detection skill</span>
-                <span class="flow-where">Lab tab · step 01</span>
+                <span class="flow-title">1 · What you're looking at — the hypothesis</span>
+                <span class="flow-where">Lab tab</span>
               </div>
               <p>
-                Go to the <strong>Lab</strong> tab and choose a skill from the catalog (start with
-                <code>hunt-c2-over-https</code>). Each card is a real <code>.md</code> file the
-                harness discovered on disk.
+                Initiation already ran upstream (simulated) and handed detection a
+                <strong>hypothesis</strong>: hunt <code>C2-over-HTTPS</code> scoped to the developer
+                subnet <code>10.42.10.0/24</code>. You'll see it in the <strong>Hypothesis received</strong>
+                card. The skill is already selected for you — <code>hunt-c2-over-https</code>, a real
+                <code>.md</code> file the harness found on disk.
               </p>
             </div>
           </li>
@@ -439,10 +437,12 @@
                 <span class="flow-where">Run Detection Skill</span>
               </div>
               <p>
-                Hit <strong>Run Detection Skill</strong>. The harness picks the target candidate
-                automatically, parses the skill into a <strong>system + user prompt</strong>, and the
-                model works the procedure. Watch the
-                <strong>DetectionFinding</strong> stream out in step 03.
+                Hit <strong>Run Detection Skill</strong>. The harness first <strong>scopes</strong> the
+                beacons to the hypothesis (only sources in <code>10.42.10.0/24</code> — others drop
+                out), then picks the target automatically and parses the skill into a
+                <strong>system + user prompt</strong>. The scope decided <em>which</em> candidate is
+                judged — it is <strong>not</strong> in the prompt; the model judges on the candidate's
+                own evidence. Watch the <strong>DetectionFinding</strong> stream out in step 03.
               </p>
             </div>
           </li>
@@ -487,10 +487,9 @@
         <aside class="cv-callout">
           <FileMdIcon size={22} weight="duotone" />
           <p>
-            <strong>Why this is the heart of the system:</strong> detection logic lives in
-            version-controlled Markdown, not buried in code. The agent <em>executes a written
-            procedure</em> rather than improvising — so detections are reviewable, shareable, and
-            improvable by anyone who can edit a text file.
+            <strong>What you're watching:</strong> the single unit the real system runs many of, in
+            parallel — one skill judging one candidate. We've slowed it to one, on rails, so each
+            step is visible.
           </p>
         </aside>
       </div>
