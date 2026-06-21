@@ -28,3 +28,6 @@ vite.config.ts.timestamp-*
 
 # Bonus shell lab — runtime sandbox the agent works in (regenerated on demand)
 shell-sandbox/
+
+# Final hunt narrative reports — written at runtime by the Complete Hunt lab
+reports/*.md

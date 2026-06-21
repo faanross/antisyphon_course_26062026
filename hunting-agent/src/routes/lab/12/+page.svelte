@@ -14,6 +14,7 @@
     findings: unknown[];
     assessments?: unknown[];
     narrative: string;
+    report?: { fileName: string; path: string };
   };
 
   type ProgressLine = { stage: string; message: string };
@@ -218,8 +219,11 @@
               </div>
               <p>
                 The <strong>Narrative</strong> panel holds the campaign story the model wrote —
-                grounded strictly in the graph's entities and edges (Lab 11). This is the
-                human-readable account stitched together from the structured findings.
+                grounded strictly in the graph's entities and edges (Lab 11). Like detection and
+                assessment, narrative is driven by a <strong>loadable skill file</strong>
+                (<code>skills/narrative/narrate-host-activity.md</code>), not a hardcoded prompt. The
+                hunt then saves that narrative as a final <strong>Markdown report</strong> — the
+                single human-readable artifact (see the <strong>Final Report</strong> panel).
               </p>
             </div>
           </li>
@@ -340,6 +344,13 @@
       <h2>Narrative</h2>
       <pre>{result.narrative}</pre>
     </section>
+    {#if result.report}
+      <section class="panel">
+        <h2>Final Report</h2>
+        <p>The narrative, saved to disk as a Markdown file — the hunt's single human-readable artifact.</p>
+        <p class="path">{result.report.path}</p>
+      </section>
+    {/if}
   {/if}
   {:else}
     <!-- ═══════════════════════════════════════════════════ -->
@@ -400,7 +411,7 @@
               <span class="flow-rail"><ScrollIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Synthesize the narrative</span><span class="flow-where">Lab 11 · narrative.ts</span></div>
-                <p>The model writes a campaign story, grounded strictly in the graph's entities and edges.</p>
+                <p>The model writes a campaign story, grounded strictly in the graph's entities and edges. Its system prompt is a <strong>loadable skill</strong> (<code>skills/narrative/narrate-host-activity.md</code>) — the same pattern as detection and assessment, not a hardcoded prompt. The narrative is then written to disk as a final Markdown report.</p>
               </div>
             </li>
           </ol>
@@ -446,14 +457,18 @@
 
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">D</span> Where each piece lives<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">The capstone endpoint is thin — it calls into the framework files from every prior lab.</p>
-          <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/src/</span>
+          <p class="cv-lead">The capstone endpoint is thin — it calls into the skill files and framework files from every prior lab.</p>
+          <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/</span>
 │
-├─ <span class="tr-dir">routes/lab/12/api/capstone/</span>
-│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← chains the whole pipeline in one handler</span>
+├─ <span class="tr-dir">skills/narrative/</span>
+│  └─ <span class="tr-file">narrate-host-activity.md</span>  <span class="tr-cm">← the narrative skill — the system prompt</span>
 │
-└─ <span class="tr-dir">framework/</span>
-   └─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runInvestigationState: detect + assess + graph + narrative</span></code></pre>
+└─ <span class="tr-dir">src/</span>
+   ├─ <span class="tr-dir">routes/lab/12/api/capstone/</span>
+   │  └─ <span class="tr-file">+server.ts</span>          <span class="tr-cm">← chains the pipeline + writes the final .md report</span>
+   └─ <span class="tr-dir">framework/</span>
+      ├─ <span class="tr-file">orchestrator.ts</span>     <span class="tr-cm">← runInvestigationState: detect + assess + graph + narrative</span>
+      └─ <span class="tr-file">narrative.ts</span>       <span class="tr-cm">← loadSkill(narrate-host-activity.md) → one graph-grounded call</span></code></pre>
         </details>
 
         <aside class="cv-callout">

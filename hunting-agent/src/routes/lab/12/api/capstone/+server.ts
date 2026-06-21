@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { RequestHandler } from "./$types";
 import { runInvestigationState } from "../../../../../framework/orchestrator.js";
 
@@ -22,10 +24,23 @@ export const POST: RequestHandler = async () => {
             send({ type: "progress", stage: ev.stage, message: ev.message, data: ev.data }),
           );
 
+          // Persist the narrative as a final Markdown artifact — the single
+          // human-readable output of the hunt. This is just the narrative string
+          // written to disk; it is NOT the full report / notification / verdict
+          // layer (that is deferred to Course 02).
+          send({ stage: "report", type: "progress", message: "Writing the final narrative report" });
+          const fileName = "complete-hunt-narrative.md";
+          const outputDir = path.join(process.cwd(), "reports");
+          await mkdir(outputDir, { recursive: true });
+          const reportPath = path.join(outputDir, fileName);
+          const markdown = `# Complete Hunt — Campaign Narrative\n\n${narrative.trim()}\n`;
+          await writeFile(reportPath, markdown, "utf8");
+          const report = { fileName, path: path.relative(process.cwd(), reportPath) };
+
           send({ stage: "done", type: "progress", message: "Hunt complete" });
           send({
             type: "result",
-            result: { graph, findings, assessments, narrative },
+            result: { graph, findings, assessments, narrative, report },
           });
           send({ type: "done" });
         } catch (err) {
