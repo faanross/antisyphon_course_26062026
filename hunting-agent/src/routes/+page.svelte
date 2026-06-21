@@ -1,5 +1,4 @@
 <script lang="ts">
-  import BellRingingIcon from "phosphor-svelte/lib/BellRingingIcon";
   import BookOpenTextIcon from "phosphor-svelte/lib/BookOpenTextIcon";
   import BooksIcon from "phosphor-svelte/lib/BooksIcon";
   import BrainIcon from "phosphor-svelte/lib/BrainIcon";
@@ -98,23 +97,17 @@
     },
     {
       id: "12",
-      title: "Feedback + Report",
-      description: "Record analyst verdicts, generate the Markdown report, and send a notification event.",
-      href: "/lab/12",
-      icon: BellRingingIcon,
-    },
-    {
-      id: "13",
       title: "Complete Hunt",
-      description: "Run the integrated capstone from orchestration through graph, narrative, and feedback.",
-      href: "/lab/13",
+      description: "Run the integrated capstone from orchestration through graph and narrative.",
+      href: "/lab/12",
       icon: RocketLaunchIcon,
     },
     {
-      id: "14",
-      title: "Further Learning",
+      id: "further-learning",
+      bonus: true,
+      title: "Bonus — Further Learning",
       description: "Map next steps after the workshop: more skills, real integrations, persistent graph state, and feedback.",
-      href: "/lab/14",
+      href: "/lab/further-learning",
       icon: CompassIcon,
     },
     {

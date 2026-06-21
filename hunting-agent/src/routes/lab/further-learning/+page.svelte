@@ -87,14 +87,14 @@
   ];
 </script>
 
-<svelte:head><title>Lab 14 - Further Learning</title></svelte:head>
+<svelte:head><title>Bonus - Further Learning</title></svelte:head>
 
 <main class="lab14-shell">
   <section class="hero">
     <div class="hero-icon" aria-hidden="true">
       <CompassIcon size={44} weight="duotone" />
     </div>
-    <span class="eyebrow">Lab 14</span>
+    <span class="eyebrow">Bonus</span>
     <h1>Further Learning</h1>
     <p>
       The capstone proved the full flow. This final lab is the handoff: what to extend,
