@@ -236,27 +236,6 @@
     assessmentSkills.find((skill) => skill.path === assessmentSkillPath) ?? null,
   );
 
-  // Drives the "layering strip": what detection established (baseline) → the context that was
-  // injected (the new input) → the categories this assessment layer adds on top.
-  const detectionBaseline = $derived.by(() => {
-    const f = detectionFinding;
-    if (!f) return null;
-    const tc = f.triggerCandidate && typeof f.triggerCandidate === "object"
-      ? (f.triggerCandidate as Record<string, unknown>)
-      : {};
-    const score = f.compositeScore ?? tc.score ?? null;
-    return {
-      candidateId: String(f.candidateId ?? tc.id ?? "candidate"),
-      score: score == null ? null : String(score),
-    };
-  });
-  const injectedContextIds = $derived(injectedContext.map((s) => s.id));
-  const assessmentAdds = $derived.by(() => {
-    const name = executedSkill?.metadata.name ?? selectedAssessmentSkill?.metadata.name ?? "";
-    return name.includes("behavioral")
-      ? ["Behavioral verdict", "Baseline deviation", "Context judgement"]
-      : ["Severity", "Operational bottom line", "Business impact", "Escalation", "Recommended response"];
-  });
 
   onMount(async () => {
     await loadLab();
@@ -516,6 +495,15 @@
     return JSON.stringify(value, null, 2);
   }
 
+  // "severityReasoning" -> "Severity Reasoning" (so labels are legible, not run together)
+  function humanizeKey(key: string): string {
+    return key
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+  }
+
   function record(value: unknown): Record<string, unknown> {
     return value && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
@@ -613,14 +601,15 @@
             <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">4 · Run it and read the layering</span>
+                <span class="flow-title">4 · Run it and read the finding</span>
                 <span class="flow-where">Run Assessment Skill · panel 05</span>
               </div>
               <p>
                 Hit <strong>Run Assessment Skill</strong>. Panel <strong>03</strong> shows the
                 assembled prompts; panel <strong>05 · AssessmentFinding</strong> streams a real model
-                call. Watch the <strong>layering strip</strong> at the top: detection's baseline on the
-                left, the context it gathered in the middle, the assessment's new judgement on the right.
+                call in three stages: the model's <strong>raw JSON</strong>, the <strong>schema gate</strong>
+                that validates it, then the <strong>rendered finding</strong> — severity and business impact
+                grounded in the context it gathered.
               </p>
             </div>
           </li>
@@ -1229,43 +1218,6 @@
       </div>
     </div>
 
-    <p class="real-call-note">
-      The model's real output is the <strong>structured JSON object</strong> below — each judgement a
-      named field. The harness then <strong>validates it (the schema gate)</strong>, and the readable
-      card at the bottom is a <strong>deterministic rendering of the typed object</strong> — <em>not</em>
-      the model's output, and <em>not</em> what the harness persists (it persists the object).
-    </p>
-
-    {#if detectionBaseline}
-      <div class="layering">
-        <div class="lyr lyr-base">
-          <span class="lyr-tag">Detection established</span>
-          <strong>{detectionBaseline.candidateId}{detectionBaseline.score ? ` · ${detectionBaseline.score}` : ""}</strong>
-          <small>technical confidence — <em>is</em> it malicious</small>
-        </div>
-        <div class="lyr-join">
-          <span class="lyr-join-label">+ injected context</span>
-          {#if injectedContextIds.length}
-            <div class="lyr-chips">
-              {#each injectedContextIds as id}<span class="lyr-chip">{id}</span>{/each}
-            </div>
-          {/if}
-        </div>
-        <div class="lyr lyr-add">
-          <span class="lyr-tag">Assessment adds</span>
-          <div class="lyr-adds">
-            {#each assessmentAdds as a}<span class="lyr-add-chip">{a}</span>{/each}
-          </div>
-          <small>new, contextual judgement — <em>how bad for us</em></small>
-        </div>
-      </div>
-      <p class="layering-note">
-        Everything below is <strong>net-new from this layer</strong> — produced only because the
-        context above was injected. Detection said <em>whether</em> it's malicious; the assessment
-        adds <em>how severe it is in your environment</em>, grounding each claim in a named context file.
-      </p>
-    {/if}
-
     <!-- 1 · the model's real output: the JSON AssessmentFinding (streams live) -->
     <div class="finding-stage">
       <span class="stage-label">1 · Model output — JSON <code>AssessmentFinding</code></span>
@@ -1324,7 +1276,7 @@
       <span class="rf-score">enriches <code>{finding.basedOn}</code></span>
     </div>
     {#each finding.fields as field}
-      <p class="rf-field"><span class="rf-key">{field.key}</span> {field.value}</p>
+      <p class="rf-field"><span class="rf-key">{humanizeKey(field.key)}</span> {field.value}</p>
     {/each}
   </div>
 {/snippet}
@@ -1345,7 +1297,7 @@
   .gate-errors li { font-size: .76rem; color: var(--dracula-muted); }
 
   .rendered-finding {
-    display: grid; gap: .55rem; padding: .85rem .9rem; border-radius: 9px;
+    display: grid; gap: 1rem; padding: 1rem 1.05rem; border-radius: 9px;
     background: rgba(189, 147, 249, 0.05); border: 1px solid rgba(189, 147, 249, .34);
   }
   .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
@@ -1356,8 +1308,8 @@
   .rf-sev-low { color: var(--dracula-green, #50fa7b); }
   .rf-score { font-size: .8rem; color: var(--dracula-muted); }
   .rf-score code { color: var(--dracula-cyan); }
-  .rf-field { margin: 0; font-size: .82rem; color: var(--dracula-fg); }
-  .rf-key { font-family: var(--font-heading); font-size: .7rem; color: var(--dracula-purple); margin-right: .45rem; }
+  .rf-field { margin: 0; font-size: .93rem; line-height: 1.65; color: var(--dracula-fg); }
+  .rf-key { display: block; font-family: var(--font-heading); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; color: var(--dracula-purple); margin: 0 0 .25rem; }
 
   main {
     width: min(1500px, calc(100% - 2rem));
@@ -1492,90 +1444,6 @@
     color: var(--dracula-yellow);
     border-color: rgba(245, 230, 99, .55);
     background: rgba(245, 230, 99, .08);
-  }
-
-  .real-call-note {
-    border-left: 3px solid rgba(139, 233, 253, .6);
-    padding-left: .65rem;
-    font-size: .82rem;
-  }
-
-  /* Layering strip: detection baseline → injected context → assessment adds */
-  .layering {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: stretch;
-    gap: .6rem;
-    margin-top: 1rem;
-  }
-  .lyr {
-    display: flex;
-    flex-direction: column;
-    gap: .3rem;
-    border: 1px solid rgba(98, 114, 164, .4);
-    border-radius: 8px;
-    padding: .7rem .8rem;
-    background: rgba(25, 26, 33, .7);
-  }
-  .lyr-base { border-left: 3px solid rgba(139, 233, 253, .65); }
-  .lyr-add { border-left: 3px solid var(--dracula-green, #50fa7b); background: rgba(80, 250, 123, .06); }
-  .lyr-tag {
-    font-family: var(--font-heading);
-    font-size: .68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--brand-muted, rgba(255,255,255,.6));
-  }
-  .lyr-base .lyr-tag { color: #8be9fd; }
-  .lyr-add .lyr-tag { color: var(--dracula-green, #50fa7b); }
-  .lyr strong { color: var(--dracula-fg, #f8f8f2); font-size: 1rem; }
-  .lyr small { color: var(--brand-muted, rgba(255,255,255,.58)); font-size: .76rem; }
-  .lyr small em { color: var(--brand-yellow, #f5e663); font-style: normal; }
-  .lyr-join {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: .4rem;
-    min-width: 9rem;
-    text-align: center;
-  }
-  .lyr-join-label {
-    font-family: var(--font-heading);
-    font-size: .72rem;
-    font-weight: 800;
-    color: var(--brand-purple-light, #bd93f9);
-  }
-  .lyr-chips, .lyr-adds { display: flex; flex-wrap: wrap; gap: .3rem; }
-  .lyr-adds { justify-content: flex-start; }
-  .lyr-chip {
-    font-family: var(--font-heading);
-    font-size: .68rem;
-    color: var(--brand-purple-light, #bd93f9);
-    background: rgba(189, 147, 249, .1);
-    border: 1px solid rgba(189, 147, 249, .35);
-    border-radius: 999px;
-    padding: .1rem .45rem;
-  }
-  .lyr-add-chip {
-    font-size: .72rem;
-    color: var(--dracula-green, #50fa7b);
-    background: rgba(80, 250, 123, .08);
-    border: 1px solid rgba(80, 250, 123, .35);
-    border-radius: 5px;
-    padding: .12rem .45rem;
-  }
-  .layering-note {
-    margin-top: .75rem;
-    font-size: .84rem;
-    line-height: 1.6;
-    color: var(--brand-muted, rgba(255,255,255,.66));
-  }
-  .layering-note strong { color: var(--dracula-green, #50fa7b); }
-  .layering-note em { color: var(--brand-yellow, #f5e663); font-style: normal; }
-  @media (max-width: 760px) {
-    .layering { grid-template-columns: 1fr; }
   }
 
   .markdown-body {
