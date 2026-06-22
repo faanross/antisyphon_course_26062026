@@ -439,7 +439,10 @@
                 out), then picks the target automatically and parses the skill into a
                 <strong>system + user prompt</strong>. The scope decided <em>which</em> candidate is
                 judged — it is <strong>not</strong> in the prompt; the model judges on the candidate's
-                own evidence. Watch the <strong>DetectionFinding</strong> stream out in step 03.
+                own evidence. <strong>Peek at the user prompt, too:</strong> it's the harness — not the
+                skill — that pins the output to <strong>JSON</strong> in a fixed
+                <strong>DetectionFinding</strong> schema, so every skill returns the same typed
+                shape. Watch the <strong>DetectionFinding</strong> stream out in step 03.
               </p>
             </div>
           </li>
