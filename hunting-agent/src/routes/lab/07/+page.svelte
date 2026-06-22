@@ -85,9 +85,18 @@
     status: "ok" | "warning";
   };
 
-  type ContextBundle = {
-    schema: ResolvedContext;
-    requirements: ResolvedContext[];
+  type InjectedSection = { id: string; content: string };
+
+  type ToolStep = {
+    id: string;
+    step: number;
+    thought: string;
+    tool: string;
+    args: Record<string, unknown>;
+    status: "ok" | "error";
+    resultCount: number;
+    elapsedMs: number;
+    observation: string;
   };
 
   type EvidenceRawEvent = {
@@ -128,7 +137,8 @@
   type StreamEvent =
     | { type: "skill"; skill: SkillSummary }
     | { type: "trace"; step: TraceStep }
-    | { type: "context"; contextBundle: ContextBundle }
+    | { type: "context"; injected: InjectedSection[] }
+    | { type: "tool-step"; trace: ToolStep }
     | { type: "evidence"; evidenceBundle: EvidenceBundle }
     | { type: "prompt"; systemPrompt: string; userPrompt: string }
     | { type: "model-start"; message: string }
@@ -202,7 +212,8 @@
   // Streaming execution state. Each field is populated by a distinct NDJSON event.
   let executedSkill = $state<SkillSummary | null>(null);
   let traceSteps = $state<TraceStep[]>([]);
-  let streamedContextBundle = $state<ContextBundle | null>(null);
+  let injectedContext = $state<InjectedSection[]>([]);
+  let toolSteps = $state<ToolStep[]>([]);
   let streamedEvidence = $state<EvidenceBundle | null>(null);
   let systemPrompt = $state("");
   let userPrompt = $state("");
@@ -224,7 +235,6 @@
   const selectedAssessmentSkill = $derived(
     assessmentSkills.find((skill) => skill.path === assessmentSkillPath) ?? null,
   );
-  const selectedRequirements = $derived(selectedAssessmentSkill?.metadata.contextRequirements ?? []);
 
   // Drives the "layering strip": what detection established (baseline) → the context that was
   // injected (the new input) → the categories this assessment layer adds on top.
@@ -240,7 +250,7 @@
       score: score == null ? null : String(score),
     };
   });
-  const injectedContextIds = $derived(streamedContextBundle?.requirements.map((r) => r.id) ?? []);
+  const injectedContextIds = $derived(injectedContext.map((s) => s.id));
   const assessmentAdds = $derived.by(() => {
     const name = executedSkill?.metadata.name ?? selectedAssessmentSkill?.metadata.name ?? "";
     return name.includes("behavioral")
@@ -418,7 +428,8 @@
   function resetExecutionState() {
     executedSkill = null;
     traceSteps = [];
-    streamedContextBundle = null;
+    injectedContext = [];
+    toolSteps = [];
     streamedEvidence = null;
     systemPrompt = "";
     userPrompt = "";
@@ -440,7 +451,10 @@
         traceSteps = [...traceSteps, event.step];
         break;
       case "context":
-        streamedContextBundle = event.contextBundle;
+        injectedContext = event.injected;
+        break;
+      case "tool-step":
+        toolSteps = [...toolSteps, event.trace];
         break;
       case "evidence":
         streamedEvidence = event.evidenceBundle;
@@ -581,14 +595,15 @@
             <span class="flow-rail"><BuildingsIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">3 · See the context it pulls</span>
-                <span class="flow-where">panel 03 · Context Resolution</span>
+                <span class="flow-title">3 · Watch it retrieve its own context</span>
+                <span class="flow-where">panel 03 · Agentic Context Retrieval</span>
               </div>
               <p>
-                Panel <strong>03</strong> lists the exact org-context files in play — the org-wide ones
-                the skill named directly (escalation policy) and the entity-scoped ones the harness
-                resolved <em>from this finding</em> (the host's asset record and incident history) — plus
-                the shared field guide. This is the <strong>net-new input</strong> a detection alone never had.
+                Panel <strong>03</strong> streams the agent's <strong>tool loop</strong> — each step shows
+                its selection note, the tool call (<code>get_asset_record</code> /
+                <code>get_incident_history</code>), and what came back. The org-wide compliance baseline is
+                injected; the entity records the agent fetches itself. This is the <strong>net-new
+                input</strong> — and the net-new <em>behaviour</em> — a detection alone never had.
               </p>
             </div>
           </li>
@@ -605,7 +620,7 @@
                 Hit <strong>Run Assessment Skill</strong>. Panel <strong>04</strong> shows the
                 assembled prompts; panel <strong>05 · AssessmentFinding</strong> streams a real model
                 call. Watch the <strong>layering strip</strong> at the top: detection's baseline on the
-                left, the injected context in the middle, the assessment's new judgement on the right.
+                left, the context it gathered in the middle, the assessment's new judgement on the right.
               </p>
             </div>
           </li>
@@ -702,52 +717,46 @@
     <section class="flow-card context">
       <div class="flow-header">
         <span>03</span>
-        <h2>Context Resolution</h2>
+        <h2>Agentic Context Retrieval</h2>
       </div>
 
       {#if selectedAssessmentSkill}
-        <div class="context-list">
-          <article>
-            <strong>schema.candidate-field-guide</strong>
-            <span>{schemaContext?.path ?? "context/schema/candidate-field-guide.md"}</span>
-            <p>Shared field definitions. This is schema reference, not org context.</p>
-          </article>
-          {#each selectedRequirements as requirement}
-            <article>
-              <strong>{requirement.id}</strong>
-              <span>{requirement.path}</span>
-              <p>{requirement.reason}</p>
-            </article>
-          {/each}
-        </div>
+        <p class="panel-intro">
+          Unlike detection — where the harness injects the candidates directly — the assessment agent
+          <strong>retrieves its own entity context</strong> by calling tools in a bounded loop, then judges.
+          The org-wide compliance baseline is injected; the asset record and incident history are tool-fetched.
+        </p>
 
-        {#if streamedContextBundle}
-          <div class="resolved-context">
-            <details>
-              <summary>
-                <span>Schema Reference</span>
-                <small>{streamedContextBundle.schema.approxTokens} est. tokens</small>
-              </summary>
-              <pre>{streamedContextBundle.schema.content}</pre>
-            </details>
-            {#each streamedContextBundle.requirements as contextFile}
-              <details>
-                <summary>
-                  <span>{contextFile.id}</span>
-                  {#if contextFile.mode === "resolve"}
-                    <small class="ctx-resolve">resolved · {contextFile.resolvedFrom}</small>
-                  {:else}
-                    <small class="ctx-static">static · org-wide</small>
-                  {/if}
-                  <small>{contextFile.approxTokens} est. tokens</small>
-                </summary>
-                <pre>{contextFile.content}</pre>
-              </details>
+        {#if injectedContext.length}
+          <div class="injected-note">
+            <span class="inj-label">Injected baseline</span>
+            {#each injectedContext as section}
+              <span class="inj-chip">{section.id}</span>
             {/each}
           </div>
         {/if}
+
+        {#if toolSteps.length}
+          <div class="tao-traces">
+            {#each toolSteps as trace}
+              <article class="trace-card" class:error={trace.status === "error"}>
+                <div class="trace-head">
+                  <strong>Step {trace.step}: {trace.tool}</strong>
+                  <span>{trace.status} · {trace.resultCount} result(s) · {trace.elapsedMs}ms</span>
+                </div>
+                <div class="tao-row">
+                  <div><span class="label">Selection Note</span><p>{trace.thought}</p></div>
+                  <div><span class="label">Action</span><code>{trace.tool}({JSON.stringify(trace.args)})</code></div>
+                  <div><span class="label">Observation</span><p>{trace.observation}</p></div>
+                </div>
+              </article>
+            {/each}
+          </div>
+        {:else}
+          <p class="empty">Run the skill to watch the agent select tools and retrieve its own context.</p>
+        {/if}
       {:else}
-        <p class="empty">Select an assessment skill to see its declared context requirements.</p>
+        <p class="empty">Select an assessment skill to begin.</p>
       {/if}
     </section>
 
@@ -933,21 +942,21 @@
               <span class="flow-rail"><ListMagnifyingGlassIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Discover assessment skills</span><span class="flow-where">server · skill-loader.ts</span></div>
-                <p>The harness lists skills and keeps the <code>layer: assessment</code> ones whose context is static or entity-resolved. (Retrieval-backed skills are Lab 08.)</p>
+                <p>The harness lists skills and keeps the <code>layer: assessment</code> ones that declare <code>allowedTools</code> — they retrieve their own context agentically.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 90ms">
               <span class="flow-rail"><BracketsCurlyIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Inspect inputs &amp; context requirements</span><span class="flow-where">server · api/skills</span></div>
-                <p>The frontmatter declares its input (a <code>DetectionFinding</code>) and a list of <code>contextRequirements</code> — each with a <code>mode</code>: a <code>static</code> file <code>path</code>, or a <code>resolve</code> entity + layer the harness fills in from the finding.</p>
+                <div class="flow-top"><span class="flow-title">Inspect inputs, tools &amp; context sources</span><span class="flow-where">server · api/skills</span></div>
+                <p>The frontmatter declares its input (a <code>DetectionFinding</code>), the <code>allowedTools</code> the agent may call to fetch entity context, and the <code>contextSources</code> whose org-wide files (compliance) the harness injects up front.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 180ms">
               <span class="flow-rail"><FoldersIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Resolve &amp; inject the context</span><span class="flow-badge">the key step</span><span class="flow-where">server · api/skills</span></div>
-                <p><code>resolveContextBundle()</code> reads each requirement. Org-wide ones (escalation policy) are fixed paths; entity-scoped ones (the host's asset record, its incident history) are resolved from the finding's own <code>scope.host</code> / <code>scope.user</code> — deterministically, never hardcoded. Plus the shared field guide. These become the injected bundle.</p>
+                <div class="flow-top"><span class="flow-title">Agentic context retrieval</span><span class="flow-badge">the key step</span><span class="flow-where">server · assessment-agent-loop.ts</span></div>
+                <p>This is the difference from detection. The agent runs a <strong>bounded tool loop</strong> (max 4 steps): it calls <code>get_asset_record</code> and <code>get_incident_history</code> to fetch the entity context it needs, keying off the finding's own host / user / subnet. The org-wide compliance baseline is injected; the entity records are <strong>retrieved by the model itself</strong>. Watch each step in panel 03.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -961,7 +970,7 @@
               <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Execute — the model assesses</span><span class="flow-where">server · providers/*</span></div>
-                <p>Skill body = system prompt; the DetectionFinding + injected context + evidence = user prompt. The model judges severity and streams back an <code>AssessmentFinding</code>, citing the context line behind every claim.</p>
+                <p>Skill body = system prompt; the DetectionFinding + injected compliance + the context the agent retrieved + evidence = the final user prompt. The model judges severity and streams back an <code>AssessmentFinding</code>, citing the context line behind every claim. If the agent never fetched the asset record, the harness injects it as a grounding fallback.</p>
               </div>
             </li>
           </ol>
@@ -971,8 +980,8 @@
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">B</span> What the model is given<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">
-            "Context injection" just means: the harness assembles a precise bundle and hands it to
-            the model. Here is exactly what goes in this turn.
+            Some context is injected (the org-wide compliance baseline); the rest the agent
+            retrieves itself via tools. Here is what the final assessment call is given.
           </p>
 
           <div class="assembly">
@@ -987,7 +996,7 @@
               </div>
               <div class="asm-row asm-user">
                 <BuildingsIcon size={18} weight="duotone" />
-                <div><strong>Injected context</strong><small>→ user prompt: the resolved org files</small></div>
+                <div><strong>Context</strong><small>→ user prompt: injected compliance + the records the agent retrieved</small></div>
               </div>
               <div class="asm-row asm-user">
                 <DatabaseIcon size={18} weight="duotone" />
@@ -1017,8 +1026,8 @@
               <p>Lab 06's <code>DetectionFinding</code> is this lab's input. Detection asks "malicious?"; assessment asks "how severe, given our org?". One skill's output is the next skill's input.</p>
             </article>
             <article class="cv-card">
-              <div class="cv-card-head"><SyringeIcon size={26} weight="duotone" /><h4>Context is injected explicitly</h4></div>
-              <p>The skill names the exact files it needs in <code>contextRequirements</code>. The harness loads precisely those and nothing else — the model can't reach for hidden context.</p>
+              <div class="cv-card-head"><SyringeIcon size={26} weight="duotone" /><h4>The agent retrieves its own context</h4></div>
+              <p>Unlike detection (candidates injected directly), the assessment agent calls tools — <code>get_asset_record</code>, <code>get_incident_history</code> — to fetch entity context itself, the same agentic pattern as Lab 04. Org-wide compliance is the one piece injected up front.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><StackIcon size={26} weight="duotone" /><h4>Organizational context is layered</h4></div>
@@ -1030,8 +1039,8 @@
               </div>
             </article>
             <article class="cv-card">
-              <div class="cv-card-head"><GitBranchIcon size={26} weight="duotone" /><h4>The skill declares <em>what</em>, not <em>which</em></h4></div>
-              <p>Each requirement has a <code>mode</code>. <code>static</code> is one fixed org-wide file (the escalation policy is the same for every finding). <code>resolve</code> is entity-scoped: the skill says "the asset profile for <em>this finding's host</em>" — the harness picks the file deterministically from the finding, never a hardcoded host. When you can't even name the entities ahead of time, you retrieve — Lab 08 (RAG).</p>
+              <div class="cv-card-head"><GitBranchIcon size={26} weight="duotone" /><h4>The skill declares <em>what</em>, the agent decides <em>which</em></h4></div>
+              <p>The skill declares <code>allowedTools</code> (what it may fetch) and <code>contextSources</code> (what to inject). The agent decides <em>which</em> entities to look up — keying off this finding's own host / user / subnet — and when it has enough to judge. Bounded to four steps, read-only tools.</p>
             </article>
           </div>
         </details>
@@ -1397,22 +1406,31 @@
   h4 { color: var(--dracula-purple); font-size: .9rem; text-transform: uppercase; }
   p, .empty, small, dd, li, td { color: var(--dracula-muted); line-height: 1.5; }
 
-  .flow-grid, .skill-list, .contract, .trace, .context-list, .resolved-context, .finding-summary {
+  .flow-grid, .skill-list, .contract, .trace, .finding-summary {
     display: grid;
     gap: .85rem;
   }
 
-  small.ctx-resolve, small.ctx-static {
-    font-family: var(--font-mono, monospace);
-    font-size: .68rem;
-    font-weight: 700;
-    padding: .1rem .4rem;
-    border-radius: 4px;
-  }
-  small.ctx-resolve { color: var(--dracula-green, #50fa7b); background: rgba(80, 250, 123, 0.12); }
-  small.ctx-static { color: var(--dracula-comment, #6272a4); background: rgba(98, 114, 164, 0.16); }
+  .panel-intro { margin: 0 0 .9rem; color: var(--dracula-muted); font-size: .9rem; line-height: 1.5; }
 
-  .flow-card, .panel, .picker, .trace article, .context-list article, .narrative {
+  .injected-note { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .9rem; }
+  .inj-label { color: var(--dracula-comment); font-family: var(--font-heading); font-size: .72rem; text-transform: uppercase; }
+  .inj-chip { padding: .2rem .5rem; border: 1px solid rgba(189, 147, 249, 0.4); border-radius: 6px; background: rgba(189, 147, 249, 0.12); color: var(--dracula-purple); font-family: var(--font-heading); font-size: .72rem; }
+
+  .tao-traces { display: grid; gap: .75rem; }
+  .trace-card { padding: .85rem; border: 1px solid rgba(68, 71, 90, 0.9); border-radius: 8px; background: rgba(25, 26, 33, 0.62); }
+  .trace-card.error { border-color: rgba(255, 85, 85, 0.5); background: rgba(255, 85, 85, 0.08); }
+  .trace-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .75rem; }
+  .trace-head strong { color: var(--dracula-green); font-family: var(--font-heading); }
+  .trace-head span { color: var(--dracula-comment); font-family: var(--font-heading); font-size: .72rem; }
+  .tao-row { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, .95fr) minmax(0, 1.15fr); gap: .75rem; }
+  .tao-row > div { min-width: 0; padding: .7rem; border: 1px solid rgba(68, 71, 90, 0.72); border-radius: 8px; background: rgba(33, 34, 44, 0.7); }
+  .tao-row .label { display: block; margin-bottom: .35rem; color: var(--dracula-purple); font-family: var(--font-heading); font-size: .7rem; text-transform: uppercase; }
+  .tao-row p { margin: 0; font-size: .82rem; line-height: 1.45; color: var(--dracula-muted); word-break: break-word; }
+  .tao-row code { font-size: .78rem; color: var(--dracula-cyan); word-break: break-all; }
+  @media (max-width: 1100px) { .tao-row { grid-template-columns: 1fr; } }
+
+  .flow-card, .panel, .picker, .trace article, .narrative {
     min-width: 0;
     border: 1px solid rgba(98, 114, 164, 0.62);
     border-radius: 8px;
@@ -1434,7 +1452,7 @@
   }
 
   .flow-header span { color: var(--dracula-comment); font-size: .9rem; }
-  .picker, .context-list article, .narrative { padding: .85rem; background: rgba(25, 26, 33, .46); }
+  .picker, .narrative { padding: .85rem; background: rgba(25, 26, 33, .46); }
   .skill-list { margin-top: .65rem; }
   .skill-list.horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -1705,14 +1723,6 @@
   dt { color: var(--dracula-comment); font-family: var(--font-heading); font-weight: 800; }
   dd { margin: 0; overflow-wrap: anywhere; }
   .narrative h3 { margin-bottom: .5rem; }
-
-  .context-list article {
-    display: grid;
-    gap: .35rem;
-  }
-
-  .context-list strong { color: var(--dracula-cyan); font-family: var(--font-heading); }
-  .context-list span { color: var(--dracula-yellow); overflow-wrap: anywhere; }
 
   .panel { margin-top: 1rem; }
   .panel > summary { display: flex; justify-content: space-between; gap: 1rem; }
