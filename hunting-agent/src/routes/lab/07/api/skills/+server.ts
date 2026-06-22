@@ -819,6 +819,15 @@ export const POST: RequestHandler = async ({ request }) => {
           send({ type: "context", injected: injectedContext });
           send({ type: "evidence", evidenceBundle: displayEvidenceBundle });
 
+          // Show the assembled prompts immediately (panel 03), before the agentic loop runs. The user
+          // prompt's context section then fills in with the records the agent retrieves (re-emitted
+          // after the loop, below). The system prompt — the skill procedure — is final from the start.
+          send({
+            type: "prompt",
+            systemPrompt,
+            userPrompt: buildAssessmentUserPrompt(skill, upstreamFinding, injectedContext, modelEvidenceBundle),
+          });
+
           const provider = selectProvider();
 
           // Agentic context retrieval: the model calls tools to fetch the entity context it needs.
@@ -856,7 +865,8 @@ export const POST: RequestHandler = async ({ request }) => {
             });
           }
 
-          // Final finding call: DetectionFinding + injected compliance + tool-retrieved entity context.
+          // Re-emit the prompt now that the agent's retrieved context is folded in (panel 03 updates),
+          // then make the final finding call.
           const finalSections: ContextSection[] = [...injectedContext, ...retrieved];
           const userPrompt = buildAssessmentUserPrompt(skill, upstreamFinding, finalSections, modelEvidenceBundle);
           send({ type: "prompt", systemPrompt, userPrompt });
