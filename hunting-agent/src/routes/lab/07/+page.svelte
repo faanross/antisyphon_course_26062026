@@ -226,7 +226,7 @@
   let findingAssessmentType = $state("");
 
   // Active tab within the glass cards that hold more than one peer view.
-  let skillTab = $state<"frontmatter" | "procedure" | "reference">("frontmatter");
+  let skillTab = $state<"frontmatter" | "procedure">("frontmatter");
   let promptTab = $state<"system" | "user">("system");
 
   const hasExecution = $derived(Boolean(executedSkill));
@@ -583,9 +583,9 @@
               </div>
               <p>
                 In panel <strong>02</strong>, choose a skill from the catalog (e.g.
-                <code>assess-severity</code>). Inspect its <strong>Frontmatter</strong>,
-                <strong>Procedure</strong>, and <strong>Reference</strong> sub-tabs — the frontmatter
-                declares the <em>context files</em> this skill needs.
+                <code>assess-severity</code>). Inspect its <strong>Frontmatter</strong> and
+                <strong>Procedure</strong> sub-tabs — the frontmatter declares the
+                <code>allowedTools</code> and <code>contextSources</code> this skill uses.
               </p>
             </div>
           </li>
@@ -1124,9 +1124,6 @@
       <button class="tab" class:active={skillTab === "procedure"} role="tab" aria-selected={skillTab === "procedure"} onclick={() => (skillTab = "procedure")}>
         Procedure
       </button>
-      <button class="tab" class:active={skillTab === "reference"} role="tab" aria-selected={skillTab === "reference"} onclick={() => (skillTab = "reference")}>
-        Reference
-      </button>
     </div>
 
     {#if skillTab === "frontmatter"}
@@ -1142,44 +1139,8 @@
           {@render MarkdownView({ blocks: parseMarkdown(skill.body) })}
         </div>
       </div>
-    {:else}
-      <div class="tab-panel">
-        {@render ReferenceView({ refs: skill.candidateReference ?? [] })}
-      </div>
     {/if}
   </section>
-{/snippet}
-
-{#snippet ReferenceView({ refs }: { refs: CandidateRef[] })}
-  {#if refs.length === 0}
-    <p class="empty">This skill declares no candidate types.</p>
-  {:else}
-    <p class="tab-note">The candidate types this assessment skill correlates alongside the upstream DetectionFinding. Scores are illustrative values from the curated workshop dataset (not computed by a live engine here); the full dimension-by-dimension math is worked through for the beacon example in Lab 02.</p>
-    <div class="ref-list">
-      {#each refs as ref}
-        <article class="candidate-ref" class:trigger={ref.role === "trigger"}>
-          <div class="ref-head">
-            <strong>{ref.type}</strong>
-            <span class="ref-role">{ref.role === "trigger" ? "trigger" : `correlating · ${ref.scope ?? "any"}`}</span>
-          </div>
-          <p>{@html renderInline(ref.description)}</p>
-          {#if ref.scopeDescription}
-            <p class="ref-meta"><em>scope</em> {ref.scopeDescription}</p>
-          {/if}
-          {#if ref.fields.length}
-            <div class="ref-fields">
-              {#each ref.fields as field}
-                <code>{field}</code>
-              {/each}
-            </div>
-          {/if}
-          {#if ref.scoreNote}
-            <p class="ref-meta"><em>score</em> {@html renderInline(ref.scoreNote)}</p>
-          {/if}
-        </article>
-      {/each}
-    </div>
-  {/if}
 {/snippet}
 
 {#snippet MarkdownView({ blocks }: { blocks: MarkdownBlock[] })}
@@ -1692,18 +1653,6 @@
   .tab-panel { margin-top: .85rem; }
   .tab-panel pre { margin: 0; max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: .76rem; line-height: 1.45; }
   .tab-note { margin: 0 0 .5rem; font-size: .76rem; color: var(--dracula-comment); font-family: var(--font-heading); overflow-wrap: anywhere; }
-  .ref-list { display: grid; gap: .7rem; }
-  .candidate-ref { border: 1px solid rgba(98, 114, 164, .5); border-radius: 8px; padding: .8rem; background: rgba(25, 26, 33, .46); display: grid; gap: .4rem; }
-  .candidate-ref.trigger { border-color: rgba(245, 230, 99, .6); background: rgba(245, 230, 99, .06); }
-  .ref-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-  .ref-head strong { color: var(--dracula-cyan); font-family: var(--font-heading); font-size: 1rem; }
-  .ref-role { color: var(--dracula-purple); font-family: var(--font-heading); font-weight: 800; font-size: .72rem; text-transform: uppercase; }
-  .ref-meta { font-size: .82rem; }
-  .ref-meta em { color: var(--dracula-yellow); font-style: normal; font-family: var(--font-heading); margin-right: .35rem; }
-  .ref-fields { display: flex; flex-wrap: wrap; gap: .35rem; }
-  .ref-fields code { background: rgba(25, 26, 33, .8); border: 1px solid rgba(98, 114, 164, .4); border-radius: 5px; padding: .12rem .4rem; color: var(--dracula-green); font-size: .76rem; }
-  .candidate-ref p :global(code) { background: rgba(25, 26, 33, .8); border: 1px solid rgba(98, 114, 164, .35); border-radius: 5px; padding: .03rem .3rem; color: var(--dracula-green); font-size: .85em; }
-  .candidate-ref p :global(strong) { color: var(--dracula-fg); font-weight: 800; }
   .prompt-caption { margin: 0 0 .3rem; font-size: .82rem; color: rgba(248, 248, 242, .62); }
 
   dl {
