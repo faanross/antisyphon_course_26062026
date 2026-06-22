@@ -596,10 +596,10 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">3 · Watch it retrieve its own context</span>
-                <span class="flow-where">panel 03 · Agentic Context Retrieval</span>
+                <span class="flow-where">panel 04 · Agentic Context Retrieval</span>
               </div>
               <p>
-                Panel <strong>03</strong> streams the agent's <strong>tool loop</strong> — each step shows
+                Panel <strong>04</strong> streams the agent's <strong>tool loop</strong> — each step shows
                 its selection note, the tool call (<code>get_asset_record</code> /
                 <code>get_incident_history</code>), and what came back. The org-wide compliance baseline is
                 injected; the entity records the agent fetches itself. This is the <strong>net-new
@@ -617,7 +617,7 @@
                 <span class="flow-where">Run Assessment Skill · panel 05</span>
               </div>
               <p>
-                Hit <strong>Run Assessment Skill</strong>. Panel <strong>04</strong> shows the
+                Hit <strong>Run Assessment Skill</strong>. Panel <strong>03</strong> shows the
                 assembled prompts; panel <strong>05 · AssessmentFinding</strong> streams a real model
                 call. Watch the <strong>layering strip</strong> at the top: detection's baseline on the
                 left, the context it gathered in the middle, the assessment's new judgement on the right.
@@ -714,9 +714,22 @@
       </div>
     </section>
 
-    <section class="flow-card context">
+    <section class="flow-card prompt-stage">
       <div class="flow-header">
         <span>03</span>
+        <h2>Model Prompts</h2>
+      </div>
+
+      {#if systemPrompt || userPrompt}
+        {@render PromptView()}
+      {:else}
+        <p class="empty">Run an assessment skill to see how the procedure and injected context assembled into the system and user prompts.</p>
+      {/if}
+    </section>
+
+    <section class="flow-card context">
+      <div class="flow-header">
+        <span>04</span>
         <h2>Agentic Context Retrieval</h2>
       </div>
 
@@ -757,19 +770,6 @@
         {/if}
       {:else}
         <p class="empty">Select an assessment skill to begin.</p>
-      {/if}
-    </section>
-
-    <section class="flow-card prompt-stage">
-      <div class="flow-header">
-        <span>04</span>
-        <h2>Model Prompts</h2>
-      </div>
-
-      {#if systemPrompt || userPrompt}
-        {@render PromptView()}
-      {:else}
-        <p class="empty">Run an assessment skill to see how the procedure and injected context assembled into the system and user prompts.</p>
       {/if}
     </section>
 
@@ -956,7 +956,7 @@
               <span class="flow-rail"><FoldersIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Agentic context retrieval</span><span class="flow-badge">the key step</span><span class="flow-where">server · assessment-agent-loop.ts</span></div>
-                <p>This is the difference from detection. The agent runs a <strong>bounded tool loop</strong> (max 4 steps): it calls <code>get_asset_record</code> and <code>get_incident_history</code> to fetch the entity context it needs, keying off the finding's own host / user / subnet. The org-wide compliance baseline is injected; the entity records are <strong>retrieved by the model itself</strong>. Watch each step in panel 03.</p>
+                <p>This is the difference from detection. The agent runs a <strong>bounded tool loop</strong> (max 4 steps): it calls <code>get_asset_record</code> and <code>get_incident_history</code> to fetch the entity context it needs, keying off the finding's own host / user / subnet. The org-wide compliance baseline is injected; the entity records are <strong>retrieved by the model itself</strong>. Watch each step in panel 04.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
