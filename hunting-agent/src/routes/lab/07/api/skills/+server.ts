@@ -9,6 +9,8 @@ import {
   type SkillMetadata,
 } from "../../../../../framework/skill-loader.js";
 import { selectProvider } from "$lib/server/provider.js";
+import { runAssessmentAgentLoop } from "../../../../../framework/assessment-agent-loop.js";
+import { renderAssessmentToolCatalog, makeAssessmentTrace } from "../../../../../framework/assessment-tools.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -259,35 +261,15 @@ function normalizeContextPath(contextPath: string): string {
   return normalized;
 }
 
-function contextRequirements(metadata: SkillMetadata): ContextRequirement[] {
-  return asArray(metadata.contextRequirements).map((item, index) => {
-    const record = asRecord(item);
-    return {
-      id: asString(record.id || `context-${index + 1}`),
-      mode: asString(record.mode || "static"),
-      path: asString(record.path),
-      entity: record.entity ? asString(record.entity) : undefined,
-      layer: record.layer ? asString(record.layer) : undefined,
-      suffix: record.suffix ? asString(record.suffix) : undefined,
-      reason: asString(record.reason || "Required by skill frontmatter."),
-    };
-  });
-}
-
-// Assessment context is one of two kinds:
-//   mode:static  — a fixed, org-wide file (escalation policy, evidence-preservation): identical for EVERY finding.
-//   mode:resolve — entity-scoped: the asset / user / incident-history file FOR THE FINDING'S entities.
-//                  The skill declares WHICH entity + layer; the harness deterministically picks the right
-//                  file from the finding — it is NOT pinned in the YAML. (Workshop note: there is a single
-//                  scenario, so it resolves to dev-ws03 / jane-roberts — but the mechanism is the production
-//                  one: resolve by entity key from the finding, never hardcode the host/user in the skill.)
+// An assessment skill for Lab 07 declares the tools it may call (allowedTools) — it retrieves
+// its own entity context agentically, the canonical aionsec_HUNT mechanism — plus the static
+// context sources to inject (contextSources).
 function isLab06AssessmentSkill(skill: SkillDocument): boolean {
-  const requirements = contextRequirements(skill.metadata);
+  const allowedTools = Array.isArray(skill.metadata.allowedTools) ? skill.metadata.allowedTools : [];
   return (
     skill.metadata.layer === "assessment" &&
     skill.path.startsWith("skills/assessment/") &&
-    requirements.length > 0 &&
-    requirements.every((requirement) => requirement.mode === "static" || requirement.mode === "resolve")
+    allowedTools.length > 0
   );
 }
 
@@ -296,7 +278,7 @@ function assertLab06AssessmentSkill(skill: SkillDocument) {
     throw error(400, "Lab 07 only executes assessment skills.");
   }
   if (!isLab06AssessmentSkill(skill)) {
-    throw error(400, "Lab 07 runs assessment skills whose context is static or entity-resolved. Retrieval-backed skills move to Lab 08.");
+    throw error(400, "Lab 07 runs assessment skills that declare allowedTools (agentic context retrieval).");
   }
 }
 
@@ -363,29 +345,11 @@ async function resolveContextRequirement(
   };
 }
 
-async function resolveContextBundle(skill: SkillDocument, entities: Record<string, string>) {
-  const schema = await resolveContextRequirement(
-    {
-      id: "schema.candidate-field-guide",
-      mode: "static",
-      path: FIELD_GUIDE_PATH,
-      reason: "Shared candidate field definitions used by all assessment skills.",
-    },
-    entities,
-  );
-
-  const requirements = await Promise.all(
-    contextRequirements(skill.metadata).map((requirement) => resolveContextRequirement(requirement, entities)),
-  );
-  return { schema, requirements };
-}
-
 function skillSummary(skill: SkillDocument) {
   return {
     path: skill.path,
     metadata: {
       ...skill.metadata,
-      contextRequirements: contextRequirements(skill.metadata),
     },
     frontmatter: skill.frontmatter,
     bodyPreview: skill.body.slice(0, 520),
@@ -497,10 +461,34 @@ function chooseAssessmentEvidence(upstreamFinding: JsonRecord, candidates: Candi
   };
 }
 
-function contextText(contextBundle: { schema: ResolvedContext; requirements: ResolvedContext[] }): string {
-  return [contextBundle.schema, ...contextBundle.requirements]
-    .map((context) => `# ${context.id}\n${context.content}`)
-    .join("\n\n");
+// Static, org-wide context sources (compliance) are INJECTED deterministically — identical for
+// every finding. Entity-scoped sources (assets, incidents) are retrieved by the model via tools.
+// This mirrors canonical aionsec_HUNT's hybrid: coarse inject + agentic tool retrieval.
+const STATIC_CONTEXT_SOURCES: Record<string, string[]> = {
+  compliance: [
+    "context/layers/layer_2_compliance/escalation-policy.md",
+    "context/layers/layer_2_compliance/evidence-preservation.md",
+  ],
+};
+
+type ContextSection = { id: string; content: string };
+
+async function resolveStaticContext(skill: SkillDocument): Promise<ContextSection[]> {
+  const sources = Array.isArray(skill.metadata.contextSources) ? skill.metadata.contextSources : [];
+  const sections: ContextSection[] = [];
+  for (const source of sources) {
+    const files = STATIC_CONTEXT_SOURCES[String(source)];
+    if (!files) continue; // assets / incidents are tool-fetched, not injected
+    for (const file of files) {
+      sections.push({ id: file.split("/").pop() ?? file, content: await readTextFile(file) });
+    }
+  }
+  return sections;
+}
+
+function contextSectionsText(sections: readonly ContextSection[]): string {
+  if (sections.length === 0) return "(no statically-injected context for this skill)";
+  return sections.map((section) => `# ${section.id}\n${section.content}`).join("\n\n");
 }
 
 // The harness wraps the loaded assessment skill body as the model's SYSTEM prompt. The model —
@@ -525,10 +513,34 @@ function renderAssessmentSkillSystemPrompt(skill: SkillDocument): string {
 
 // The upstream DetectionFinding + the resolved (injected) context bundle + the supporting
 // candidate evidence become the model's USER prompt, alongside the output instructions.
+// The base user prompt for the AGENTIC loop's decision calls: the DetectionFinding + the
+// injected static context + the supporting evidence. The model reads this, then decides which
+// tools to call to retrieve the entity context it still needs.
+function buildLoopBaseUserPrompt(
+  upstreamFinding: JsonRecord,
+  injectedSections: readonly ContextSection[],
+  evidenceBundle: unknown,
+): string {
+  return [
+    "You are assessing this DetectionFinding. First gather any entity context you still need by calling tools.",
+    "",
+    "## Upstream DetectionFinding",
+    JSON.stringify(upstreamFinding, null, 2),
+    "",
+    "## Injected Organization Context (static — already provided; do not fetch it)",
+    contextSectionsText(injectedSections),
+    "",
+    "## Supporting Candidate Evidence",
+    JSON.stringify(evidenceBundle, null, 2),
+  ].join("\n");
+}
+
+// The FINAL finding prompt: DetectionFinding + all context (injected static + tool-retrieved
+// entity records) + evidence + the exact AssessmentFinding key contract. One streamed call.
 function buildAssessmentUserPrompt(
   skill: SkillDocument,
   upstreamFinding: JsonRecord,
-  contextBundle: { schema: ResolvedContext; requirements: ResolvedContext[] },
+  contextSections: readonly ContextSection[],
   evidenceBundle: unknown,
 ): string {
   const isBehavioral = skill.metadata.name === "assess-behavioral-context";
@@ -553,17 +565,17 @@ function buildAssessmentUserPrompt(
       ];
 
   return [
-    "Run the loaded assessment skill against the upstream DetectionFinding using the injected context.",
+    "Run the loaded assessment skill against the upstream DetectionFinding using the context below.",
     "Separate technical confidence (already established upstream) from business/behavioral judgement (your job here).",
     "Return ONLY a single JSON object — no prose, no markdown, no fences — an AssessmentFinding with EXACTLY these keys:",
     ...sections,
-    "Name the injected context file behind each contextual claim (inside the relevant field) so the grounding is visible.",
+    "Name the context file behind each contextual claim (inside the relevant field) so the grounding is visible.",
     "",
     "## Upstream DetectionFinding",
     JSON.stringify(upstreamFinding, null, 2),
     "",
-    "## Injected Context (resolved from the skill's contextRequirements)",
-    contextText(contextBundle),
+    "## Context (injected compliance + tool-retrieved entity records)",
+    contextSectionsText(contextSections),
     "",
     "## Supporting Candidate Evidence",
     JSON.stringify(evidenceBundle, null, 2),
@@ -648,10 +660,10 @@ function buildTrace(
   skill: SkillDocument,
   trigger: Candidate,
   relatedGroups: ReturnType<typeof collectRelated>,
-  contextBundle: { schema: ResolvedContext; requirements: ResolvedContext[] },
   bundle: Candidate[],
   events: EventRecord[],
   resolutionNote: string,
+  injectedCount: number,
 ): TraceStep[] {
   return [
     {
@@ -659,7 +671,7 @@ function buildTrace(
       phase: "discover",
       title: "Discover assessment catalog",
       status: "ok",
-      detail: "The harness loaded Markdown skills and filtered to assessment skills whose context is static or entity-resolved for Lab 07.",
+      detail: "The harness loaded Markdown skills and filtered to assessment skills that declare allowedTools.",
       result: `Selected ${skill.metadata.name}.`,
     },
     {
@@ -673,16 +685,10 @@ function buildTrace(
     {
       step: 3,
       phase: "context",
-      title: "Resolve declared context",
+      title: "Assemble context",
       status: "ok",
-      detail: contextBundle.requirements
-        .map((requirement) =>
-          requirement.mode === "resolve"
-            ? `${requirement.id} [resolve ${requirement.resolvedFrom}] -> ${requirement.path}`
-            : `${requirement.id} [static] -> ${requirement.path}`,
-        )
-        .join("; "),
-      result: `${contextBundle.requirements.length} task context file(s), ${contextBundle.schema.approxTokens} schema-token estimate, ${contextBundle.requirements.reduce((sum, item) => sum + item.approxTokens, 0)} task-token estimate. Entity-scoped files were chosen deterministically from the finding (${trigger.host ?? "?"} / ${trigger.user ?? "?"}), not hardcoded in the skill.`,
+      detail: "Static org-wide context (compliance) is injected deterministically; entity-scoped context (asset record, incident history) is retrieved by the model itself via tools.",
+      result: `${injectedCount} static file(s) injected. Entity context is retrieved agentically for ${trigger.host ?? "?"} / ${trigger.user ?? "?"} — see the Agentic Context Retrieval panel.`,
     },
     {
       step: 4,
@@ -697,9 +703,9 @@ function buildTrace(
     {
       step: 5,
       phase: "execute",
-      title: "Invoke the model to execute the skill",
+      title: "Agentic retrieval, then write the finding",
       status: "ok",
-      detail: "The harness sends the assessment procedure (system prompt) + the upstream finding, injected context, and supporting evidence (user prompt) to the model. The model reasons over them and writes the AssessmentFinding.",
+      detail: "The model runs a bounded tool loop to gather the entity context it needs, then writes the AssessmentFinding from the retrieved context plus the injected compliance baseline.",
       result: "Streaming the model's AssessmentFinding below.",
     },
   ];
@@ -764,12 +770,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
   const upstreamFinding = asRecord(body.upstreamFinding);
   const { trigger, relatedGroups, related, resolutionNote } = chooseAssessmentEvidence(upstreamFinding, candidates);
-  // Entity-scoped context resolves from the FINDING's own entities — not from anything pinned in the skill.
+  // Entity keys resolve from the FINDING's own entities — the tools key off these.
   const entities = findingEntities(trigger);
-  const contextBundle = await resolveContextBundle(skill, entities);
+  // Static org-wide context (compliance) is injected deterministically; entity context is tool-fetched.
+  const injectedContext = await resolveStaticContext(skill);
   const bundle = uniqueCandidates([trigger, ...related]);
   const rawEvents = collectEvents(bundle, events);
-  const trace = buildTrace(skill, trigger, relatedGroups, contextBundle, bundle, rawEvents, resolutionNote);
+  const trace = buildTrace(skill, trigger, relatedGroups, bundle, rawEvents, resolutionNote, injectedContext.length);
 
   // Full candidate records (not the compact display view) so the model can cite real fields.
   const modelEvidenceBundle = {
@@ -793,7 +800,9 @@ export const POST: RequestHandler = async ({ request }) => {
   };
 
   const systemPrompt = renderAssessmentSkillSystemPrompt(skill);
-  const userPrompt = buildAssessmentUserPrompt(skill, upstreamFinding, contextBundle, modelEvidenceBundle);
+  const allowedTools = Array.isArray(skill.metadata.allowedTools) ? skill.metadata.allowedTools.map(String) : [];
+  const toolCatalog = renderAssessmentToolCatalog(allowedTools);
+  const loopBasePrompt = buildLoopBaseUserPrompt(upstreamFinding, injectedContext, modelEvidenceBundle);
 
   const encoder = new TextEncoder();
 
@@ -807,12 +816,52 @@ export const POST: RequestHandler = async ({ request }) => {
         try {
           send({ type: "skill", skill: skillSummary(skill) });
           for (const step of trace) send({ type: "trace", step });
-          send({ type: "context", contextBundle });
+          send({ type: "context", injected: injectedContext });
           send({ type: "evidence", evidenceBundle: displayEvidenceBundle });
-          send({ type: "prompt", systemPrompt, userPrompt });
-          send({ type: "model-start", message: "Invoking the model to execute the assessment skill..." });
 
           const provider = selectProvider();
+
+          // Agentic context retrieval: the model calls tools to fetch the entity context it needs.
+          // Each step streams live to the windowed-insight panel.
+          const loop = await runAssessmentAgentLoop({
+            provider,
+            systemPrompt,
+            toolCatalog,
+            baseUserPrompt: loopBasePrompt,
+            entities,
+            onToolStep: (toolTrace) => send({ type: "tool-step", trace: toolTrace }),
+          });
+
+          // Grounding fallback: never judge without the asset record. If the model did not fetch
+          // it, the harness retrieves it deterministically before the finding is written.
+          const retrieved = loop.retrievedContext.map((entry) => ({ id: entry.tool, content: entry.content }));
+          if (!loop.assetFetched) {
+            const asset = await resolveContextRequirement(
+              { id: "asset", mode: "resolve", path: "", entity: "host", layer: "layer_1_assets", reason: "grounding fallback" },
+              entities,
+            );
+            retrieved.push({ id: "get_asset_record (fallback)", content: asset.content });
+            send({
+              type: "tool-step",
+              trace: makeAssessmentTrace({
+                step: loop.traces.length + 1,
+                thought: "The asset record was not retrieved by the model; the harness fetches it so the judgement stays grounded.",
+                tool: "get_asset_record",
+                args: { host: entities.host },
+                status: "ok",
+                resultCount: 1,
+                elapsedMs: 0,
+                observation: `host=${entities.host} retrieved as grounding fallback (${asset.content.length} chars).`,
+              }),
+            });
+          }
+
+          // Final finding call: DetectionFinding + injected compliance + tool-retrieved entity context.
+          const finalSections: ContextSection[] = [...injectedContext, ...retrieved];
+          const userPrompt = buildAssessmentUserPrompt(skill, upstreamFinding, finalSections, modelEvidenceBundle);
+          send({ type: "prompt", systemPrompt, userPrompt });
+          send({ type: "model-start", message: "Writing the AssessmentFinding from the retrieved context..." });
+
           const result = await provider.invoke({
             systemPrompt,
             userPrompt,
