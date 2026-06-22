@@ -862,14 +862,14 @@
   <span class="c-key">"verdict"</span>: <span class="c-str">"true_positive"</span>,
   <span class="c-key">"compositeScore"</span>: 0.90,
   <span class="c-key">"candidateId"</span>: <span class="c-str">"BEA-001"</span>,              <span class="c-cm">// → resolve the trigger candidate</span>
-  <span class="c-key">"scope"</span>: &#123; <span class="c-key">"host"</span>: <span class="c-str">"FIN-WS-04"</span> &#125;,        <span class="c-cm">// → resolve org context for THIS host</span>
+  <span class="c-key">"scope"</span>: &#123; <span class="c-key">"host"</span>: <span class="c-str">"DEV-WS03"</span> &#125;,         <span class="c-cm">// → the host the agent looks up context for</span>
   <span class="c-key">"attackNarrative"</span>: <span class="c-str">"the model's detection write-up…"</span>,  <span class="c-cm">// a typed field, not a blob</span>
   <span class="c-key">"evidenceRefs"</span>: &#123;
     <span class="c-key">"candidateIds"</span>: [<span class="c-str">"TLS-001"</span>, <span class="c-str">"INTEL-001"</span>, <span class="c-str">"DT-001"</span>],  <span class="c-cm">// → pull supporting evidence</span>
     <span class="c-key">"eventIds"</span>: [<span class="c-str">"EVT-1180"</span>, <span class="c-str">"EVT-1182"</span>]
   &#125;
 &#125;</code></pre>
-          <p class="cv-note">The DetectionFinding is a <strong>typed object</strong> — its reasoning lives in named fields (<code>attackNarrative</code>, <code>evidenceSummary</code>), never one prose blob. The harness uses <code>candidateId</code> to re-load the candidate and <code>evidenceRefs.candidateIds</code> to pull its correlated evidence, reads org context from the finding's own <code>scope.host</code>, then runs the assessment over all of it plus that context.</p>
+          <p class="cv-note">The DetectionFinding is a <strong>typed object</strong> — its reasoning lives in named fields (<code>attackNarrative</code>, <code>evidenceSummary</code>), never one prose blob. The harness uses <code>candidateId</code> to re-load the candidate and <code>evidenceRefs.candidateIds</code> to pull its correlated evidence. The agent then looks up org context keyed off the finding's own <code>scope.host</code>, and the assessment runs over the finding, that retrieved context, and the injected compliance baseline.</p>
         </details>
 
         <!-- C · Why hand it off -->
@@ -912,17 +912,17 @@
           <p>
             Optional reading for the curious. Lab 06 answered "is this malicious?". This lab asks
             the harder question — "how bad is it, <em>in our environment</em>?" — which a detection
-            alone can't answer. The assessment skill declares exactly which organizational context
-            it needs (asset records, compliance policy, incident history); the harness loads those
-            files and <strong>injects</strong> them, alongside the upstream <code>DetectionFinding</code>,
-            into the model's prompt.
+            alone can't answer. The assessment skill declares the <code>allowedTools</code> it may
+            call; the <strong>agent retrieves its own</strong> entity context (asset records, incident
+            history) by calling them, while the harness <strong>injects</strong> the org-wide compliance
+            baseline — alongside the upstream <code>DetectionFinding</code> — into the model's prompt.
           </p>
           <div class="cv-mental-model">
             <ShieldCheckIcon size={20} weight="duotone" />
             <span>upstream DetectionFinding</span>
             <span class="cv-mm-sep">+</span>
             <BuildingsIcon size={20} weight="duotone" />
-            <span>injected org context</span>
+            <span>org context</span>
             <span class="cv-mm-sep">→</span>
             <ScalesIcon size={20} weight="duotone" />
             <span>AssessmentFinding</span>
@@ -933,8 +933,9 @@
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">A</span> The journey of one assessment<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">
-            Five phases. The new one is <em>context</em> — resolving the exact files the skill asked
-            for. As in Lab 06, only the last phase calls the model.
+            Five phases. The new one is <em>agentic context retrieval</em>: the model calls tools to
+            fetch the entity context it needs, then judges. Unlike Lab 06's single call, the model
+            runs in a short bounded loop here.
           </p>
 
           <ol class="flow">
@@ -1012,7 +1013,7 @@
             </div>
           </div>
           <p class="cv-note">
-            Every contextual claim the model makes must name the injected file it came from — so the
+            Every contextual claim the model makes must name the context file it came from — so the
             assessment is grounded and auditable, never a guess.
           </p>
         </details>
@@ -1060,19 +1061,25 @@
 │  ├─ <span class="tr-dir">layer_2_compliance/</span>       <span class="tr-cm">← escalation policy, evidence rules</span>
 │  └─ <span class="tr-dir">layer_5_incidents/</span>        <span class="tr-cm">← prior incident history</span>
 │
+├─ <span class="tr-dir">src/framework/</span>
+│  ├─ <span class="tr-file">assessment-agent-loop.ts</span> <span class="tr-cm">← the bounded tool loop (max 4 steps)</span>
+│  ├─ <span class="tr-file">assessment-tools.ts</span>      <span class="tr-cm">← get_asset_record · get_incident_history</span>
+│  └─ <span class="tr-file">context-resolver.ts</span>      <span class="tr-cm">← entity → file resolution (the tool backend)</span>
+│
 └─ <span class="tr-dir">src/routes/lab/07/api/skills/</span>
-   └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← resolve context · inject · call the model</span></code></pre>
+   └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← inject compliance · run the loop · call the model</span></code></pre>
         </details>
 
         <!-- Callout -->
         <aside class="cv-callout">
           <SyringeIcon size={22} weight="duotone" />
           <p>
-            <strong>Why inject context explicitly?</strong> An assessment is only trustworthy if you
-            can see what it was based on. By declaring the exact files up front, every severity
-            judgement traces to a named source — the asset's criticality, the escalation deadline,
-            the prior incident. No hidden inputs, no ungrounded claims. When the needed context
-            <em>isn't</em> known ahead of time, you retrieve it — which is exactly where Lab 08 goes.
+            <strong>Why ground every judgement?</strong> An assessment is only trustworthy if you can
+            see what it was based on. The agent fetches context through allowlisted, read-only tools,
+            and every severity judgement must trace to a named source — the asset's criticality, the
+            escalation deadline, the prior incident. No hidden inputs, no ungrounded claims. Lab 08
+            takes retrieval further — similarity search (RAG) over prior investigations, for when you
+            can't name the entity ahead of time.
           </p>
         </aside>
       </div>
