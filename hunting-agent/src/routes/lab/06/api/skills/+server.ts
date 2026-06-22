@@ -8,7 +8,25 @@ import {
   type SkillDocument,
   type SkillMetadata,
 } from "../../../../../framework/skill-loader.js";
+import {
+  createEntityScopeMatcher,
+  type EntityScope,
+} from "../../../../../framework/entity-scope-selection.js";
 import { selectProvider } from "$lib/server/provider.js";
+
+// PoC seeded hypothesis entity scope. In the full system, initiation would emit
+// this from the hypothesis; here it is seeded so the lab demonstrates the filter
+// mechanism. It applies ONLY to hunt-c2-over-https beacon selection (below).
+// axis "source" => a beacon is in scope when its host or src_ip is in the subnet.
+const SEEDED_ENTITY_SCOPE: EntityScope = {
+  subnets: ["10.42.10.0/24"],
+  axis: "source",
+};
+
+// The single skill whose beacon candidate selection is entity-scoped. Every
+// other skill / route is byte-for-byte unchanged.
+const ENTITY_SCOPED_SKILL = "hunt-c2-over-https";
+const ENTITY_SCOPED_TRIGGER_TYPE = "beacon";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -332,7 +350,11 @@ function collectRelated(trigger: Candidate, specs: CorrelationSpec[], candidates
   });
 }
 
-function chooseTrigger(skill: SkillDocument, candidates: Candidate[]) {
+function chooseTrigger(
+  skill: SkillDocument,
+  candidates: Candidate[],
+  entityScope?: EntityScope,
+) {
   const triggerType = asString(skill.metadata.invocationTriggerCandidate);
   const gate = asRecord(skill.metadata.invocationGate);
   const specs = correlationSpecs(skill.metadata);
@@ -341,8 +363,34 @@ function chooseTrigger(skill: SkillDocument, candidates: Candidate[]) {
     throw error(400, "Detection skills must declare invocationTriggerCandidate.");
   }
 
-  const gated = candidates
-    .filter((candidate) => candidateType(candidate) === triggerType)
+  // ── Entity-scope SELECTION filter (PoC) ─────────────────────────────────────
+  // Before gating/ranking, drop beacon candidates that fall outside the
+  // hypothesis entity scope — but ONLY for hunt-c2-over-https beacon selection.
+  // This is selection, NOT judgment: the scope never enters any prompt, and
+  // out-of-scope beacons are simply not selected (not an error). Every other
+  // skill / candidate type is unaffected.
+  const entityScopeApplies =
+    skill.metadata.name === ENTITY_SCOPED_SKILL &&
+    triggerType === ENTITY_SCOPED_TRIGGER_TYPE &&
+    entityScope !== undefined;
+  const matchesEntityScope = entityScopeApplies
+    ? createEntityScopeMatcher(entityScope)
+    : () => true;
+
+  const triggerCandidates = candidates.filter(
+    (candidate) => candidateType(candidate) === triggerType,
+  );
+  const inScopeCandidates = triggerCandidates.filter((candidate) =>
+    matchesEntityScope(candidate as Record<string, unknown>),
+  );
+  const excludedByEntityScope = entityScopeApplies
+    ? triggerCandidates
+        .filter((candidate) => !matchesEntityScope(candidate as Record<string, unknown>))
+        .map(candidateId)
+        .sort()
+    : [];
+
+  const gated = inScopeCandidates
     .map((candidate) => {
       const gateResult = evaluateGate(candidate, gate);
       const relatedGroups = collectRelated(candidate, specs, candidates);
@@ -363,11 +411,15 @@ function chooseTrigger(skill: SkillDocument, candidates: Candidate[]) {
 
   const selected = gated[0];
   if (!selected) {
-    const fallback = candidates.find((candidate) => candidateType(candidate) === triggerType) ?? candidates[0];
+    // Fall back only within the (entity-scoped) selectable set, so the scope is
+    // never bypassed by the fallback path. If nothing is in scope, fall back to
+    // the first candidate overall (back-compat with the unscoped behaviour).
+    const fallback = inScopeCandidates[0] ?? candidates[0];
     return {
       trigger: fallback,
       gateNotes: [`No ${triggerType} candidate fully passed the invocation gate; falling back to top available candidate.`],
       relatedGroups: collectRelated(fallback, specs, candidates),
+      excludedByEntityScope,
     };
   }
 
@@ -375,6 +427,7 @@ function chooseTrigger(skill: SkillDocument, candidates: Candidate[]) {
     trigger: selected.candidate,
     gateNotes: selected.gateResult.notes,
     relatedGroups: selected.relatedGroups,
+    excludedByEntityScope,
   };
 }
 
@@ -664,7 +717,15 @@ export const POST: RequestHandler = async ({ request }) => {
   ]);
   assertDetectionSkill(skill);
 
-  const { trigger, relatedGroups, gateNotes } = chooseTrigger(skill, candidates);
+  const { trigger, relatedGroups, gateNotes, excludedByEntityScope } = chooseTrigger(
+    skill,
+    candidates,
+    SEEDED_ENTITY_SCOPE,
+  );
+  // Only the c2 skill's beacon route is entity-scoped; surface the applied scope
+  // and excluded ids for that route, otherwise no scope was applied.
+  const entityScopeApplied =
+    skill.metadata.name === ENTITY_SCOPED_SKILL ? SEEDED_ENTITY_SCOPE : null;
   const related = uniqueCandidates(relatedGroups.flatMap((group) => group.matches));
   const bundle = uniqueCandidates([trigger, ...related]);
   const trace = buildTrace(skill, trigger, relatedGroups, bundle, gateNotes);
@@ -691,6 +752,11 @@ export const POST: RequestHandler = async ({ request }) => {
               related: related.map(compactCandidate),
               querySummary: evidenceBundle.querySummary,
             },
+            // Entity-scope SELECTION result (never part of the prompt below).
+            // The scope filtered the beacon candidate set before gate/rank;
+            // these ids were dropped at selection and never reach the model.
+            entityScope: entityScopeApplied,
+            excludedByEntityScope,
           });
           send({ type: "prompt", systemPrompt, userPrompt });
           send({ type: "model-start", message: "Invoking the model to execute the detection skill..." });
@@ -714,7 +780,7 @@ export const POST: RequestHandler = async ({ request }) => {
             model: result.model,
             usage: result.usage ?? null,
           });
-          send({ type: "done" });
+          send({ type: "done", entityScope: entityScopeApplied, excludedByEntityScope });
         } catch (error) {
           send({
             type: "error",

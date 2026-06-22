@@ -170,8 +170,8 @@
 };`;
 
   // Active tab within the glass cards that hold more than one peer view.
-  let activeTab = $state<"instructions" | "lab" | "targeting" | "scoring" | "code" | "author">("instructions");
-  let skillTab = $state<"frontmatter" | "procedure" | "reference">("frontmatter");
+  let activeTab = $state<"instructions" | "lab" | "targeting" | "scoring" | "code">("instructions");
+  let skillTab = $state<"frontmatter" | "procedure">("frontmatter");
   let scoringTab = $state<"tls" | "intel" | "data">("tls");
   let promptTab = $state<"system" | "user">("system");
 
@@ -180,9 +180,21 @@
   const LAB06_HANDOFF_KEY = "antisiphon.lab06.detectionFinding";
 
   const detectionSkills = $derived(skills.filter((skill) => skill.metadata.layer === "detection"));
+  // This lab scopes the picker to the one skill the seeded hypothesis targets.
+  const pickerSkills = $derived(
+    detectionSkills.filter((skill) => skill.metadata.name === "hunt-c2-over-https"),
+  );
   const selectedDetectionSkill = $derived(
     detectionSkills.find((skill) => skill.path === detectionSkillPath) ?? null,
   );
+
+  // Default the selection to hunt-c2-over-https once the catalog loads.
+  $effect(() => {
+    if (!detectionSkillPath) {
+      const c2 = pickerSkills[0];
+      if (c2) detectionSkillPath = c2.path;
+    }
+  });
 
   onMount(async () => {
     await loadCatalog();
@@ -360,7 +372,6 @@
     <button class="tab-btn-top" class:active={activeTab === "targeting"} onclick={() => (activeTab = "targeting")}>Targeting</button>
     <button class="tab-btn-top" class:active={activeTab === "scoring"} onclick={() => (activeTab = "scoring")}>Scoring</button>
     <button class="tab-btn-top" class:active={activeTab === "code"} onclick={() => (activeTab = "code")}>Code</button>
-    <button class="tab-btn-top" class:active={activeTab === "author"} onclick={() => (activeTab = "author")}>Author</button>
   </div>
 
   {#if activeTab === "instructions"}
@@ -370,18 +381,11 @@
     <div class="code-view">
       <div class="code-inner">
         <header class="cv-hero">
-          <span class="cv-eyebrow">Lab 06 · Walkthrough</span>
-          <h2>Run a detection skill — where signals become a verdict</h2>
           <p>
-            The candidates the pipeline produced are statistics — a beacon score, a rarity number.
-            They are <em>signals, not verdicts</em>. A detection skill is where an agent judges one
-            candidate against a hypothesis and adds the meaning those numbers can't carry on their
-            own: it <strong>fuses the correlated evidence</strong>, <strong>rules out the benign
-            explanations</strong> (EDR, an update service, ordinary browsing), writes the
-            <strong>attack narrative</strong>, calibrates what is still uncertain, and maps the
-            activity to <strong>MITRE</strong> with its basis. What streams out is a structured
-            <strong>DetectionFinding</strong> — not just a score, but a verdict with the reasoning
-            behind it.
+            Upstream, <strong>initiation</strong> has already run (we've simulated it), and the
+            <strong>hypothesis</strong> it produced is waiting on the <strong>Lab</strong> tab. This
+            lab takes that hypothesis, runs <em>one</em> detection skill against the candidates it
+            scopes, and shows you every step. Below is <strong>what's happening and what to do</strong>.
           </p>
         </header>
 
@@ -391,13 +395,15 @@
             <span class="flow-rail"><FileMdIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">1 · Pick a detection skill</span>
-                <span class="flow-where">Lab tab · step 01</span>
+                <span class="flow-title">1 · What you're looking at — the hypothesis</span>
+                <span class="flow-where">Lab tab</span>
               </div>
               <p>
-                Go to the <strong>Lab</strong> tab and choose a skill from the catalog (start with
-                <code>hunt-c2-over-https</code>). Each card is a real <code>.md</code> file the
-                harness discovered on disk.
+                Initiation already ran upstream (simulated) and handed detection a
+                <strong>hypothesis</strong>: hunt <code>C2-over-HTTPS</code> scoped to the developer
+                subnet <code>10.42.10.0/24</code>. You'll see it in the <strong>Hypothesis received</strong>
+                card. The skill is already selected for you — <code>hunt-c2-over-https</code>, a real
+                <code>.md</code> file the harness found on disk.
               </p>
             </div>
           </li>
@@ -408,13 +414,13 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">2 · Read the skill contract</span>
-                <span class="flow-where">Frontmatter · Procedure · Reference</span>
+                <span class="flow-where">Frontmatter · Procedure</span>
               </div>
               <p>
-                Inspect the three sub-tabs. <strong>Frontmatter</strong> is the YAML header — what
-                the skill targets and how it scores. <strong>Procedure</strong> is the actual
-                step-by-step the model is told to follow. <strong>Reference</strong> is supporting
-                detail. This <em>is</em> the detection logic, in plain text.
+                Inspect the two sub-tabs. <strong>Frontmatter</strong> is the YAML header — what the
+                skill targets and how it scores. <strong>Procedure</strong> is the actual
+                step-by-step the model is told to follow. This <em>is</em> the detection logic, in
+                plain text.
               </p>
             </div>
           </li>
@@ -428,10 +434,12 @@
                 <span class="flow-where">Run Detection Skill</span>
               </div>
               <p>
-                Hit <strong>Run Detection Skill</strong>. The harness picks the target candidate
-                automatically, parses the skill into a <strong>system + user prompt</strong>, and the
-                model works the procedure. Watch the
-                <strong>DetectionFinding</strong> stream out in step 03.
+                Hit <strong>Run Detection Skill</strong>. The harness first <strong>scopes</strong> the
+                beacons to the hypothesis (only sources in <code>10.42.10.0/24</code> — others drop
+                out), then picks the target automatically and parses the skill into a
+                <strong>system + user prompt</strong>. The scope decided <em>which</em> candidate is
+                judged — it is <strong>not</strong> in the prompt; the model judges on the candidate's
+                own evidence. Watch the <strong>DetectionFinding</strong> stream out in step 03.
               </p>
             </div>
           </li>
@@ -462,13 +470,12 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">5 · Go deeper</span>
-                <span class="flow-where">Targeting · Author · Code</span>
+                <span class="flow-where">Targeting · Scoring · Code</span>
               </div>
               <p>
-                Three more tabs when you're ready: <strong>Targeting</strong> shows how the
-                candidate gets chosen (you never pick it — the skill and harness do),
-                <strong>Author</strong> walks you through writing your own skill, and
-                <strong>Code</strong> covers the architecture.
+                Three more tabs when you're ready: <strong>Targeting</strong> shows how the candidate
+                gets chosen (you never pick it — the skill and harness do), <strong>Scoring</strong>
+                is the rubric the skill applies, and <strong>Code</strong> covers the architecture.
               </p>
             </div>
           </li>
@@ -477,10 +484,9 @@
         <aside class="cv-callout">
           <FileMdIcon size={22} weight="duotone" />
           <p>
-            <strong>Why this is the heart of the system:</strong> detection logic lives in
-            version-controlled Markdown, not buried in code. The agent <em>executes a written
-            procedure</em> rather than improvising — so detections are reviewable, shareable, and
-            improvable by anyone who can edit a text file.
+            <strong>What you're watching:</strong> the single unit the real system runs many of, in
+            parallel — one skill judging one candidate. We've slowed it to one, on rails, so each
+            step is visible.
           </p>
         </aside>
       </div>
@@ -497,13 +503,30 @@
         <h2>Detection Skill</h2>
       </div>
 
+      <section class="hyp-card">
+        <div class="hyp-head">
+          <TargetIcon size={16} weight="duotone" />
+          <span>HYPOTHESIS (received from initiation)</span>
+        </div>
+        <p class="hyp-text">
+          We suspect <strong>command-and-control over HTTPS</strong> is beaconing out of the developer
+          subnet <code>10.42.10.0/24</code> — a workstation quietly phoning home. The hunt: confirm or
+          refute it on the beacons in that scope.
+        </p>
+        <pre class="hyp-scope"><code><span class="c-key">entityScope</span>: &#123; subnets: ["10.42.10.0/24"], axis: "source" &#125;</code></pre>
+        <p class="hyp-note">
+          The <code>entityScope</code> is that hypothesis in machine-readable form — it narrows
+          detection to the in-scope beacons (others drop out) before the skill runs.
+        </p>
+      </section>
+
       <section class="picker">
         <h3>Detection Skills</h3>
         {#if loading}
           <p class="empty">Loading catalog.</p>
         {:else}
           <div class="skill-list horizontal">
-            {#each detectionSkills as skill}
+            {#each pickerSkills as skill}
               <button
                 class="skill-card"
                 class:active={detectionSkillPath === skill.path}
@@ -615,14 +638,18 @@
             You never tell the agent which candidate to hunt. The <strong>skill</strong> declares its
             own target in frontmatter, and the harness selects <strong>deterministically</strong>.
             Here's exactly why it landed on <strong>BEA-001</strong> — even though it's only the
-            <em>second</em>-highest score.
+            <em>second</em>-highest score. (In production, detection judges <strong>every</strong>
+            in-scope candidate — one finding each; we follow a single pick here for one clean run.)
           </p>
           <div class="cv-mental-model">
             <BracketsCurlyIcon size={20} weight="duotone" />
             <span>skill declares target</span>
             <span class="cv-mm-sep">→</span>
             <FunnelIcon size={20} weight="duotone" />
-            <span>filter + gate</span>
+            <span>entity-scope filter (from hypothesis)</span>
+            <span class="cv-mm-sep">→</span>
+            <FunnelIcon size={20} weight="duotone" />
+            <span>gate</span>
             <span class="cv-mm-sep">→</span>
             <ScalesIcon size={20} weight="duotone" />
             <span>rank</span>
@@ -630,6 +657,16 @@
             <TargetIcon size={20} weight="duotone" />
             <span>BEA-001</span>
           </div>
+          <p class="cv-note">
+            Before the gate runs, the hypothesis's <strong>entity scope</strong> filters the candidate
+            pool <em>first</em> — here it keeps only beacons whose source is in
+            <code>10.42.10.0/24</code>, so beacons on other subnets (FIN-WS11
+            <code>10.42.12.88</code>, DB-SVR02 <code>10.42.11.22</code>) drop out before scoring. The
+            gate and corroboration ranking then pick <strong>BEA-001</strong> (host DEV-WS03,
+            <code>10.42.10.45</code>) from the survivors. This is <strong>selection, not judgment</strong>:
+            the scope shapes <em>which</em> candidates are considered, but the verdict on a selected
+            candidate is unchanged — and the scope <strong>never enters the prompt</strong>.
+          </p>
         </header>
 
         <!-- A · The skill targets -->
@@ -641,8 +678,7 @@
           </p>
           <pre class="cv-code"><code><span class="c-key">invocationTriggerCandidate</span>: beacon            <span class="c-cm"># only consider beacons</span>
 <span class="c-key">invocationGate</span>:
-  observedService: ssl
-  minBeaconScore: 0.85                       <span class="c-cm"># must clear the gate</span>
+  observedService: ssl                        <span class="c-cm"># routes by type, not a score floor</span>
 <span class="c-key">correlatingCandidates</span>:                        <span class="c-cm"># what corroboration to seek</span>
   - type: tls_anomaly    scope: same_network_tuple
   - type: intel_match    scope: destination
@@ -652,7 +688,7 @@
         <!-- B · The funnel -->
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">B</span> The selection funnel<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Every candidate runs through three deterministic stages. The pool shrinks at each one.</p>
+          <p class="cv-lead">Every candidate runs through four deterministic stages — and notice it's the <strong>hypothesis scope</strong>, not a score floor, that shrinks the pool.</p>
           <div class="funnel-stages">
             <div class="funnel-stage">
               <div class="fs-left"><ListMagnifyingGlassIcon size={20} weight="duotone" /><span class="fs-tag">1 · Filter by type</span></div>
@@ -661,13 +697,19 @@
             </div>
             <div class="fs-arrow"><ArrowRightIcon size={16} weight="bold" /></div>
             <div class="funnel-stage">
-              <div class="fs-left"><FunnelIcon size={20} weight="duotone" /><span class="fs-tag">2 · Gate</span></div>
-              <div class="fs-detail"><code>ssl</code> + <code>score ≥ 0.85</code> · drops BEA-005 (0.81), BEA-004 (0.72)</div>
+              <div class="fs-left"><FunnelIcon size={20} weight="duotone" /><span class="fs-tag">2 · Entity scope</span></div>
+              <div class="fs-detail">source in <code>10.42.10.0/24</code> · drops FIN-WS11 (0.88), DB-SVR02 (0.81) — off-subnet</div>
+              <div class="fs-num">3</div>
+            </div>
+            <div class="fs-arrow"><ArrowRightIcon size={16} weight="bold" /></div>
+            <div class="funnel-stage">
+              <div class="fs-left"><FunnelIcon size={20} weight="duotone" /><span class="fs-tag">3 · Gate</span></div>
+              <div class="fs-detail"><code>observed_service == ssl</code> · routes by type — all 3 pass, no score floor</div>
               <div class="fs-num">3</div>
             </div>
             <div class="fs-arrow"><ArrowRightIcon size={16} weight="bold" /></div>
             <div class="funnel-stage win">
-              <div class="fs-left"><ScalesIcon size={20} weight="duotone" /><span class="fs-tag">3 · Rank</span></div>
+              <div class="fs-left"><ScalesIcon size={20} weight="duotone" /><span class="fs-tag">4 · Rank</span></div>
               <div class="fs-detail">highest-ranked of the survivors</div>
               <div class="fs-num fs-winner">BEA-001</div>
             </div>
@@ -949,7 +991,7 @@
               <span class="flow-rail"><FunnelIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Query &amp; gate the trigger</span><span class="flow-where">server · api/skills</span></div>
-                <p><code>chooseTrigger()</code> finds candidates of the trigger type, applies the gate (e.g. <code>minBeaconScore ≥ 0.85</code>), and ranks them to pick the one that fired.</p>
+                <p><code>chooseTrigger()</code> finds candidates of the trigger type, narrows them to the hypothesis's entity scope, applies the gate (<code>observed_service == ssl</code> — a type router, not a score floor), and ranks the survivors to pick the one that fired.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -985,7 +1027,6 @@ layer: detection
 invocationTriggerCandidate: beacon
 invocationGate:
   observedService: ssl
-  minBeaconScore: 0.85
 correlatingCandidates:
   - type: tls_anomaly   scope: same_network_tuple
   - type: intel_match   scope: destination
@@ -1099,141 +1140,6 @@ compositeScore = max(beacon, intel, tls)</code></pre>
         </aside>
       </div>
     </div>
-  {:else}
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!-- AUTHOR VIEW — write your own detection skill          -->
-    <!-- ═══════════════════════════════════════════════════ -->
-    <div class="code-view">
-      <div class="code-inner">
-        <header class="cv-hero">
-          <span class="cv-eyebrow">Make It Your Own</span>
-          <h2>Author your own detection skill</h2>
-          <p>
-            A skill is just a Markdown file. Drop one into the skills folder, refresh, and it appears
-            in the picker and runs through the exact same lifecycle — no rebuild, no code change.
-          </p>
-          <div class="cv-mental-model">
-            <FileMdIcon size={20} weight="duotone" />
-            <span>write a .md</span>
-            <span class="cv-mm-sep">→</span>
-            <FoldersIcon size={20} weight="duotone" />
-            <span>drop in skills/detection/</span>
-            <span class="cv-mm-sep">→</span>
-            <ArrowsClockwiseIcon size={20} weight="duotone" />
-            <span>refresh</span>
-            <span class="cv-mm-sep">→</span>
-            <CheckCircleIcon size={20} weight="duotone" />
-            <span>it runs</span>
-          </div>
-        </header>
-
-        <!-- A · Steps -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">A</span> Three steps<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <ol class="flow">
-            <li class="flow-step" style="--d: 0ms">
-              <span class="flow-rail"><FileMdIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Create the file</span><span class="flow-where">skills/detection/</span></div>
-                <p>Add a Markdown file, e.g. <code>skills/detection/hunt-my-detection.md</code>. The filename is yours; the <code>name</code> in the frontmatter is what shows in the picker.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 90ms">
-              <span class="flow-rail"><BracketsCurlyIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Write frontmatter + body</span><span class="flow-where">the contract + the procedure</span></div>
-                <p>YAML frontmatter tells the harness what to target (machine-read); the Markdown body is the procedure the model executes (it becomes the system prompt). Template below.</p>
-              </div>
-            </li>
-            <li class="flow-step" style="--d: 180ms">
-              <span class="flow-rail"><ArrowsClockwiseIcon size={22} weight="duotone" /></span>
-              <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Refresh the Lab tab</span><span class="flow-badge">no rebuild</span><span class="flow-where">it's discovered live</span></div>
-                <p>The harness re-reads <code>skills/</code> on every request, so your skill shows up in the picker immediately. Select it and Run.</p>
-              </div>
-            </li>
-          </ol>
-        </details>
-
-        <!-- B · Template -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">B</span> The template<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">Copy this and change the logic — or duplicate <code>hunt-c2-over-https.md</code> and edit it:</p>
-          <pre class="cv-code"><code><span class="c-cm">---</span>
-<span class="c-key">name</span>: hunt-my-detection
-<span class="c-key">layer</span>: detection
-<span class="c-key">description</span>: "One line on what this detects"
-<span class="c-key">invocationTriggerCandidate</span>: beacon        <span class="c-cm"># which candidate type fires it</span>
-<span class="c-key">invocationGate</span>:
-  minBeaconScore: 0.85                       <span class="c-cm"># must clear this to run</span>
-<span class="c-key">correlatingCandidates</span>:
-  - type: tls_anomaly
-    scope: same_network_tuple               <span class="c-cm"># how to pull related evidence</span>
-<span class="c-key">mitreTechniques</span>: [T1071.001]
-<span class="c-cm">---</span>
-
-<span class="c-key"># Objective</span>
-What you're deciding, and from what evidence.
-
-<span class="c-key"># Procedure</span>
-Step-by-step reasoning the model should follow.
-
-<span class="c-key"># Scoring</span>
-How to combine the evidence into a verdict.</code></pre>
-        </details>
-
-        <!-- C · Supported values -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">C</span> Use values the dataset &amp; harness understand<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">
-            Any valid frontmatter will <em>load</em> — but to actually fire and gather evidence, use a
-            trigger type that exists in the workshop dataset and gate/scope keys the harness evaluates.
-            (Unknown keys are ignored, not errors.)
-          </p>
-          <div class="auth-group">
-            <div class="auth-group-label"><TargetIcon size={14} weight="duotone" /> invocationTriggerCandidate — candidate types in the data</div>
-            <div class="auth-chips">
-              <span class="auth-chip">beacon</span><span class="auth-chip">tls_anomaly</span><span class="auth-chip">intel_match</span><span class="auth-chip">data_transfer</span><span class="auth-chip">unusual_parent_child_anomaly</span><span class="auth-chip">powershell_invocation_anomaly</span>
-            </div>
-          </div>
-          <div class="auth-group">
-            <div class="auth-group-label"><FunnelIcon size={14} weight="duotone" /> invocationGate — supported keys</div>
-            <div class="auth-chips">
-              <span class="auth-chip">minBeaconScore</span><span class="auth-chip">minScore</span><span class="auth-chip">observedService</span><span class="auth-chip">parentImageContains</span>
-            </div>
-          </div>
-          <div class="auth-group">
-            <div class="auth-group-label"><ArrowsInIcon size={14} weight="duotone" /> correlatingCandidates — supported scopes</div>
-            <div class="auth-chips">
-              <span class="auth-chip">same_network_tuple</span><span class="auth-chip">destination</span><span class="auth-chip">same_process_secondary_flow</span><span class="auth-chip">same_host</span>
-            </div>
-          </div>
-        </details>
-
-        <!-- D · Why it loads -->
-        <details class="cv-section" open>
-          <summary class="cv-h3"><span class="cv-num">D</span> Why it loads with no rebuild<span class="cv-chev" aria-hidden="true">▸</span></summary>
-          <p class="cv-lead">
-            Skills aren't compiled into the app. <code>listSkills()</code> does a live <code>readdir</code>
-            of <code>skills/</code> on every request and parses the frontmatter — so the folder <em>is</em>
-            the registry. Add a file → discovered; remove it → gone.
-          </p>
-          <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/skills/detection/</span>
-├─ <span class="tr-file">hunt-c2-over-https.md</span>          <span class="tr-cm">← the one we ship (your template)</span>
-└─ <span class="tr-file">hunt-my-detection.md</span>           <span class="tr-cm">← drop yours here → it's in the picker</span></code></pre>
-        </details>
-
-        <aside class="cv-callout">
-          <FileMdIcon size={22} weight="duotone" />
-          <p>
-            <strong>Fastest start:</strong> duplicate <code>hunt-c2-over-https.md</code>, rename it, tweak
-            the <code>name</code>, gate, and procedure, and drop it back in <code>skills/detection/</code>.
-            Refresh the Lab tab and your skill is in the picker — running the same discover → gate →
-            bundle → execute lifecycle as the built-in one.
-          </p>
-        </aside>
-      </div>
-    </div>
   {/if}
 </main>
 
@@ -1245,9 +1151,6 @@ How to combine the evidence into a verdict.</code></pre>
       </button>
       <button class="tab" class:active={skillTab === "procedure"} role="tab" aria-selected={skillTab === "procedure"} onclick={() => (skillTab = "procedure")}>
         Procedure
-      </button>
-      <button class="tab" class:active={skillTab === "reference"} role="tab" aria-selected={skillTab === "reference"} onclick={() => (skillTab = "reference")}>
-        Reference
       </button>
     </div>
 
@@ -1263,10 +1166,6 @@ How to combine the evidence into a verdict.</code></pre>
         <div class="markdown-body">
           {@render MarkdownView({ blocks: parseMarkdown(skill.body) })}
         </div>
-      </div>
-    {:else}
-      <div class="tab-panel">
-        {@render ReferenceView({ refs: skill.candidateReference ?? [] })}
       </div>
     {/if}
   </section>
@@ -2257,6 +2156,58 @@ How to combine the evidence into a verdict.</code></pre>
     color: #c2c2d2;
     font-size: 0.92rem;
     line-height: 1.7;
+  }
+
+  /* ── Hypothesis card (Lab view) ── */
+  .hyp-card {
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(189, 147, 249, 0.28);
+    border-left: 3px solid #bd93f9;
+    border-radius: 8px;
+    background: rgba(189, 147, 249, 0.06);
+  }
+  .hyp-head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #bd93f9;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hyp-head :global(svg) { flex-shrink: 0; }
+  .hyp-text {
+    margin: 0.55rem 0 0;
+    color: #f0f0f5;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .hyp-text code,
+  .hyp-note code {
+    background: rgba(139, 233, 253, 0.1);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.86em;
+    color: #8be9fd;
+  }
+  .hyp-scope {
+    margin: 0.6rem 0;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid rgba(98, 114, 164, 0.35);
+    border-radius: 6px;
+    background: rgba(13, 14, 22, 0.6);
+    overflow-x: auto;
+    font-size: 0.82rem;
+  }
+  .hyp-scope code { background: none; border: none; padding: 0; color: #c2c2d2; }
+  .hyp-scope .c-key { color: #8be9fd; }
+  .hyp-note {
+    margin: 0;
+    color: #c2c2d2;
+    font-size: 0.86rem;
+    line-height: 1.65;
   }
 
   /* ── Scoring tab ── */

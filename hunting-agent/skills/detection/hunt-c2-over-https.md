@@ -8,7 +8,6 @@ mitreTechniques: [T1071.001, T1573.002, T1041]
 invocationTriggerCandidate: beacon
 invocationGate:
   observedService: ssl
-  minBeaconScore: 0.85
 correlatingCandidates:
   - type: tls_anomaly
     scope: same_network_tuple
@@ -20,37 +19,51 @@ correlatingCandidates:
 
 # Objective
 
-Determine whether an HTTPS beacon candidate represents command-and-control rather than benign regular traffic. Reason **only** from candidate evidence — do not read asset records, threat-intel RAG, or compliance / business-impact context. Those belong to assessment skills, not detection.
+Judge whether an HTTPS beacon candidate is command-and-control rather than benign regular traffic. Reason only from candidate evidence. Do not read asset records, threat-intel RAG, or compliance / business context — those are assessment's job.
 
 # Procedure
 
-Load the trigger beacon candidate first. Inspect its beacon score, destination rarity, LOTS status, threat-intel fields, and process attribution. Then inspect the correlating TLS anomaly, intel match, and data transfer candidates on their declared scopes. Treat an absent correlating candidate as **absent evidence — score 0 on its dimension** — not as execution failure. Never phantom-score an absent candidate.
+1. Load the trigger `beacon` candidate. Read every field: beacon score, destination rarity, LOTS status, threat-intel fields, process attribution.
+2. Load the correlating candidates on their scopes: `tls_anomaly` and `data_transfer` on the same `src_ip`+`dest_ip` tuple as the beacon; `intel_match` on the destination. An absent correlator is absent evidence — its dimension scores 0. Never phantom-score one.
+3. Set each dimension from its source candidate's composite (passthrough — do not re-derive):
+   - `statistical_beacon_pattern` = `beacon.compositeScore`
+   - `infrastructure_reputation` = `intel_match.compositeScore` (0 if absent)
+   - `tls_anomaly_signature` = `tls_anomaly.compositeScore` (0 if absent)
+   - `exfil_volume_anomaly` = `data_transfer.compositeScore` (0 if absent; same-tuple only)
+4. `compositeScore` = max of the four dimensions. Never an average.
+5. For each fired dimension, write its `evidence` string citing the decisive observation from the source candidate — not the score (e.g. `tls_anomaly 0.95 — JA3 matches SSLBL; self-signed cert`).
+6. Walk the benign fallbacks below. Record each one ruled out in `benignFallbackRuledOut`; put any you cannot rule out in `uncertainty`.
+7. Assert `mitreTechniques` per fired dimension (mapping below).
+8. Write `attackNarrative` and `uncertainty`. Every claim traces to a candidate field or a stated observation.
+9. Return the `DetectionFinding`.
 
-# Scoring
+# Dimension → MITRE
 
-The dimensions are **passthroughs of the candidates' own composite scores** — you select and fuse them, you do not re-derive them:
+| Fired dimension | Assert |
+|---|---|
+| `statistical_beacon_pattern` (beacon) | T1071.001 + T1573.002 — base C2-over-HTTPS |
+| `tls_anomaly_signature` | T1071.001 + T1573.002 |
+| `infrastructure_reputation` (intel only) | inherit the base set |
+| `exfil_volume_anomaly` (same-tuple data_transfer) | append T1041 |
 
-- `statistical_beacon_pattern` = `beacon.compositeScore`
-- `infrastructure_reputation`  = `intel_match.compositeScore`   (0.0 if absent)
-- `tls_anomaly_signature`      = `tls_anomaly.compositeScore`    (0.0 if absent)
-- `exfil_volume_anomaly`       = `data_transfer.compositeScore`  (0.0 if absent) — anomalous outbound volume to the **same src_ip + dest_ip tuple as the beacon**, i.e. exfiltration over the C2 channel (T1041).
-
-`compositeScore = max(statistical_beacon_pattern, infrastructure_reputation, tls_anomaly_signature, exfil_volume_anomaly)` — the **maximum decisive malicious dimension, never an average** that washes out strong evidence.
-
-The `data_transfer` candidate is correlated on the **same tuple** as the beacon. If none fired on that tuple — e.g. the host moved data to a *different* endpoint — then `exfil_volume_anomaly` is 0 and contributes nothing, which is correct: that transfer is not evidence about *this* C2 channel. But when a data_transfer **does** fire on the same tuple, it **is** part of the composite and appends `T1041` (Exfiltration Over C2 Channel) to the asserted techniques.
-
-For each fired dimension, write an `evidence` string citing the **decisive observation** from the source candidate (e.g. *"tls_anomaly 0.95 — JA3 matches SSLBL; self-signed cert"*), not just the score.
+Assert the union over fired dimensions. Do not hardcode a static list.
 
 # Benign fallbacks
 
-Rule out benign causes by matching the observed evidence against each cause's shape: EDR / monitoring-agent check-in, OS update or telemetry polling, Microsoft 365 keepalive, backup agent, browser / SaaS polling, human browsing. List the ones ruled out in `benignFallbackRuledOut`; for any that cannot be confidently ruled out, say so in the narrative. (Most false positives are already dampened upstream by candidate-layer enrichments such as `destination_rarity` and `ja3_rarity`.)
+Match observed evidence against each shape and rule it out where it fits: EDR / monitoring-agent check-in, OS update or telemetry polling, Microsoft 365 keepalive, backup agent, browser / SaaS polling, human browsing. Most false positives are already dampened upstream by candidate enrichments (`destination_rarity`, `ja3_rarity`).
 
-# Output Contract
+# Uncertainty
 
-Return a `DetectionFinding` with `compositeScore`, `dimensions`, `evidenceSummary`, `attackNarrative`, `uncertainty`, `benignFallbackRuledOut`, `mitreTechniques`, and `evidenceRefs` (the candidate IDs that fired plus their constituent event IDs). Every assertion in the narrative must trace to a candidate field or a skill-derived observation — **no unsourced claims**.
+State what the evidence cannot establish. If only the beacon fired and every correlator was absent, flag it as single-signal / uncorroborated.
 
-# Anti-patterns — do not do
+# Output
 
-- Re-scoring JA3 / certificate / SNI from raw `ssl.log` or `x509.log` — the `tls_anomaly` candidate already scores these; consume its composite, not the underlying events.
-- Treating an absent correlating candidate as 1.0 via phantom scoring — absent is 0 on that dimension; the other dimensions still carry the composite via `max()`.
-- Letting a `data_transfer` to a **different** destination raise this finding — exfil only counts when it is on the **same tuple** as the beacon (same channel). Off-tuple transfer scores 0 here; it belongs to its own finding.
+Return a `DetectionFinding`: `compositeScore`, `dimensions`, `evidenceSummary`, `attackNarrative`, `uncertainty`, `benignFallbackRuledOut`, `mitreTechniques`, `evidenceRefs` (the candidate IDs that fired plus their constituent event IDs).
+
+# Do not
+
+- Re-score JA3 / cert / SNI from `ssl.log` or `x509.log` — consume `tls_anomaly`'s composite.
+- Score an absent correlator as anything but 0.
+- Average the dimensions — the composite is the max.
+- Count an off-tuple `data_transfer` — exfil is same-tuple only; off-tuple belongs to its own finding.
+- Return a high score behind a one-line narrative — the reasoning fields are the finding, not the number.
