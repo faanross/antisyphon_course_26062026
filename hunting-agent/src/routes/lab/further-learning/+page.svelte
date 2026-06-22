@@ -74,6 +74,16 @@
       url: "https://www.youtube.com/@aiDotEngineer",
       note: "Not security-specific, but a deep, high-quality library on building with agents and LLMs — very relevant.",
     },
+    {
+      label: "Put agentic AI to work: Real-world defense against threats (Elastic)",
+      url: "https://www.youtube.com/watch?v=ki3Gmwj5SJM",
+      note: "Defensive, on-topic: applying agentic AI to real-world threat defense.",
+    },
+    {
+      label: "Pi Architecture Explained — Agent Loop, Tools, TUI (Alejandro AO)",
+      url: "https://youtu.be/gTeujlv8qK0",
+      note: "A clear walkthrough of a real agent's internals — the loop, tool calls, and TUI — reinforcing how the harness around the model actually works.",
+    },
   ];
 
   const checklist = [
