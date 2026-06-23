@@ -86,6 +86,9 @@
       },
     },
     { selector: "node.hot", style: { "border-color": "#50fa7b", "border-width": 4 } },
+    // On hover, reveal the fuller label (findings show their skill) and draw above everything
+    // so it never sits behind an edge label.
+    { selector: "node.hover", style: { label: "data(full)", "z-index": 99, "border-color": "rgba(255,255,255,0.95)" } },
     { selector: "edge.bridgeOn", style: { "line-color": "#50fa7b", "target-arrow-color": "#50fa7b", width: 3.2, color: "#9affb6" } },
   ];
 
@@ -100,7 +103,8 @@
         nodes.push({
           data: {
             id: n.id,
-            disp: n.type === "finding" ? `${display(n)}\n${skillOf(n.id)}` : display(n),
+            disp: display(n),
+            full: n.type === "finding" ? `${display(n)}\n${skillOf(n.id)}` : display(n),
             color: NODE_COLORS[n.type],
             minStep,
             shared: sharedIds.has(n.id) ? 1 : 0,
@@ -155,6 +159,8 @@
           layout: { name: "fcose", animate: false, randomize: true, quality: "proof", nodeRepulsion: 17000, idealEdgeLength: 200, gravity: 0.07, gravityRange: 4, nodeSeparation: 230, padding: 56 },
           minZoom: 0.25, maxZoom: 1.35, wheelSensitivity: 0.3,
         });
+        cy.on("mouseover", "node", (e: any) => e.target.addClass("hover"));
+        cy.on("mouseout", "node", (e: any) => e.target.removeClass("hover"));
         applyStep(cy, latest);
       } catch (err) {
         cyError = err instanceof Error ? err.message : String(err);
@@ -239,6 +245,7 @@
             <span class="lg n-user">user</span>
             <span class="lg n-candidate">candidate</span>
             <span class="lg n-technique">technique</span>
+            <span class="lg-hint">· hover a finding to see its skill</span>
           </div>
         </div>
 
@@ -358,6 +365,7 @@
   .lg::before { content: ""; width: .7rem; height: .7rem; border-radius: 50%; border: 2px solid; }
   .lg.n-finding::before { border-color: #ff79c6; } .lg.n-host::before { border-color: #8be9fd; }
   .lg.n-user::before { border-color: #bd93f9; } .lg.n-candidate::before { border-color: #f5e663; } .lg.n-technique::before { border-color: #50fa7b; }
+  .lg-hint { font-size: .72rem; color: rgba(255,255,255,.4); }
 
   pre.code { background: rgba(12,12,18,.7); border: 1px solid rgba(98,114,164,.35); border-radius: 8px; padding: 1rem; overflow-x: auto; }
   pre.code code { background: none; color: rgba(255,255,255,.82); font-size: .82rem; line-height: 1.6; }
