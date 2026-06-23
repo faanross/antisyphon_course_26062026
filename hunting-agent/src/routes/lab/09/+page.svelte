@@ -10,6 +10,7 @@
   import GitForkIcon from "phosphor-svelte/lib/GitForkIcon";
   import WarningIcon from "phosphor-svelte/lib/WarningIcon";
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
+  import MarkdownView from "$lib/components/MarkdownView.svelte";
 
   type Finding = {
     id: string;
@@ -25,14 +26,61 @@
   type ProgressEvent = { stage: string; message: string };
 
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
-  let result = $state<{ findings: Finding[]; progress: ProgressEvent[] } | null>(null);
   let busy = $state(false);
+  let errorMsg = $state("");
+  let phase = $state<"idle" | "running" | "reducing" | "done" | "error">("idle");
+  let trace = $state<ProgressEvent[]>([]);
+  let findings = $state<Finding[]>([]);
+  let triage = $state("");
+  let started = $derived(phase !== "idle");
+
+  // Distinct colour per orchestration stage so the trace teaches instead of being one grey wall.
+  function stageColor(stage: string): string {
+    if (stage.includes("error")) return "#ff5555";
+    if (stage.includes("fan-out")) return "#bd93f9";
+    if (stage.includes("worker")) return "#50fa7b";
+    if (stage.includes("fan-in")) return "#f1fa8c";
+    if (stage === "load") return "#6272a4";
+    return "#8be9fd";
+  }
 
   async function run() {
     busy = true;
-    const response = await fetch("/lab/09/api/orchestrate", { method: "POST" });
-    result = await response.json();
-    busy = false;
+    errorMsg = "";
+    trace = [];
+    findings = [];
+    triage = "";
+    phase = "running";
+    try {
+      const response = await fetch("/lab/09/api/orchestrate", { method: "POST" });
+      if (!response.ok || !response.body) throw new Error(`Request failed (HTTP ${response.status}).`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line);
+          if (ev.type === "trace") trace = [...trace, ev.event];
+          else if (ev.type === "findings") findings = ev.findings;
+          else if (ev.type === "reduce-start") phase = "reducing";
+          else if (ev.type === "reduce-token") triage += ev.value;
+          else if (ev.type === "reduce-done") { triage = ev.triage || triage; phase = "done"; }
+          else if (ev.type === "error") errorMsg = ev.message;
+        }
+      }
+    } catch (error) {
+      errorMsg = error instanceof Error ? error.message : "Could not reach the orchestrator.";
+    } finally {
+      busy = false;
+      if (errorMsg) phase = "error";
+      else if (phase === "running" || phase === "reducing") phase = "done";
+    }
   }
 </script>
 
@@ -66,10 +114,10 @@
           <span class="cv-eyebrow">Lab 09 · Walkthrough</span>
           <h2>Fan one task out to many workers, then fan the results back in</h2>
           <p>
-            Every lab so far ran <em>one</em> detection at a time. Here you kick off a single run
-            that <strong>fans out</strong> into many independent detection jobs running at once, then
-            <strong>fans in</strong> — collecting every structured finding into one list. Hit Run and
-            watch the orchestration trace and findings appear together.
+            Every lab so far ran <em>one</em> detection at a time. Here one run <strong>fans out</strong>
+            into many independent detection jobs at once (the <strong>map</strong>), collects their
+            findings, then <strong>reduces</strong> the whole batch into one synthesized triage. Hit Run
+            and watch each stage <strong>stream</strong> live.
           </p>
         </header>
 
@@ -129,29 +177,46 @@
             <span class="flow-rail"><ArrowsInIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">4 · Watch it fan IN</span>
-                <span class="flow-where">Fan-In Findings</span>
+                <span class="flow-title">4 · Fan in — collect</span>
+                <span class="flow-where">Map · Fan-In Findings</span>
               </div>
               <p>
-                The fulfilled workers converge back into the <strong>Fan-In Findings</strong> panel —
-                one card per finding, with its candidate, skill, verdict, and composite score. This is
-                the synthesis: many parallel results collected into one reviewable list.
+                The fulfilled workers converge into the <strong>Map · Fan-In Findings</strong> panel —
+                one card per finding (candidate, skill, verdict, score). This is the <em>collection</em>
+                step: independent results gathered into one list. No worker has seen the others yet.
               </p>
             </div>
           </li>
 
-          <!-- Step 5 -->
+          <!-- Step 5 · Reduce -->
           <li class="flow-step" style="--d: 440ms">
+            <span class="flow-rail"><ListChecksIcon size={22} weight="duotone" /></span>
+            <div class="flow-body">
+              <div class="flow-top">
+                <span class="flow-title">5 · Reduce — synthesize the batch</span>
+                <span class="flow-where">Reduce · Batch Synthesis</span>
+              </div>
+              <p>
+                Now the <strong>reduce</strong>: one model call reads <em>all</em> the collected findings
+                at once and writes a prioritized triage — the overall picture, what to look at first, and
+                which findings are the same incident. That cross-finding view is something no single
+                worker could produce. <strong>This</strong> is the synthesis.
+              </p>
+            </div>
+          </li>
+
+          <!-- Step 6 -->
+          <li class="flow-step" style="--d: 550ms">
             <span class="flow-rail"><GitForkIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">5 · See the shape behind it</span>
+                <span class="flow-title">6 · See the shape behind it</span>
                 <span class="flow-where">Code tab</span>
               </div>
               <p>
                 When you're ready, open the <strong>Code</strong> tab. It walks the plan → fan-out
-                (<code>Promise.allSettled</code>) → fan-in journey and shows where the orchestrator
-                and the reused worker live.
+                (<code>Promise.allSettled</code>) → fan-in → reduce journey and shows where the
+                orchestrator and the reused worker live.
               </p>
             </div>
           </li>
@@ -179,32 +244,52 @@
             composition, not new magic.
           </p>
         </aside>
+
+        <aside class="cv-callout">
+          <ArrowsInIcon size={22} weight="duotone" />
+          <p>
+            <strong>This is map-reduce — and where it goes next.</strong> The reduce here is a
+            <em>transient</em> batch synthesis: read N findings, emit one triage, with no shared state
+            between them. <strong>Lab 10</strong> makes that synthesis <em>durable and connected</em> —
+            findings that touch the same host, user, or domain become linked nodes in a knowledge graph —
+            and <strong>Lab 11</strong> turns that graph into a campaign narrative.
+          </p>
+        </aside>
       </div>
     </div>
   {:else if activeTab === "lab"}
-  {#if result}
+  {#if errorMsg}
+    <p class="orch-error">{errorMsg}</p>
+  {/if}
+  {#if started}
+    <!-- Live MAP trace -->
     <section class="panel">
       <div class="panel-head">
         <h2>Orchestration Trace</h2>
-        <span>{result.progress.length} events</span>
+        <span>{trace.length} events</span>
       </div>
       <ol class="trace">
-        {#each result.progress as event}
-          <li>
-            <strong>{event.stage}</strong>
+        {#each trace as event}
+          <li class="trace-row" style="border-left: 3px solid {stageColor(event.stage)}">
+            <strong style="color: {stageColor(event.stage)}">{event.stage}</strong>
             <p>{event.message}</p>
           </li>
         {/each}
+        {#if phase === "running"}
+          <li class="trace-row trace-pending"><strong>…</strong><p>workers running</p></li>
+        {/if}
       </ol>
     </section>
 
+    <!-- MAP output: collected findings -->
     <section class="panel">
       <div class="panel-head">
-        <h2>Fan-In Findings</h2>
-        <span>{result.findings.length} findings</span>
+        <h2>Map · Fan-In Findings</h2>
+        <span>{findings.length} findings</span>
       </div>
+      <p class="panel-note">Each worker independently produced one finding — collected here as a flat list. No worker sees the others.</p>
       <div class="findings">
-        {#each result.findings as finding}
+        {#each findings as finding}
           <article>
             <div>
               <strong>{finding.candidateId}</strong>
@@ -213,13 +298,31 @@
             <p>{finding.evidenceSummary}</p>
             <small>{finding.verdict} | score {finding.compositeScore.toFixed(2)}</small>
           </article>
+        {:else}
+          <p class="empty">Workers running…</p>
         {/each}
       </div>
     </section>
+
+    <!-- REDUCE: synthesized batch triage -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Reduce · Batch Synthesis</h2>
+        <span>{phase === "reducing" ? "synthesizing…" : triage ? "1 triage" : "waiting"}</span>
+      </div>
+      <p class="panel-note">The fan-in <strong>reduce</strong>: one model call reads all {findings.length} findings at once and synthesizes a prioritized triage — the cross-finding view no single worker had.</p>
+      {#if triage}
+        <div class="reduce-body"><MarkdownView source={triage} /></div>
+      {:else if phase === "reducing"}
+        <p class="empty">Synthesizing the batch…</p>
+      {:else}
+        <p class="empty">Waiting for the workers to finish…</p>
+      {/if}
+    </section>
   {:else}
     <section class="panel">
-      <h2>What this lab isolates</h2>
-      <p>The graph and narrative stages are intentionally absent here — this route shows dispatch, independent worker output, and fan-in into a <strong>flat list</strong> of findings. <strong>Lab 10</strong> is where that list grows into a shared <strong>knowledge graph</strong>.</p>
+      <h2>Press Run Orchestration</h2>
+      <p>This lab runs the full <strong>map-reduce</strong>: fan the detection library out across the candidates (<strong>map</strong>), collect the findings, then <strong>reduce</strong> them into one synthesized triage. Hit <strong>Run Orchestration</strong> above to watch it stream.</p>
     </section>
   {/if}
   {:else}
@@ -323,13 +426,12 @@
             every job and never short-circuits, so one worker's failure can't sink the whole batch.
           </p>
           <p class="cv-note">
-            <strong>What fan-in produces — and how it evolves.</strong> Right now the fan-in target is a
-            <strong>flat list</strong> (<code>findings[]</code>): each finding stands alone, with no links
-            between them — that's all parallel orchestration needs, and why no graph is required yet. In
-            <strong>Lab 10</strong> the same collected findings fan in to a <strong>knowledge graph</strong>
-            instead: findings that touch the same host, user, or domain become connected nodes (shared
-            entity state). Same fan-out — the fan-in destination grows from an unlinked list into a
-            connected picture.
+            <strong>Fan-out is the map; fan-in is the reduce.</strong> The workers collect into a list
+            (<code>findings[]</code>), then one <strong>reduce</strong> call synthesizes the whole batch
+            into a triage — the cross-finding view no single worker had. That reduce is transient and
+            stateless; <strong>Lab 10</strong> makes the synthesis <strong>durable and connected</strong>
+            (findings sharing a host / user / domain become linked nodes in a knowledge graph), and
+            <strong>Lab 11</strong> turns that into a campaign narrative.
           </p>
         </details>
 
@@ -339,7 +441,7 @@
           <div class="cv-cards">
             <article class="cv-card">
               <div class="cv-card-head"><ArrowsOutIcon size={26} weight="duotone" /><h4>Fan-out, then fan-in</h4></div>
-              <p>Dispatch many independent jobs (fan-out), then gather their results into one collection (fan-in). It's the fundamental pattern for doing lots of agent work in one pass.</p>
+              <p>Dispatch many independent jobs (fan-out, the <em>map</em>), gather their results (fan-in), then <em>reduce</em> the batch into one synthesis. The fundamental pattern for doing lots of agent work in one pass.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><LightningIcon size={26} weight="duotone" /><h4>Independent ⇒ concurrent</h4></div>
@@ -443,6 +545,17 @@
   article { display: grid; gap: .45rem; }
   article div { display: flex; justify-content: space-between; gap: 1rem; }
   article span { color: rgba(255, 255, 255, 0.54); }
+  .panel-note { margin: 0 0 .85rem; color: rgba(255, 255, 255, 0.6); font-size: .9rem; line-height: 1.55; }
+  .empty { margin: 0; color: rgba(255, 255, 255, 0.5); }
+  .trace-pending { opacity: .6; }
+  .orch-error {
+    margin: 1rem 0 0; padding: .75rem .9rem; border-radius: 6px;
+    border: 1px solid rgba(255, 85, 85, .5); background: rgba(255, 85, 85, .08); color: #ff7b7b;
+  }
+  .reduce-body {
+    border: 1px solid rgba(189, 147, 249, .3); border-radius: 6px;
+    padding: .9rem 1rem; background: rgba(189, 147, 249, .05);
+  }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top {

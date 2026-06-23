@@ -94,6 +94,38 @@ export async function runDetectionFanOut(
   return { findings, model };
 }
 
+// Fan-in REDUCE: the map step produced N independent findings; this is the reduce — ONE model
+// call that reads the whole batch and synthesizes a prioritized triage (the cross-finding view
+// no single worker had). A teaching illustration of map-reduce; the real pipeline's durable
+// synthesis is the knowledge graph (Lab 10) + campaign narrative (Lab 11).
+const FAN_IN_REDUCE_PROMPT =
+  "You are a SOC lead triaging a batch of detection findings that parallel workers just produced. " +
+  "Do NOT just relist them — synthesize the batch. Respond in Markdown with exactly: (1) a one-sentence " +
+  "overall picture; (2) a prioritized triage, highest-risk first, one line each (candidate id + why); " +
+  "(3) call out any findings that are part of the SAME incident (shared host, process, or destination). " +
+  "Be concise. Begin directly with the overall picture — no preamble or meta-commentary about what you are doing.";
+
+export async function reduceFindingsToTriage(
+  findings: readonly DetectionFinding[],
+  onToken?: (token: string) => void,
+): Promise<string> {
+  if (findings.length === 0) return "No findings to synthesize — every worker failed or was dropped.";
+  const summary = findings
+    .map((f) => `- ${f.candidateId} [${f.skillName}] verdict=${f.verdict} score=${f.compositeScore.toFixed(2)} :: ${f.evidenceSummary}`)
+    .join("\n");
+  const provider = getProvider();
+  let text = "";
+  const result = await provider.invoke({
+    systemPrompt: FAN_IN_REDUCE_PROMPT,
+    userPrompt: `Findings from ${findings.length} parallel workers:\n\n${summary}`,
+    onToken: (token) => {
+      text += token;
+      onToken?.(token);
+    },
+  });
+  return text || result.text;
+}
+
 // Assessment fan-out: each SIGNIFICANT (true_positive) finding fans out into one REAL model call
 // per assessment skill (severity, behavioural-context), run concurrently. Each worker emits its
 // result the moment it resolves, so a visualiser animates real concurrency.
