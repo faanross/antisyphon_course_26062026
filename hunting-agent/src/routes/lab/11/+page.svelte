@@ -12,6 +12,7 @@
   import MarkdownView from "$lib/components/MarkdownView.svelte";
 
   type Graph = { nodes: Array<{ id: string; label: string; type: string }>; edges: Array<{ source: string; target: string; label: string }> };
+  type Worker = { id: string; skill: string; candidateId: string; state: "running" | "done" | "error"; verdict?: string };
   type StreamEvent =
     | { type: "graph"; graph: Graph }
     | { type: "progress"; stage: string; message: string; data?: Record<string, unknown> }
@@ -27,27 +28,44 @@
   let runError = $state("");
   let graph = $state<Graph | null>(null);
   let findingsCount = $state(0);
-  let trace = $state<string[]>([]);
+  let workers = $state<Worker[]>([]);
+  let synthesizing = $state(false);
   let narrativeText = $state("");
 
-  // Only milestone stages become trace lines — per-worker events are dropped so the wait
-  // reads as a clean checklist, not a spam of 8 worker logs.
-  function traceLabel(stage: string, data?: Record<string, unknown>): string | null {
+  // One evolving status line above the worker boxes — no per-stage log spam.
+  const detStatus = $derived.by(() => {
+    if (synthesizing) return `Collected ${findingsCount} true-positive finding${findingsCount === 1 ? "" : "s"} — synthesizing the grounded narrative…`;
+    if (workers.length) {
+      const done = workers.filter((w) => w.state !== "running").length;
+      return `Detection — ${done}/${workers.length} workers complete`;
+    }
+    return "Loading candidates (detection inputs)…";
+  });
+
+  // Detection fan-out streams as one box per worker, flipping running → TP / FP / error.
+  function drive(stage: string, data?: Record<string, unknown>) {
     switch (stage) {
-      case "load": return "Loading candidates (detection inputs)";
-      case "fan-out": return `Dispatching ${((data?.invocations as unknown[]) ?? []).length} detection workers (Lab 09)`;
-      case "fan-in": return `Collected ${Number(data?.count ?? 0)} findings`;
-      case "narrative": return "Synthesizing grounded narrative — streaming";
-      default: return null;
+      case "fan-out":
+        workers = ((data?.invocations as Array<{ id: string; skill: string; candidateId: string }>) ?? [])
+          .map((i) => ({ id: i.id, skill: i.skill, candidateId: i.candidateId, state: "running" }));
+        break;
+      case "worker":
+        workers = workers.map((w) => w.id === String(data?.id)
+          ? { ...w, state: "done", verdict: String(data?.verdict ?? "") } : w);
+        break;
+      case "worker-error":
+        workers = workers.map((w) => w.id === String(data?.id) ? { ...w, state: "error" } : w);
+        break;
+      case "narrative":
+        synthesizing = true;
+        break;
     }
   }
 
   function applyEvent(event: StreamEvent) {
     if (event.type === "graph") graph = event.graph;
-    else if (event.type === "progress") {
-      const label = traceLabel(event.stage, event.data);
-      if (label) trace = [...trace, label];
-    } else if (event.type === "findings") findingsCount = event.count;
+    else if (event.type === "progress") drive(event.stage, event.data);
+    else if (event.type === "findings") findingsCount = event.count;
     else if (event.type === "narrative-token") narrativeText += event.value;
     else if (event.type === "narrative-done") { if (!narrativeText) narrativeText = event.narrative; }
     else if (event.type === "error") runError = event.message;
@@ -55,7 +73,7 @@
 
   async function run() {
     busy = true; started = true; runError = "";
-    graph = null; findingsCount = 0; trace = []; narrativeText = "";
+    graph = null; findingsCount = 0; workers = []; synthesizing = false; narrativeText = "";
     try {
       const response = await fetch("/lab/11/api/narrative", { method: "POST" });
       if (!response.ok || !response.body) throw new Error(`Narrative API returned HTTP ${response.status}`);
@@ -230,15 +248,16 @@
       {#if narrativeText}
         <div class="narrative-body"><MarkdownView source={narrativeText} /></div>
       {:else}
-        <ol class="trace">
-          {#if trace.length}
-            {#each trace as line, i}
-              <li class:active={busy && i === trace.length - 1}>{line}</li>
+        <p class="det-status">{detStatus}</p>
+        {#if workers.length}
+          <div class="wave">
+            {#each workers as w}
+              <span class="chip" class:running={w.state === "running"} class:done={w.state === "done"} class:error={w.state === "error"} class:tp={w.verdict === "true_positive"} class:fp={w.verdict === "false_positive"} title="{w.skill} · {w.candidateId}">
+                {w.candidateId}{#if w.state === "done"} · {w.verdict === "true_positive" ? "TP" : w.verdict === "false_positive" ? "FP" : "?"}{/if}
+              </span>
             {/each}
-          {:else}
-            <li class="active">Starting…</li>
-          {/if}
-        </ol>
+          </div>
+        {/if}
       {/if}
     </section>
   {/if}
@@ -431,13 +450,15 @@
   .panel.error p { color: #ff8b8b; }
   .working { color: rgba(255,255,255,.55); font-family: "JetBrains Mono", monospace; font-size: .9rem; }
   .narrative-body { border: 1px solid rgba(189,147,249,.3); border-radius: 8px; padding: 1rem 1.1rem; background: rgba(189,147,249,.05); }
-  .trace { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; font-family: "JetBrains Mono", monospace; }
-  .trace li { position: relative; padding-left: 1.3rem; color: rgba(255,255,255,.55); font-size: .9rem; }
-  .trace li::before { content: "✓"; position: absolute; left: 0; color: #50fa7b; font-weight: 800; }
-  .trace li.active { color: #f5e663; }
-  .trace li.active::before { content: "▸"; color: #f5e663; }
-  @media (prefers-reduced-motion: no-preference) { .trace li.active { animation: g11pulse 1.3s ease-in-out infinite; } }
-  @keyframes g11pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+  .det-status { color: rgba(255,255,255,.6); font-family: "JetBrains Mono", monospace; font-size: .9rem; margin: 0 0 .9rem; }
+  .wave { display: flex; flex-wrap: wrap; gap: .45rem; }
+  .chip { font-size: .8rem; font-family: "JetBrains Mono", monospace; padding: .3rem .6rem; border-radius: 6px; border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.7); white-space: nowrap; transition: all .25s; }
+  .chip.running { border-color: rgba(245,230,99,.45); color: #f5e663; }
+  .chip.error { border-color: rgba(255,85,85,.5); color: #ff7b7b; }
+  .chip.done.tp { border-color: rgba(255,121,198,.55); color: #ff79c6; }
+  .chip.done.fp { border-color: rgba(80,250,123,.45); color: #50fa7b; }
+  @media (prefers-reduced-motion: no-preference) { .chip.running { animation: g11pulse 1.3s ease-in-out infinite; } }
+  @keyframes g11pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top {
