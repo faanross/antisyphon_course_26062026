@@ -55,7 +55,7 @@
         width: 36, height: 36,
         "border-width": 2, "border-color": "rgba(7,7,10,0.85)",
         color: "#f3f3f8",
-        "font-family": "ui-monospace, monospace", "font-size": 13, "font-weight": 700,
+        "font-family": "ui-monospace, monospace", "font-size": 12, "font-weight": 700,
         "text-valign": "bottom", "text-halign": "center", "text-margin-y": 8,
         "text-wrap": "wrap", "text-max-width": 180, "line-height": 1.3,
         "text-outline-width": 3, "text-outline-color": "#07070a",
@@ -127,7 +127,7 @@
       }
     });
     const vis = cy.elements(":visible");
-    if (vis.length) cy.animate({ fit: { eles: vis, padding: 44 } }, { duration: 380 });
+    if (vis.length) cy.animate({ fit: { eles: vis, padding: 70 } }, { duration: 380 });
   }
 
   // Svelte action: mount Cytoscape into the container, react to `step`, clean up on unmount.
@@ -143,8 +143,8 @@
           container: node,
           elements: buildElements(),
           style: cyStyle,
-          layout: { name: "fcose", animate: false, randomize: true, quality: "proof", nodeRepulsion: 11000, idealEdgeLength: 95, gravity: 0.12, gravityRange: 3.8, nodeSeparation: 170, padding: 46 },
-          minZoom: 0.25, maxZoom: 2.5, wheelSensitivity: 0.3,
+          layout: { name: "fcose", animate: false, randomize: true, quality: "proof", nodeRepulsion: 17000, idealEdgeLength: 200, gravity: 0.07, gravityRange: 4, nodeSeparation: 230, padding: 56 },
+          minZoom: 0.25, maxZoom: 1.35, wheelSensitivity: 0.3,
         });
         applyStep(cy, latest);
       } catch (err) {
