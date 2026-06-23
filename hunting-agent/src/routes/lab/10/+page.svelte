@@ -1,7 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import GraphIcon from "phosphor-svelte/lib/GraphIcon";
-  import ShareNetworkIcon from "phosphor-svelte/lib/ShareNetworkIcon";
   import DatabaseIcon from "phosphor-svelte/lib/DatabaseIcon";
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
   import ArrowCounterClockwiseIcon from "phosphor-svelte/lib/ArrowCounterClockwiseIcon";
@@ -85,11 +84,9 @@
         "text-rotation": "autorotate",
       },
     },
-    { selector: "node.hot", style: { "border-color": "#50fa7b", "border-width": 4 } },
     // On hover, reveal the fuller label (findings show their skill) and draw above everything
     // so it never sits behind an edge label.
     { selector: "node.hover", style: { label: "data(full)", "z-index": 99, "border-color": "rgba(255,255,255,0.95)" } },
-    { selector: "edge.bridgeOn", style: { "line-color": "#50fa7b", "target-arrow-color": "#50fa7b", width: 3.2, color: "#9affb6" } },
   ];
 
   // Build the FULL element set once (both findings, deduped), tagged with the step each appears at.
@@ -129,15 +126,10 @@
     return [...nodes, ...edges];
   }
 
-  // Reveal elements up to the current step; highlight the shared bridge at step 3; reframe.
+  // Reveal elements up to the current step, then reframe to the visible subset.
   function applyStep(cy: any, current: number) {
     cy.batch(() => {
       cy.elements().forEach((ele: any) => ele.style("display", ele.data("minStep") <= current ? "element" : "none"));
-      cy.elements().removeClass("hot bridgeOn");
-      if (current >= 3) {
-        cy.nodes("[shared = 1]").addClass("hot");
-        cy.edges("[bridge = 1]").addClass("bridgeOn");
-      }
     });
     const vis = cy.elements(":visible");
     if (vis.length) cy.animate({ fit: { eles: vis, padding: 70 } }, { duration: 380 });
@@ -175,9 +167,8 @@
   const STEP_META = [
     { label: "Project Finding A (df-a) into the graph", caption: "Press to project the first detection finding — its typed object becomes Cypher, and the Cypher becomes nodes + edges." },
     { label: "Project Finding B (df-b) into the graph", caption: "A second, independent finding. Watch its own subgraph appear — but notice the host and user it MERGEs already exist." },
-    { label: "Reveal the shared-entity connection", caption: "Because MERGE is idempotent, both findings' Host and User collapse to one node each — so df-a and df-b are now linked through them." },
   ];
-  const caption = $derived(step < 3 ? STEP_META[step].caption : "Done. Two independent findings, one compromised host and user — a connection the graph discovered that neither finding stated.");
+  const caption = $derived(step < 2 ? STEP_META[step].caption : "Both findings projected — MERGE reused the same Host and User, so df-a and df-b hang off the same two nodes.");
 </script>
 
 <svelte:head><title>Lab 10 | Knowledge Graph — Finding → Cypher → Connection</title></svelte:head>
@@ -213,12 +204,12 @@
     <section class="panel">
       <div class="lab-head">
         <div class="step-dots">
-          {#each [1, 2, 3] as n}
+          {#each [1, 2] as n}
             <span class="dot" class:done={step >= n} class:current={step === n - 1}>{n}</span>
           {/each}
         </div>
         <div class="lab-actions">
-          {#if step < 3}
+          {#if step < 2}
             <button class="primary" onclick={() => (step += 1)}>{STEP_META[step].label}<ArrowRightIcon size={16} weight="bold" /></button>
           {/if}
           <button class="ghost" onclick={() => (step = 0)} disabled={step === 0}><ArrowCounterClockwiseIcon size={15} weight="bold" /> Reset</button>
@@ -232,12 +223,6 @@
           <div class="graph" use:cyto={step}></div>
           {#if cyError}
             <p class="cy-error">Graph failed to render: {cyError}</p>
-          {/if}
-          {#if step >= 3}
-            <div class="connect-callout" transition:fade>
-              <ShareNetworkIcon size={18} weight="duotone" />
-              <span><strong>df-a</strong> and <strong>df-b</strong> are connected through <strong>DEV-WS03</strong> and <strong>jane.roberts</strong> — the graph found a link neither finding stated.</span>
-            </div>
           {/if}
           <div class="legend">
             <span class="lg n-finding">finding</span>
@@ -358,8 +343,6 @@
   .graph { width: 100%; height: 560px; border: 1px solid rgba(98,114,164,.35); border-radius: 8px; background: radial-gradient(circle at 50% 55%, rgba(189,147,249,.06), transparent 62%), rgba(12,12,18,.6); }
   .cy-error { margin: .7rem 0 0; padding: .6rem .8rem; border: 1px solid rgba(255,85,85,.5); border-radius: 6px; background: rgba(255,85,85,.08); color: #ff7b7b; font-size: .85rem; }
 
-  .connect-callout { display: flex; align-items: center; gap: .6rem; margin-top: .9rem; padding: .7rem .9rem; border: 1px solid rgba(80,250,123,.45); border-radius: 8px; background: rgba(80,250,123,.07); color: rgba(255,255,255,.85); font-size: .88rem; line-height: 1.45; }
-  .connect-callout :global(svg) { color: #50fa7b; flex-shrink: 0; }
   .legend { display: flex; flex-wrap: wrap; gap: .9rem; margin-top: .9rem; }
   .lg { font-size: .72rem; color: rgba(255,255,255,.6); display: inline-flex; align-items: center; gap: .35rem; }
   .lg::before { content: ""; width: .7rem; height: .7rem; border-radius: 50%; border: 2px solid; }
