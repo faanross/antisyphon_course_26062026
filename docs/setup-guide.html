@@ -298,6 +298,7 @@
     <a href="#s1"><span class="tnum">1</span> Download the repo</a>
     <a href="#s2"><span class="tnum">2</span> Run the installer script</a>
     <a href="#s3"><span class="tnum">3</span> Choose how to run the model (A / B / C)</a>
+    <a href="#s3b"><span class="tnum">+</span> Install the embedding model (Lab 08)</a>
     <a href="#s4"><span class="tnum">4</span> Set up the GTI lab (MCP)</a>
     <a href="#s5"><span class="tnum">5</span> Start the server</a>
     <a href="#s6"><span class="tnum">6</span> Confirm it worked</a>
@@ -447,6 +448,17 @@ GEMINI_MODEL=gemini-2.5-flash
   <p style="margin-top:6px;">Save the file. That's it — you're ready to run.</p>
 
   <div class="callout warn"><span class="tag">Keep it secret</span><p>Your <code>.env</code> holds a credential. Don't paste it into chat, screenshots, or commit it (the repo already ignores <code>.env</code>). Treat it like a password.</p></div>
+
+  <!-- ════════════ 3b — RAG EMBEDDINGS (Lab 08) ════════════ -->
+  <h2 id="s3b"><span class="num">+</span> Install the embedding model (Lab 08)</h2>
+  <p class="lead">Lab&nbsp;08 (RAG) turns text into vectors with a <strong>real local embedding model</strong>, and you need it <strong>no matter which model path (A / B / C) you picked above</strong>. The embedding model is separate from the chat model — it only produces vectors, and it always runs locally through Ollama. It's part of the course, not an extra.</p>
+  <div class="step-row"><div class="step-n">1</div><p>Install <strong>Ollama</strong> from <a href="https://ollama.com">ollama.com</a> and make sure it's running (the desktop app starts the server automatically; or run <code>ollama serve</code>). <em>If you chose Path&nbsp;B above you already have it — just do step&nbsp;2.</em></p></div>
+  <div class="step-row"><div class="step-n">2</div><p>Pull the embedding model once (~275&nbsp;MB):</p></div>
+  <pre><code><span class="p">$</span> ollama pull nomic-embed-text</code></pre>
+  <div class="step-row"><div class="step-n">3</div><p>That's all — the app reaches Ollama at <code>http://localhost:11434</code> by default, so no <code>.env</code> change is needed. To use Ollama on another machine, set <code>EMBED_BASE_URL</code> (and optionally <code>EMBED_MODEL</code>) in <code>.env</code>.</p></div>
+  <div class="step-row"><div class="step-n">4</div><p>Quick check that it answers:</p></div>
+  <pre><code><span class="p">$</span> curl http://localhost:11434/api/embeddings -d '{"model":"nomic-embed-text","prompt":"hello"}'</code></pre>
+  <div class="callout"><span class="tag">Already built</span><p>The lab's vector index (<code>data/rag/vectors.bin</code>) ships prebuilt, so you don't generate anything up front — you only need Ollama running so your <em>queries</em> can be embedded at search time. (If you ever change the corpus, rebuild the index with <code>npm run rag:build</code>.)</p></div>
 
   <!-- ════════════ 4 — GTI / MCP PREREQS ════════════ -->
   <h2 id="s4"><span class="num">4</span> Set up the GTI lab (MCP)</h2>
