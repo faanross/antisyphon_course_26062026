@@ -55,6 +55,13 @@ export async function runDetectionFanOut(
   const settled = await Promise.allSettled(
     invocations.map(async (invocation) => {
       const id = `${invocation.skill.metadata.name}::${invocation.trigger.candidate_id}`;
+      // Dispatch event per worker so the UI shows the whole parallel wave light up at once (all
+      // map callbacks run synchronously up to the first await) — not a dead gap until one returns.
+      onProgress({
+        stage: "worker-start",
+        message: `dispatched ${invocation.skill.metadata.name} → ${invocation.trigger.candidate_id}`,
+        data: { id, skill: invocation.skill.metadata.name, candidateId: invocation.trigger.candidate_id },
+      });
       try {
         const value = await executeDetectionInvocation(provider, invocation);
         onProgress({

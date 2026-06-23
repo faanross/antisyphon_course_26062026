@@ -32,6 +32,8 @@
   let trace = $state<ProgressEvent[]>([]);
   let findings = $state<Finding[]>([]);
   let triage = $state("");
+  type Worker = { id: string; skill: string; candidateId: string; status: "running" | "done" | "error"; verdict?: string; score?: number };
+  let workers = $state<Worker[]>([]);
   let started = $derived(phase !== "idle");
 
   // Distinct colour per orchestration stage so the trace teaches instead of being one grey wall.
@@ -50,6 +52,7 @@
     trace = [];
     findings = [];
     triage = "";
+    workers = [];
     phase = "running";
     try {
       const response = await fetch("/lab/09/api/orchestrate", { method: "POST" });
@@ -66,8 +69,18 @@
         for (const line of lines) {
           if (!line.trim()) continue;
           const ev = JSON.parse(line);
-          if (ev.type === "trace") trace = [...trace, ev.event];
-          else if (ev.type === "findings") findings = ev.findings;
+          if (ev.type === "trace") {
+            const e = ev.event;
+            if (e.stage === "worker-start") {
+              workers = [...workers, { id: e.data.id, skill: e.data.skill, candidateId: e.data.candidateId, status: "running" }];
+            } else if (e.stage === "worker") {
+              workers = workers.map((w) => (w.id === e.data?.id ? { ...w, status: "done", verdict: e.data.verdict, score: e.data.score } : w));
+            } else if (e.stage === "worker-error") {
+              workers = workers.map((w) => (w.id === e.data?.id ? { ...w, status: "error" } : w));
+            } else {
+              trace = [...trace, e];
+            }
+          } else if (ev.type === "findings") findings = ev.findings;
           else if (ev.type === "reduce-start") phase = "reducing";
           else if (ev.type === "reduce-token") triage += ev.value;
           else if (ev.type === "reduce-done") { triage = ev.triage || triage; phase = "done"; }
@@ -275,11 +288,28 @@
             <p>{event.message}</p>
           </li>
         {/each}
-        {#if phase === "running"}
-          <li class="trace-row trace-pending"><strong>…</strong><p>workers running</p></li>
-        {/if}
       </ol>
     </section>
+
+    <!-- The parallel wave: every worker dispatched at once, resolving concurrently -->
+    {#if workers.length}
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Workers · parallel wave</h2>
+          <span>{workers.filter((w) => w.status !== "running").length}/{workers.length} done</span>
+        </div>
+        <p class="panel-note">All workers were dispatched at once (fan-out / <em>map</em>) — each an independent detection model call. Watch them run concurrently and resolve.</p>
+        <div class="workers">
+          {#each workers as w}
+            <div class="worker" class:running={w.status === "running"} class:done={w.status === "done"} class:error={w.status === "error"}>
+              <span class="w-cand">{w.candidateId}</span>
+              <span class="w-skill">{w.skill}</span>
+              <span class="w-status">{w.status === "running" ? "running…" : w.status === "error" ? "error" : w.verdict}</span>
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     <!-- MAP output: collected findings -->
     <section class="panel">
@@ -547,7 +577,6 @@
   article span { color: rgba(255, 255, 255, 0.54); }
   .panel-note { margin: 0 0 .85rem; color: rgba(255, 255, 255, 0.6); font-size: .9rem; line-height: 1.55; }
   .empty { margin: 0; color: rgba(255, 255, 255, 0.5); }
-  .trace-pending { opacity: .6; }
   .orch-error {
     margin: 1rem 0 0; padding: .75rem .9rem; border-radius: 6px;
     border: 1px solid rgba(255, 85, 85, .5); background: rgba(255, 85, 85, .08); color: #ff7b7b;
@@ -556,6 +585,25 @@
     border: 1px solid rgba(189, 147, 249, .3); border-radius: 6px;
     padding: .9rem 1rem; background: rgba(189, 147, 249, .05);
   }
+  .workers { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .6rem; }
+  .worker {
+    display: grid; gap: .2rem; padding: .65rem .8rem; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.025);
+    border-left: 3px solid #6272a4;
+  }
+  .worker.running { border-left-color: #8be9fd; }
+  .worker.done { border-left-color: #50fa7b; }
+  .worker.error { border-left-color: #ff5555; }
+  .w-cand { color: #8be9fd; font-weight: 700; font-size: .82rem; }
+  .w-skill { color: rgba(255, 255, 255, 0.5); font-size: .76rem; }
+  .w-status { font-size: .78rem; color: rgba(255, 255, 255, 0.7); }
+  .worker.running .w-status { color: #8be9fd; }
+  .worker.done .w-status { color: #50fa7b; }
+  .worker.error .w-status { color: #ff5555; }
+  @media (prefers-reduced-motion: no-preference) {
+    .worker.running { animation: wpulse 1.3s ease-in-out infinite; }
+  }
+  @keyframes wpulse { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top {
