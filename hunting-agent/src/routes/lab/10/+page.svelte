@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { scale, fade } from "svelte/transition";
+  import { fade } from "svelte/transition";
   import GraphIcon from "phosphor-svelte/lib/GraphIcon";
   import ShareNetworkIcon from "phosphor-svelte/lib/ShareNetworkIcon";
   import DatabaseIcon from "phosphor-svelte/lib/DatabaseIcon";
@@ -21,19 +21,8 @@
 
   // step: 0 nothing · 1 finding A projected · 2 finding B projected · 3 connection revealed
   let step = $state(0);
+  let cyError = $state("");
 
-  const visibleNodes = $derived.by(() => {
-    const map = new Map<string, ProjNode>();
-    if (step >= 1) projA.nodes.forEach((n) => map.set(n.id, n));
-    if (step >= 2) projB.nodes.forEach((n) => map.set(n.id, n));
-    return [...map.values()];
-  });
-  const visibleEdges = $derived.by(() => {
-    const e: { source: string; target: string; label: string }[] = [];
-    if (step >= 1) e.push(...projA.edges);
-    if (step >= 2) e.push(...projB.edges);
-    return e;
-  });
   const cypherLog = $derived.by(() => {
     const lines: { text: string; finding: string; reused: boolean }[] = [];
     if (step >= 1) projA.cypher.forEach((t) => lines.push({ text: t, finding: "df-a", reused: false }));
@@ -44,18 +33,6 @@
     return lines;
   });
 
-  // Fixed, legible layout (viewBox 880 × 500) — findings top L/R, shared host+user bottom-centre.
-  const POS: Record<string, { x: number; y: number }> = {
-    "finding:df-a": { x: 210, y: 72 },
-    "candidate:BEA-001": { x: 74, y: 182 },
-    "technique:T1071.001": { x: 252, y: 196 },
-    "finding:df-b": { x: 670, y: 72 },
-    "candidate:PSI-001": { x: 806, y: 182 },
-    "technique:T1059.001": { x: 628, y: 196 },
-    "host:DEV-WS03": { x: 388, y: 362 },
-    "user:NORTHWIND\\jane.roberts": { x: 498, y: 436 },
-  };
-
   function display(node: ProjNode): string {
     if (node.type === "user") return node.label.replace(/^[^\\]*\\/, "");
     return node.label;
@@ -63,12 +40,121 @@
   function skillOf(id: string): string {
     return id === "finding:df-a" ? EXAMPLE_FINDINGS[0].skillName : id === "finding:df-b" ? EXAMPLE_FINDINGS[1].skillName : "";
   }
-  function nodeStyle(id: string): string {
-    const p = POS[id];
-    return p ? `left:${((p.x / 880) * 100).toFixed(2)}%;top:${((p.y / 500) * 100).toFixed(2)}%` : "";
+
+  // ── Knowledge-graph rendering via Cytoscape.js (accurate edge routing + labels) ──
+  const NODE_COLORS: Record<string, string> = {
+    finding: "#ff79c6", host: "#8be9fd", user: "#bd93f9", candidate: "#f5e663", technique: "#50fa7b",
+  };
+
+  const cyStyle: unknown[] = [
+    {
+      selector: "node",
+      style: {
+        "background-color": "data(color)",
+        label: "data(disp)",
+        width: 36, height: 36,
+        "border-width": 2, "border-color": "rgba(7,7,10,0.85)",
+        color: "#f3f3f8",
+        "font-family": "ui-monospace, monospace", "font-size": 13, "font-weight": 700,
+        "text-valign": "bottom", "text-halign": "center", "text-margin-y": 8,
+        "text-wrap": "wrap", "text-max-width": 180, "line-height": 1.3,
+        "text-outline-width": 3, "text-outline-color": "#07070a",
+      },
+    },
+    {
+      selector: "edge",
+      style: {
+        width: 1.6,
+        "line-color": "rgba(139,233,253,0.42)",
+        "target-arrow-color": "rgba(139,233,253,0.6)",
+        "target-arrow-shape": "triangle", "arrow-scale": 0.9,
+        "curve-style": "bezier",
+        label: "data(label)",
+        "font-family": "ui-monospace, monospace", "font-size": 10,
+        color: "rgba(255,255,255,0.72)",
+        "text-background-color": "#07070a", "text-background-opacity": 0.9, "text-background-padding": 3,
+        "text-rotation": "autorotate",
+      },
+    },
+    { selector: "node.hot", style: { "border-color": "#50fa7b", "border-width": 4 } },
+    { selector: "edge.bridgeOn", style: { "line-color": "#50fa7b", "target-arrow-color": "#50fa7b", width: 3.2, color: "#9affb6" } },
+  ];
+
+  // Build the FULL element set once (both findings, deduped), tagged with the step each appears at.
+  function buildElements(): unknown[] {
+    const seen = new Set<string>();
+    const nodes: unknown[] = [];
+    const addNodes = (proj: typeof projA, minStep: number) =>
+      proj.nodes.forEach((n) => {
+        if (seen.has(n.id)) return;
+        seen.add(n.id);
+        nodes.push({
+          data: {
+            id: n.id,
+            disp: n.type === "finding" ? `${display(n)}\n${skillOf(n.id)}` : display(n),
+            color: NODE_COLORS[n.type],
+            minStep,
+            shared: sharedIds.has(n.id) ? 1 : 0,
+          },
+        });
+      });
+    addNodes(projA, 1);
+    addNodes(projB, 2);
+    const edges: unknown[] = [];
+    const addEdges = (proj: typeof projA, minStep: number) =>
+      proj.edges.forEach((e) => {
+        edges.push({
+          data: {
+            id: `${e.source}->${e.target}:${e.label}`,
+            source: e.source, target: e.target, label: e.label,
+            minStep, bridge: minStep === 2 && sharedIds.has(e.target) ? 1 : 0,
+          },
+        });
+      });
+    addEdges(projA, 1);
+    addEdges(projB, 2);
+    return [...nodes, ...edges];
   }
-  function isBridgeEdge(e: { target: string }): boolean {
-    return step >= 3 && sharedIds.has(e.target);
+
+  // Reveal elements up to the current step; highlight the shared bridge at step 3; reframe.
+  function applyStep(cy: any, current: number) {
+    cy.batch(() => {
+      cy.elements().forEach((ele: any) => ele.style("display", ele.data("minStep") <= current ? "element" : "none"));
+      cy.elements().removeClass("hot bridgeOn");
+      if (current >= 3) {
+        cy.nodes("[shared = 1]").addClass("hot");
+        cy.edges("[bridge = 1]").addClass("bridgeOn");
+      }
+    });
+    const vis = cy.elements(":visible");
+    if (vis.length) cy.animate({ fit: { eles: vis, padding: 44 } }, { duration: 380 });
+  }
+
+  // Svelte action: mount Cytoscape into the container, react to `step`, clean up on unmount.
+  function cyto(node: HTMLElement, current: number) {
+    let cy: any;
+    let latest = current;
+    (async () => {
+      try {
+        const cytoscape: any = (await import("cytoscape")).default;
+        const fcose: any = (await import("cytoscape-fcose")).default;
+        cytoscape.use(fcose);
+        cy = cytoscape({
+          container: node,
+          elements: buildElements(),
+          style: cyStyle,
+          layout: { name: "fcose", animate: false, randomize: true, quality: "proof", nodeRepulsion: 11000, idealEdgeLength: 95, gravity: 0.12, gravityRange: 3.8, nodeSeparation: 170, padding: 46 },
+          minZoom: 0.25, maxZoom: 2.5, wheelSensitivity: 0.3,
+        });
+        applyStep(cy, latest);
+      } catch (err) {
+        cyError = err instanceof Error ? err.message : String(err);
+      }
+    })();
+    return {
+      update(next: number) { latest = next; if (cy) applyStep(cy, next); },
+      destroy() { cy?.destroy?.(); },
+    };
   }
 
   const STEP_META = [
@@ -125,8 +211,29 @@
       </div>
       <p class="caption">{caption}</p>
 
-      <div class="lab-grid">
-        <!-- Cypher panel -->
+      <div class="lab-stack">
+        <!-- Graph on top — Cytoscape canvas (accurate edges + labels) -->
+        <div class="graphwrap">
+          <div class="graph" use:cyto={step}></div>
+          {#if cyError}
+            <p class="cy-error">Graph failed to render: {cyError}</p>
+          {/if}
+          {#if step >= 3}
+            <div class="connect-callout" transition:fade>
+              <ShareNetworkIcon size={18} weight="duotone" />
+              <span><strong>df-a</strong> and <strong>df-b</strong> are connected through <strong>DEV-WS03</strong> and <strong>jane.roberts</strong> — the graph found a link neither finding stated.</span>
+            </div>
+          {/if}
+          <div class="legend">
+            <span class="lg n-finding">finding</span>
+            <span class="lg n-host">host</span>
+            <span class="lg n-user">user</span>
+            <span class="lg n-candidate">candidate</span>
+            <span class="lg n-technique">technique</span>
+          </div>
+        </div>
+
+        <!-- Cypher below -->
         <div class="cypher">
           <div class="cypher-head"><DatabaseIcon size={15} weight="duotone" /> Cypher emitted (deterministic — no model)</div>
           {#if cypherLog.length === 0}
@@ -141,44 +248,6 @@
               {/each}
             </ol>
           {/if}
-        </div>
-
-        <!-- Graph panel -->
-        <div class="graphwrap">
-          <div class="graph">
-            <svg viewBox="0 0 880 500" class="edges" aria-hidden="true">
-              {#each visibleEdges as e (e.source + e.target + e.label)}
-                {@const s = POS[e.source]}
-                {@const t = POS[e.target]}
-                {#if s && t}
-                  <line x1={s.x} y1={s.y} x2={t.x} y2={t.y} class:bridge={isBridgeEdge(e)} transition:fade />
-                  <text x={s.x + (t.x - s.x) * 0.36} y={s.y + (t.y - s.y) * 0.36 - 4} class="edge-label" class:bridge={isBridgeEdge(e)}>{e.label}</text>
-                {/if}
-              {/each}
-            </svg>
-            {#each visibleNodes as n (n.id)}
-              <div class="node n-{n.type}" class:hot={step >= 3 && sharedIds.has(n.id)} style={nodeStyle(n.id)} transition:scale={{ duration: 350, start: 0.4 }}>
-                <span class="node-circle"></span>
-                <span class="node-label">{display(n)}</span>
-                {#if skillOf(n.id)}<span class="node-sub">{skillOf(n.id)}</span>{/if}
-              </div>
-            {/each}
-          </div>
-
-          {#if step >= 3}
-            <div class="connect-callout" transition:fade>
-              <ShareNetworkIcon size={18} weight="duotone" />
-              <span><strong>df-a</strong> and <strong>df-b</strong> are connected through <strong>DEV-WS03</strong> and <strong>jane.roberts</strong> — the graph found a link neither finding stated.</span>
-            </div>
-          {/if}
-
-          <div class="legend">
-            <span class="lg n-finding">finding</span>
-            <span class="lg n-host">host</span>
-            <span class="lg n-user">user</span>
-            <span class="lg n-candidate">candidate</span>
-            <span class="lg n-technique">technique</span>
-          </div>
         </div>
       </div>
     </section>
@@ -250,8 +319,7 @@
   button.ghost:disabled { opacity: .35; cursor: default; }
   .caption { color: rgba(255,255,255,.7); line-height: 1.55; margin: .9rem 0 1.1rem; min-height: 2.6rem; }
 
-  .lab-grid { display: grid; grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.25fr); gap: 1.1rem; align-items: start; }
-  @media (max-width: 900px) { .lab-grid { grid-template-columns: 1fr; } }
+  .lab-stack { display: grid; gap: 1.1rem; }
 
   /* ── Cypher panel ── */
   .cypher { border: 1px solid rgba(98,114,164,.4); border-radius: 8px; background: rgba(18,18,26,.7); overflow: hidden; }
@@ -265,25 +333,9 @@
   .cypher-lines li.reused code { color: rgba(255,255,255,.45); }
   .reused-tag { flex-shrink: 0; font-size: .64rem; font-weight: 800; color: #50fa7b; border: 1px solid rgba(80,250,123,.5); border-radius: 999px; padding: .04rem .4rem; }
 
-  /* ── Graph ── */
-  .graph { position: relative; width: 100%; aspect-ratio: 880 / 500; border: 1px solid rgba(98,114,164,.35); border-radius: 8px; background: radial-gradient(circle at 50% 60%, rgba(189,147,249,.05), transparent 60%), rgba(12,12,18,.6); }
-  .edges { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .edges line { stroke: rgba(139,233,253,.32); stroke-width: 1.5; transition: stroke .35s; }
-  .edges line.bridge { stroke: #50fa7b; stroke-width: 3; filter: drop-shadow(0 0 4px rgba(80,250,123,.6)); }
-  .edge-label { fill: rgba(255,255,255,.4); font-size: 11px; font-family: var(--font-mono, monospace); }
-  .edge-label.bridge { fill: #50fa7b; font-weight: 700; }
-
-  .node { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: .15rem; width: 0; }
-  .node-circle { width: 2.1rem; height: 2.1rem; border-radius: 50%; border: 2.5px solid; }
-  .node-label { white-space: nowrap; font-size: .72rem; font-weight: 700; color: rgba(255,255,255,.92); font-family: var(--font-mono, monospace); }
-  .node-sub { white-space: nowrap; font-size: .62rem; color: rgba(255,255,255,.5); }
-  .node.hot .node-circle { box-shadow: 0 0 0 4px rgba(80,250,123,.25); animation: hot 1.5s infinite; }
-  @keyframes hot { 0%,100% { box-shadow: 0 0 0 4px rgba(80,250,123,.25);} 50% { box-shadow: 0 0 0 9px rgba(80,250,123,0);} }
-  .n-finding .node-circle { border-color: #ff79c6; background: rgba(255,121,198,.16); }
-  .n-host .node-circle { border-color: #8be9fd; background: rgba(139,233,253,.16); }
-  .n-user .node-circle { border-color: #bd93f9; background: rgba(189,147,249,.16); }
-  .n-candidate .node-circle { border-color: #f5e663; background: rgba(245,230,99,.14); }
-  .n-technique .node-circle { border-color: #50fa7b; background: rgba(80,250,123,.14); }
+  /* ── Graph (Cytoscape canvas) ── */
+  .graph { width: 100%; height: 560px; border: 1px solid rgba(98,114,164,.35); border-radius: 8px; background: radial-gradient(circle at 50% 55%, rgba(189,147,249,.06), transparent 62%), rgba(12,12,18,.6); }
+  .cy-error { margin: .7rem 0 0; padding: .6rem .8rem; border: 1px solid rgba(255,85,85,.5); border-radius: 6px; background: rgba(255,85,85,.08); color: #ff7b7b; font-size: .85rem; }
 
   .connect-callout { display: flex; align-items: center; gap: .6rem; margin-top: .9rem; padding: .7rem .9rem; border: 1px solid rgba(80,250,123,.45); border-radius: 8px; background: rgba(80,250,123,.07); color: rgba(255,255,255,.85); font-size: .88rem; line-height: 1.45; }
   .connect-callout :global(svg) { color: #50fa7b; flex-shrink: 0; }

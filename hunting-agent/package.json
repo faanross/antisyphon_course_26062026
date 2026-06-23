@@ -34,6 +34,8 @@
 		"@anthropic-ai/sdk": "^0.96.0",
 		"@google/genai": "^2.3.0",
 		"@modelcontextprotocol/sdk": "^1.29.0",
+		"cytoscape": "^3.34.0",
+		"cytoscape-fcose": "^2.2.0",
 		"dotenv": "^17.4.2",
 		"openai": "^6.38.0",
 		"phosphor-svelte": "^3.1.0",
