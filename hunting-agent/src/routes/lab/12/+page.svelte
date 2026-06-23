@@ -16,7 +16,6 @@
     narrative: string;
     report?: { fileName: string; path: string };
   };
-  type GraphNode = { id: string; label: string; type: string };
   type Worker = { id: string; skill: string; candidateId: string; state: "running" | "done" | "error"; verdict?: string; score?: number };
   type AssessWorker = { id: string; skill: string; candidateId: string; state: "running" | "done" | "error"; assessmentType?: string; severity?: string | null };
   type StageKey = "det" | "assess" | "graph" | "narrative" | "report";
@@ -44,19 +43,10 @@
   let stages = $state<Record<StageKey, StageState>>({ ...IDLE });
   let workers = $state<Worker[]>([]);
   let assessWorkers = $state<AssessWorker[]>([]);
-  let graphNodes = $state<GraphNode[]>([]);
-  let graphEdgeCount = $state(0);
   let narrativeText = $state("");
   let result = $state<Result | null>(null);
 
   function setStage(key: StageKey, s: StageState) { stages = { ...stages, [key]: s }; }
-
-  // Compact graph summary: entity counts by type (for the Graph stage card).
-  const graphSummary = $derived.by(() => {
-    const byType: Record<string, number> = {};
-    for (const n of graphNodes) byType[n.type] = (byType[n.type] ?? 0) + 1;
-    return Object.entries(byType).sort((a, b) => b[1] - a[1]);
-  });
 
   function applyEvent(event: StreamEvent) {
     if (event.type === "progress") drive(event.stage, event.data);
@@ -95,9 +85,9 @@
         break;
       case "assess-fan-in": setStage("assess", "done"); break;
       case "graph":
+        // The graph still runs (it grounds the narrative), but we don't re-draw it here —
+        // Lab 10 built it and Lab 11 drew the campaign. In the capstone it is just a step.
         setStage("graph", "active");
-        graphNodes = (data?.nodes as GraphNode[]) ?? [];
-        graphEdgeCount = ((data?.edges as unknown[]) ?? []).length;
         break;
       case "narrative": setStage("graph", "done"); setStage("narrative", "active"); break;
       case "report": setStage("narrative", "done"); setStage("report", "active"); break;
@@ -108,7 +98,7 @@
   async function run() {
     busy = true; started = true; runError = "";
     stages = { ...IDLE };
-    workers = []; assessWorkers = []; graphNodes = []; graphEdgeCount = 0; narrativeText = ""; result = null;
+    workers = []; assessWorkers = []; narrativeText = ""; result = null;
     try {
       const response = await fetch("/lab/12/api/capstone", { method: "POST" });
       if (!response.ok || !response.body) throw new Error(`Capstone API returned HTTP ${response.status}`);
@@ -315,13 +305,8 @@
     <section class="panel stage-card" class:active={stages.graph === "active"} class:done={stages.graph === "done"}>
       <div class="stage-head"><span class="stage-num">3</span><h2>Graph — shared entity graph</h2><span class="stage-lab">Lab 10</span></div>
       <p class="stage-note">Findings project into a shared entity graph — <strong>deterministic, no model</strong>. Entities that recur (a host, a user) become the one node that links findings together.</p>
-      {#if graphNodes.length}
-        <div class="gsummary">
-          {#each graphSummary as [type, n]}
-            <span class="gtype">{n} {type}{n > 1 ? "s" : ""}</span>
-          {/each}
-          <span class="gedges">{graphEdgeCount} edges</span>
-        </div>
+      {#if stages.graph !== "idle"}
+        <p class="stage-ref">You built this graph in <strong>Lab 10</strong> and saw the campaign drawn in <strong>Lab 11</strong>. In the capstone it runs as one silent step in the chain — the narrative below is grounded in it, so there's no need to redraw it here.</p>
       {:else}
         <p class="stage-wait">waiting for assessment…</p>
       {/if}
@@ -534,10 +519,8 @@
   @media (prefers-reduced-motion: no-preference) { .chip.running { animation: cpulse 1.3s ease-in-out infinite; } }
   @keyframes cpulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 
-  /* ── Graph summary ── */
-  .gsummary { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-  .gtype { font-size: .82rem; font-family: var(--font-mono, ui-monospace, monospace); padding: .25rem .6rem; border-radius: 6px; border: 1px solid rgba(139,233,253,.4); color: #8be9fd; }
-  .gedges { font-size: .8rem; color: rgba(255,255,255,.5); font-family: var(--font-mono, ui-monospace, monospace); margin-left: .2rem; }
+  /* ── Graph reference (no re-draw; pointer back to Lab 10/11) ── */
+  .stage-ref { color: rgba(255,255,255,.6); font-size: .86rem; line-height: 1.5; border-left: 2px solid rgba(139,233,253,.4); padding-left: .7rem; margin: 0; }
 
   /* ── Narrative + report ── */
   .narrative-body { border: 1px solid rgba(189,147,249,.3); border-radius: 8px; padding: 1rem 1.1rem; background: rgba(189,147,249,.05); }
