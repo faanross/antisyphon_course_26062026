@@ -13,10 +13,11 @@
 
   type Graph = { nodes: Array<{ id: string; label: string; type: string }>; edges: Array<{ source: string; target: string; label: string }> };
   type Worker = { id: string; skill: string; candidateId: string; state: "running" | "done" | "error"; verdict?: string };
+  type Finding = { candidateId: string; skillName: string; compositeScore: number; evidenceSummary: string; mitreTechniques: string[] };
   type StreamEvent =
     | { type: "graph"; graph: Graph }
     | { type: "progress"; stage: string; message: string; data?: Record<string, unknown> }
-    | { type: "findings"; count: number }
+    | { type: "findings"; count: number; findings?: Finding[] }
     | { type: "narrative-token"; value: string }
     | { type: "narrative-done"; narrative: string }
     | { type: "error"; message: string }
@@ -28,6 +29,7 @@
   let runError = $state("");
   let graph = $state<Graph | null>(null);
   let findingsCount = $state(0);
+  let findingsList = $state<Finding[]>([]);
   let workers = $state<Worker[]>([]);
   let synthesizing = $state(false);
   let narrativeText = $state("");
@@ -65,7 +67,7 @@
   function applyEvent(event: StreamEvent) {
     if (event.type === "graph") graph = event.graph;
     else if (event.type === "progress") drive(event.stage, event.data);
-    else if (event.type === "findings") findingsCount = event.count;
+    else if (event.type === "findings") { findingsCount = event.count; findingsList = event.findings ?? []; }
     else if (event.type === "narrative-token") narrativeText += event.value;
     else if (event.type === "narrative-done") { if (!narrativeText) narrativeText = event.narrative; }
     else if (event.type === "error") runError = event.message;
@@ -73,7 +75,7 @@
 
   async function run() {
     busy = true; started = true; runError = "";
-    graph = null; findingsCount = 0; workers = []; synthesizing = false; narrativeText = "";
+    graph = null; findingsCount = 0; findingsList = []; workers = []; synthesizing = false; narrativeText = "";
     try {
       const response = await fetch("/lab/11/api/narrative", { method: "POST" });
       if (!response.ok || !response.body) throw new Error(`Narrative API returned HTTP ${response.status}`);
@@ -259,6 +261,33 @@
         {/if}
       {/if}
     </section>
+
+    {#if findingsList.length}
+      <section class="panel">
+        <div class="panel-head">
+          <h2>What each finding contributed</h2>
+          <span>deconstruction</span>
+        </div>
+        <p class="decon-intro">The narrative above is woven from {findingsList.length} independent detection finding{findingsList.length === 1 ? "" : "s"} — each one skill's own view of a different slice of the campaign. Here is what each independently established and brought to the story above.</p>
+        <div class="decon-list">
+          {#each findingsList as f}
+            <article class="decon">
+              <div class="decon-head">
+                <span class="decon-id">{f.candidateId}</span>
+                <span class="decon-skill">{f.skillName}</span>
+                <span class="decon-score" title="composite score">{f.compositeScore.toFixed(2)}</span>
+              </div>
+              <p class="decon-ev">{f.evidenceSummary}</p>
+              {#if f.mitreTechniques?.length}
+                <div class="decon-mitre">
+                  {#each f.mitreTechniques as t}<span class="mitre">{t}</span>{/each}
+                </div>
+              {/if}
+            </article>
+          {/each}
+        </div>
+      </section>
+    {/if}
   {/if}
   {:else}
     <!-- ═══════════════════════════════════════════════════ -->
@@ -458,6 +487,18 @@
   .chip.done.fp { border-color: rgba(80,250,123,.45); color: #50fa7b; }
   @media (prefers-reduced-motion: no-preference) { .chip.running { animation: g11pulse 1.3s ease-in-out infinite; } }
   @keyframes g11pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+  /* ── Deconstruction: what each finding contributed ── */
+  .decon-intro { color: rgba(255,255,255,.62); font-size: .92rem; line-height: 1.6; margin: 0 0 1.1rem; }
+  .decon-list { display: grid; gap: .8rem; }
+  .decon { border: 1px solid rgba(255,255,255,.1); border-left: 3px solid rgba(255,121,198,.5); border-radius: 8px; background: rgba(255,255,255,.02); padding: .85rem 1rem; }
+  .decon-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .4rem; }
+  .decon-id { font-family: "JetBrains Mono", monospace; font-weight: 800; color: #ff79c6; font-size: .98rem; }
+  .decon-skill { font-family: "JetBrains Mono", monospace; font-size: .8rem; color: rgba(255,255,255,.5); }
+  .decon-score { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: .78rem; color: #8be9fd; border: 1px solid rgba(139,233,253,.4); border-radius: 5px; padding: .08rem .4rem; }
+  .decon-ev { margin: 0; color: rgba(255,255,255,.82); font-size: .9rem; line-height: 1.6; }
+  .decon-mitre { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .55rem; }
+  .mitre { font-family: "JetBrains Mono", monospace; font-size: .72rem; color: rgba(189,147,249,.95); border: 1px solid rgba(189,147,249,.4); border-radius: 5px; padding: .05rem .4rem; }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top {

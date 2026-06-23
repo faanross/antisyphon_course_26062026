@@ -34,7 +34,19 @@ export const POST: RequestHandler = async () => {
           // 2 · Scope the graph to the true-positive campaign (display === grounding).
           const graph = buildCampaignSubgraph(candidates, findings);
           send({ type: "graph", graph });
-          send({ type: "findings", count: campaign.length });
+          // Send the per-finding crux so the lab can deconstruct the woven narrative back
+          // into the independent findings it was built from (one skill's view each).
+          send({
+            type: "findings",
+            count: campaign.length,
+            findings: campaign.map((f) => ({
+              candidateId: f.candidateId,
+              skillName: f.skillName,
+              compositeScore: f.compositeScore,
+              evidenceSummary: f.evidenceSummary,
+              mitreTechniques: f.mitreTechniques,
+            })),
+          });
 
           // 3 · One grounded call over the scoped graph, streamed token-by-token.
           send({ type: "progress", stage: "narrative", message: "Synthesizing grounded narrative" });
