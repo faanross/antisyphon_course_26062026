@@ -219,7 +219,7 @@
   {:else}
     <section class="panel">
       <h2>What this lab isolates</h2>
-      <p>The graph and narrative stages are intentionally absent here. This route shows dispatch, independent worker output, and fan-in collection.</p>
+      <p>The graph and narrative stages are intentionally absent here — this route shows dispatch, independent worker output, and fan-in into a <strong>flat list</strong> of findings. <strong>Lab 10</strong> is where that list grows into a shared <strong>knowledge graph</strong>.</p>
     </section>
   {/if}
   {:else}
@@ -321,6 +321,15 @@
           <p class="cv-note">
             <code>Promise.allSettled</code> (not <code>Promise.all</code>) is deliberate: it waits for
             every job and never short-circuits, so one worker's failure can't sink the whole batch.
+          </p>
+          <p class="cv-note">
+            <strong>What fan-in produces — and how it evolves.</strong> Right now the fan-in target is a
+            <strong>flat list</strong> (<code>findings[]</code>): each finding stands alone, with no links
+            between them — that's all parallel orchestration needs, and why no graph is required yet. In
+            <strong>Lab 10</strong> the same collected findings fan in to a <strong>knowledge graph</strong>
+            instead: findings that touch the same host, user, or domain become connected nodes (shared
+            entity state). Same fan-out — the fan-in destination grows from an unlinked list into a
+            connected picture.
           </p>
         </details>
 
