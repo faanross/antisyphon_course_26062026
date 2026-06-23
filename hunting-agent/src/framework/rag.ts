@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import path from "node:path";
+import { embedText } from "./embeddings.js";
 
 export interface RagChunk {
   readonly chunk_id: string;
@@ -22,19 +22,6 @@ export interface RagStoreMeta {
   readonly dimensions: number;
   readonly chunk_count: number;
   readonly index_format: string;
-}
-
-function hashEmbedding(text: string, dimensions: number): number[] {
-  const vector = new Array<number>(dimensions).fill(0);
-  const tokens = text.toLowerCase().match(/[a-z0-9.\\-]+/g) ?? [];
-  for (const token of tokens) {
-    const hash = createHash("sha256").update(token).digest();
-    const index = hash.readUInt32BE(0) % dimensions;
-    const sign = hash[4] % 2 === 0 ? 1 : -1;
-    vector[index] += sign;
-  }
-  const norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0)) || 1;
-  return vector.map((value) => value / norm);
 }
 
 function dot(a: readonly number[], b: readonly number[]): number {
@@ -72,7 +59,13 @@ export async function loadRagStore(root = "data/rag"): Promise<{
 
 export async function queryPriorInvestigations(query: string, k = 5): Promise<RagHit[]> {
   const { chunks, meta, vectors } = await loadRagStore();
-  const queryVector = hashEmbedding(query, meta.dimensions);
+  const queryVector = await embedText(query, "query");
+  if (queryVector.length !== meta.dimensions) {
+    throw new Error(
+      `Query embedding has ${queryVector.length} dims but the index expects ${meta.dimensions}. ` +
+        `Rebuild data/rag/vectors.bin with: npm run rag:build`,
+    );
+  }
   return chunks
     .map((chunk, index) => {
       const score = dot(queryVector, readVector(vectors, index, meta.dimensions));

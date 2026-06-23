@@ -30,18 +30,34 @@
   let synthesis = $state("");
   let hits = $state<Hit[]>([]);
   let busy = $state(false);
+  let errorMsg = $state("");
 
   async function run(value: string) {
     busy = true;
-    const response = await fetch("/api/lab07/query", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query: value }),
-    });
-    const data = await response.json();
-    hits = data.hits;
-    synthesis = data.synthesis;
-    busy = false;
+    errorMsg = "";
+    try {
+      const response = await fetch("/api/lab07/query", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: value }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        // 503 from the route when the embedding model isn't reachable.
+        errorMsg = data.error ?? `Request failed (HTTP ${response.status}).`;
+        hits = [];
+        synthesis = "";
+        return;
+      }
+      hits = data.hits;
+      synthesis = data.synthesis;
+    } catch (error) {
+      errorMsg = error instanceof Error ? error.message : "Could not reach the RAG endpoint.";
+      hits = [];
+      synthesis = "";
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
@@ -184,6 +200,10 @@
     <CorpusBrowser chunks={chunks} />
   </section>
 
+  {#if errorMsg}
+    <p class="rag-error">{errorMsg}</p>
+  {/if}
+
   <RAGResultsPanel {hits} />
   <SynthesisPanel {synthesis} />
   {:else}
@@ -235,7 +255,7 @@
               <span class="flow-rail"><VectorThreeIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Embed the query</span><span class="flow-where">server · rag.ts</span></div>
-                <p>The query text is turned into a <strong>768-number vector</strong> — a point in "meaning space" — using the same local embedding the library was built with.</p>
+                <p>The query text is turned into a <strong>768-number vector</strong> — a point in "meaning space" — using the <strong>same embedding model the library was built with</strong> (<code>nomic-embed-text</code>, served locally by Ollama).</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 180ms">
@@ -303,7 +323,7 @@
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><VectorThreeIcon size={26} weight="duotone" /><h4>Embeddings turn text into geometry</h4></div>
-              <p>Each chunk becomes a 768-number vector; similar meaning lands nearby. Similarity is just the cosine angle between two vectors. This workshop uses a self-contained local embedding — no external API.</p>
+              <p>Each chunk becomes a 768-number vector; similar meaning lands nearby. Similarity is just the cosine angle between two vectors. This lab runs a <strong>real local embedding model</strong> (<code>nomic-embed-text</code> via Ollama) — no external API, but you run it yourself.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><ScissorsIcon size={26} weight="duotone" /><h4>Chunking makes retrieval precise</h4></div>
@@ -391,6 +411,17 @@
     gap: 1rem;
     align-items: start;
     margin-bottom: 1rem;
+  }
+
+  .rag-error {
+    margin: 0 0 1rem;
+    padding: .75rem .9rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 85, 85, .5);
+    background: rgba(255, 85, 85, .08);
+    color: var(--dracula-red, #ff5555);
+    font-size: .9rem;
+    line-height: 1.5;
   }
 
   @media (max-width: 980px) {

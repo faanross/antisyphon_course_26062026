@@ -33,6 +33,16 @@ npm run dev -- --host 127.0.0.1 --port 5174
 
 Open `http://127.0.0.1:5174/` and navigate to any lab.
 
+### Lab 08 (RAG) — local embedding model
+
+Lab 08 embeds text with a real local model, separate from your chat `LLM_PROVIDER`. Install [Ollama](https://ollama.com) and pull the model once:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+Defaults to `http://localhost:11434` (`nomic-embed-text`); override with `EMBED_BASE_URL` / `EMBED_MODEL`. The vector index `data/rag/vectors.bin` is committed; regenerate it with `npm run rag:build`.
+
 ## Data
 
 The app consumes the generated workshop artifacts in:
