@@ -15,6 +15,7 @@ const NARRATIVE_SKILL_PATH = "skills/narrative/narrate-host-activity.md";
 export async function synthesizeNarrative(
   findings: readonly DetectionFinding[],
   graph: Subgraph,
+  onToken?: (token: string) => void,
 ): Promise<string> {
   if (!findings.length) return "No findings were available to synthesize.";
 
@@ -34,9 +35,14 @@ export async function synthesizeNarrative(
     "Write the campaign narrative now, connecting the findings through these shared entities.",
   ].join("\n");
 
+  let text = "";
   const result = await provider.invoke({
     systemPrompt: skill.body,
     userPrompt,
+    onToken: (token) => {
+      text += token;
+      onToken?.(token);
+    },
   });
-  return result.text;
+  return text || result.text;
 }

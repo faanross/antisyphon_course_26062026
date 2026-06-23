@@ -20,8 +20,10 @@ export const POST: RequestHandler = async () => {
         try {
           // The full hunt, end to end, on REAL model output: fan-out detection findings,
           // shared entity graph, and the graph-grounded narrative.
-          const { findings, assessments, narrative, graph } = await runInvestigationState("capstone", (ev) =>
-            send({ type: "progress", stage: ev.stage, message: ev.message, data: ev.data }),
+          const { findings, assessments, narrative, graph } = await runInvestigationState(
+            "capstone",
+            (ev) => send({ type: "progress", stage: ev.stage, message: ev.message, data: ev.data }),
+            (token) => send({ type: "narrative-token", value: token }),
           );
 
           // Persist the narrative as a final Markdown artifact — the single

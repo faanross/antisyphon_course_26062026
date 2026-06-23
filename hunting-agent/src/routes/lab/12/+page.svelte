@@ -8,71 +8,71 @@
   import StackIcon from "phosphor-svelte/lib/StackIcon";
   import CpuIcon from "phosphor-svelte/lib/CpuIcon";
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
+  import MarkdownView from "$lib/components/MarkdownView.svelte";
 
   type Result = {
-    graph: { nodes: unknown[]; edges: unknown[] };
     findings: unknown[];
     assessments?: unknown[];
     narrative: string;
     report?: { fileName: string; path: string };
   };
-
-  type ProgressLine = { stage: string; message: string };
+  type GraphNode = { id: string; label: string; type: string };
+  type Worker = { id: string; skill: string; candidateId: string; state: "running" | "done" | "error"; verdict?: string; score?: number };
+  type AssessWorker = { id: string; skill: string; candidateId: string; state: "running" | "done" | "error"; assessmentType?: string; severity?: string | null };
+  type StageKey = "det" | "assess" | "graph" | "narrative" | "report";
+  type StageState = "idle" | "active" | "done";
   type StreamEvent =
     | { type: "progress"; stage: string; message: string; data?: Record<string, unknown> }
+    | { type: "narrative-token"; value: string }
     | { type: "result"; result: Result }
     | { type: "error"; message: string }
     | { type: "done" };
 
-  // ── Live flow model (driven by the progress stream) ───────────
-  type StageKey = "initiate" | "detect" | "assess" | "store" | "kg" | "narrative";
-  type StageState = "idle" | "active" | "done";
-  type Worker = {
-    id: string; skill: string; candidateId: string;
-    state: "running" | "done" | "error"; verdict?: string; score?: number;
-  };
-  type AssessWorker = {
-    id: string; skill: string; candidateId: string;
-    state: "running" | "done" | "error"; assessmentType?: string; severity?: string | null;
-  };
-  const IDLE_STAGES: Record<StageKey, StageState> = {
-    initiate: "idle", detect: "idle", assess: "idle", store: "idle", kg: "idle", narrative: "idle",
-  };
+  const STAGES: { key: StageKey; label: string; lab: string }[] = [
+    { key: "det", label: "Detection", lab: "Lab 09" },
+    { key: "assess", label: "Assessment", lab: "Lab 07" },
+    { key: "graph", label: "Graph", lab: "Lab 10" },
+    { key: "narrative", label: "Narrative", lab: "Lab 11" },
+    { key: "report", label: "Report", lab: "artifact" },
+  ];
+  const IDLE: Record<StageKey, StageState> = { det: "idle", assess: "idle", graph: "idle", narrative: "idle", report: "idle" };
 
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
-  let result = $state<Result | null>(null);
-  let progress = $state<ProgressLine[]>([]);
-  let runError = $state("");
   let busy = $state(false);
-  let stages = $state<Record<StageKey, StageState>>({ ...IDLE_STAGES });
+  let started = $state(false);
+  let runError = $state("");
+  let stages = $state<Record<StageKey, StageState>>({ ...IDLE });
   let workers = $state<Worker[]>([]);
   let assessWorkers = $state<AssessWorker[]>([]);
+  let graphNodes = $state<GraphNode[]>([]);
+  let graphEdgeCount = $state(0);
+  let narrativeText = $state("");
+  let result = $state<Result | null>(null);
 
   function setStage(key: StageKey, s: StageState) { stages = { ...stages, [key]: s }; }
 
+  // Compact graph summary: entity counts by type (for the Graph stage card).
+  const graphSummary = $derived.by(() => {
+    const byType: Record<string, number> = {};
+    for (const n of graphNodes) byType[n.type] = (byType[n.type] ?? 0) + 1;
+    return Object.entries(byType).sort((a, b) => b[1] - a[1]);
+  });
+
   function applyEvent(event: StreamEvent) {
-    if (event.type === "progress") {
-      progress = [...progress, { stage: event.stage, message: event.message }];
-      driveGraph(event.stage, event.data);
-    } else if (event.type === "result") {
-      result = event.result;
-      (["store", "kg", "narrative"] as StageKey[]).forEach((k) => setStage(k, "done"));
-    } else if (event.type === "error") {
-      runError = event.message;
-    }
+    if (event.type === "progress") drive(event.stage, event.data);
+    else if (event.type === "narrative-token") narrativeText += event.value;
+    else if (event.type === "result") { result = event.result; setStage("report", "done"); }
+    else if (event.type === "error") runError = event.message;
   }
 
-  // Translate each progress event into a state transition on the flow map(s).
-  function driveGraph(stage: string, data?: Record<string, unknown>) {
+  // Each progress event advances the 5-stage pipeline and fills the matching card.
+  function drive(stage: string, data?: Record<string, unknown>) {
     switch (stage) {
-      case "load": setStage("initiate", "active"); break;
-      case "fan-out": {
-        setStage("initiate", "done");
-        setStage("detect", "active");
-        const inv = (data?.invocations as Array<{ id: string; skill: string; candidateId: string }>) ?? [];
-        workers = inv.map((i) => ({ id: i.id, skill: i.skill, candidateId: i.candidateId, state: "running" }));
+      case "fan-out":
+        setStage("det", "active");
+        workers = ((data?.invocations as Array<{ id: string; skill: string; candidateId: string }>) ?? [])
+          .map((i) => ({ id: i.id, skill: i.skill, candidateId: i.candidateId, state: "running" }));
         break;
-      }
       case "worker":
         workers = workers.map((w) => w.id === String(data?.id)
           ? { ...w, state: "done", verdict: String(data?.verdict ?? ""), score: Number(data?.score ?? 0) } : w);
@@ -80,40 +80,38 @@
       case "worker-error":
         workers = workers.map((w) => w.id === String(data?.id) ? { ...w, state: "error" } : w);
         break;
-      case "fan-in": setStage("detect", "done"); setStage("store", "active"); break;
-      case "assess-fan-out": {
+      case "fan-in": setStage("det", "done"); break;
+      case "assess-fan-out":
         setStage("assess", "active");
-        const inv = (data?.invocations as Array<{ id: string; skill: string; candidateId: string }>) ?? [];
-        assessWorkers = inv.map((i) => ({ id: i.id, skill: i.skill, candidateId: i.candidateId, state: "running" }));
+        assessWorkers = ((data?.invocations as Array<{ id: string; skill: string; candidateId: string }>) ?? [])
+          .map((i) => ({ id: i.id, skill: i.skill, candidateId: i.candidateId, state: "running" }));
         break;
-      }
       case "assess-worker":
         assessWorkers = assessWorkers.map((w) => w.id === String(data?.id)
-          ? { ...w, state: "done", assessmentType: String(data?.assessmentType ?? ""), severity: (data?.severity as string) ?? null } : w);
+          ? { ...w, state: "done", assessmentType: String(data?.assessmentType ?? ""), severity: (data?.severity as string | null) ?? null } : w);
         break;
       case "assess-worker-error":
         assessWorkers = assessWorkers.map((w) => w.id === String(data?.id) ? { ...w, state: "error" } : w);
         break;
-      case "assess-fan-in": setStage("assess", "done"); setStage("store", "done"); break;
-      case "graph": setStage("kg", "active"); break;
-      case "narrative": setStage("kg", "done"); setStage("narrative", "active"); break;
-      case "done": setStage("narrative", "done"); break;
+      case "assess-fan-in": setStage("assess", "done"); break;
+      case "graph":
+        setStage("graph", "active");
+        graphNodes = (data?.nodes as GraphNode[]) ?? [];
+        graphEdgeCount = ((data?.edges as unknown[]) ?? []).length;
+        break;
+      case "narrative": setStage("graph", "done"); setStage("narrative", "active"); break;
+      case "report": setStage("narrative", "done"); setStage("report", "active"); break;
+      case "done": setStage("report", "done"); break;
     }
   }
 
   async function run() {
-    busy = true;
-    result = null;
-    progress = [];
-    runError = "";
-    stages = { ...IDLE_STAGES };
-    workers = [];
+    busy = true; started = true; runError = "";
+    stages = { ...IDLE };
+    workers = []; assessWorkers = []; graphNodes = []; graphEdgeCount = 0; narrativeText = ""; result = null;
     try {
       const response = await fetch("/lab/12/api/capstone", { method: "POST" });
-      if (!response.ok) throw new Error(`Capstone API returned HTTP ${response.status}`);
-      if (!response.body) throw new Error("Capstone API returned an empty stream.");
-
-      // Read the NDJSON stream: split on newlines, parse each complete line, buffer the partial tail.
+      if (!response.ok || !response.body) throw new Error(`Capstone API returned HTTP ${response.status}`);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -121,12 +119,12 @@
         const { value, done } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        let newlineIndex = buffer.indexOf("\n");
-        while (newlineIndex !== -1) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
+        let nl = buffer.indexOf("\n");
+        while (nl !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
           if (line) applyEvent(JSON.parse(line) as StreamEvent);
-          newlineIndex = buffer.indexOf("\n");
+          nl = buffer.indexOf("\n");
         }
       }
       const tail = buffer.trim();
@@ -261,96 +259,98 @@
     <section class="panel error"><h2>Run failed</h2><p>{runError}</p></section>
   {/if}
 
-  {#if busy || progress.length || result}
+  {#if !started}
     <section class="panel">
-      <h2>System overview</h2>
-      <p class="flow-caption">The whole hunt as a map — each node lights up as it runs. Detection &amp; assessment findings persist <em>up</em> to the Knowledge Graph and <em>down</em> to the Findings Store; the narrative then reads connections from the graph and reasoning from the store.</p>
+      <h2>The capstone is the labs, composed</h2>
+      <p class="lead">One run threads every stage you built: detection (Lab 09) → assessment (Lab 07) → the shared graph (Lab 10) → the grounded narrative (Lab 11) → a saved report. The model is called <strong>only where judgment is needed</strong> — everything between is deterministic glue. Press <strong>Run Complete Hunt</strong> above and watch each stage stream in.</p>
+    </section>
+  {:else}
+    <!-- Pipeline stepper -->
+    <ol class="stepper">
+      {#each STAGES as s, i}
+        <li class="step" class:active={stages[s.key] === "active"} class:done={stages[s.key] === "done"}>
+          <span class="step-n">{i + 1}</span>
+          <span class="step-label">{s.label}<small>{s.lab}</small></span>
+        </li>
+      {/each}
+    </ol>
 
-      <div class="archmap">
-        <!-- top band -->
-        <div class="band {stages.kg}">
-          <div class="band-title">Knowledge Graph</div>
-          <div class="band-sub">structural index (lossy) · ids · scores · edges · {result ? `${result.graph.nodes.length} nodes · ${result.graph.edges.length} edges` : "persisted"}</div>
+    <!-- 1 · Detection -->
+    <section class="panel stage-card" class:active={stages.det === "active"} class:done={stages.det === "done"}>
+      <div class="stage-head"><span class="stage-num">1</span><h2>Detection — fan-out / fan-in</h2><span class="stage-lab">Lab 09</span></div>
+      <p class="stage-note">The detection library fans out across the candidates as concurrent <strong>real model calls</strong>, then the findings fan in. Exactly the Lab 09 pattern.</p>
+      {#if workers.length}
+        <div class="wave">
+          {#each workers as w}
+            <span class="chip" class:running={w.state === "running"} class:done={w.state === "done"} class:error={w.state === "error"} class:tp={w.verdict === "true_positive"} class:fp={w.verdict === "false_positive"} title="{w.skill} · {w.candidateId}">
+              {w.candidateId}{#if w.state === "done"} · {w.verdict === "true_positive" ? "TP" : w.verdict === "false_positive" ? "FP" : "?"}{/if}
+            </span>
+          {/each}
         </div>
-        <div class="rail up" aria-hidden="true"><span>↑ persist (lossy structural index) ↑</span></div>
+      {:else}
+        <p class="stage-wait">dispatching workers…</p>
+      {/if}
+    </section>
 
-        <!-- pipeline -->
-        <div class="pipe">
-          <div class="anode {stages.initiate}"><span class="anode-dot"></span><div class="anode-txt"><strong>Initiation</strong><small>one hunt request</small></div></div>
-          <span class="sep {stages.detect !== 'idle' ? 'lit' : ''}">▸</span>
-
-          <div class="anode wide {stages.detect}">
-            <div class="anode-head"><span class="anode-dot"></span><strong>Detection</strong><small>fan-out / fan-in</small></div>
-            <div class="mini-chips">
-              {#each workers as w}
-                <span class="mini {w.state} {w.verdict ? 'v-' + w.verdict : ''}" title="{w.skill} · {w.candidateId}">{w.candidateId}{#if w.state === 'done'} · {w.verdict === 'true_positive' ? 'TP' : w.verdict === 'false_positive' ? 'FP' : '?'}{/if}</span>
-              {/each}
-            </div>
-          </div>
-          <span class="sep {stages.assess !== 'idle' ? 'lit' : ''}">▸</span>
-
-          <div class="anode wide {stages.assess}">
-            <div class="anode-head"><span class="anode-dot"></span><strong>Assessment</strong><small>per-TP-finding fan-out · live</small></div>
-            <div class="mini-chips">
-              {#each assessWorkers as a}
-                <span class="mini {a.state} sev-{(a.severity ?? '').toLowerCase()}" title="{a.skill} · {a.candidateId}">{a.candidateId} · {a.state === 'done' ? (a.assessmentType === 'severity' ? (a.severity ?? 'sev') : 'beh') : '…'}</span>
-              {/each}
-            </div>
-          </div>
-          <span class="sep {stages.narrative !== 'idle' ? 'lit' : ''}">▸</span>
-
-          <div class="anode narr {stages.narrative}">
-            <div class="anode-line"><span class="anode-dot"></span><div class="anode-txt"><strong>Narrative P1</strong><small>read graph connections</small></div></div>
-            <div class="anode-line"><span class="anode-dot"></span><div class="anode-txt"><strong>Narrative P2</strong><small>read store reasoning</small></div></div>
-          </div>
+    <!-- 2 · Assessment -->
+    <section class="panel stage-card" class:active={stages.assess === "active"} class:done={stages.assess === "done"}>
+      <div class="stage-head"><span class="stage-num">2</span><h2>Assessment — fan-out per true-positive</h2><span class="stage-lab">Lab 07</span></div>
+      <p class="stage-note">Each <strong>true-positive</strong> finding fans out to the assessment skills (severity, behavioral-context) — more concurrent real calls. False-positives aren't assessed.</p>
+      {#if assessWorkers.length}
+        <div class="wave">
+          {#each assessWorkers as a}
+            <span class="chip" class:running={a.state === "running"} class:done={a.state === "done"} class:error={a.state === "error"} title="{a.skill} · {a.candidateId}">
+              {a.candidateId} · {a.state === "done" ? (a.assessmentType === "severity" ? (a.severity ?? "sev") : "behavioral") : "…"}
+            </span>
+          {/each}
         </div>
+      {:else if stages.assess !== "idle"}
+        <p class="stage-wait">dispatching assessors…</p>
+      {:else}
+        <p class="stage-wait">waiting for detection…</p>
+      {/if}
+    </section>
 
-        <div class="rail down" aria-hidden="true"><span>↓ persist (lossless source of truth) ↓</span></div>
-        <!-- bottom band -->
-        <div class="band {stages.store}">
-          <div class="band-title">Findings Store</div>
-          <div class="band-sub">source of truth (lossless) · full objects, incl. prose · {result ? `${result.findings.length} findings · ${result.assessments?.length ?? 0} assessments` : "persisted"}</div>
+    <!-- 3 · Graph -->
+    <section class="panel stage-card" class:active={stages.graph === "active"} class:done={stages.graph === "done"}>
+      <div class="stage-head"><span class="stage-num">3</span><h2>Graph — shared entity graph</h2><span class="stage-lab">Lab 10</span></div>
+      <p class="stage-note">Findings project into a shared entity graph — <strong>deterministic, no model</strong>. Entities that recur (a host, a user) become the one node that links findings together.</p>
+      {#if graphNodes.length}
+        <div class="gsummary">
+          {#each graphSummary as [type, n]}
+            <span class="gtype">{n} {type}{n > 1 ? "s" : ""}</span>
+          {/each}
+          <span class="gedges">{graphEdgeCount} edges</span>
         </div>
-      </div>
+      {:else}
+        <p class="stage-wait">waiting for assessment…</p>
+      {/if}
     </section>
-  {/if}
 
-  {#if progress.length}
-    <section class="panel">
-      <h2>Pipeline Progress</h2>
-      <ol class="progress-log">
-        {#each progress as line}
-          <li class:done={line.stage === "done"}>
-            <span class="stage">{line.stage}</span>
-            <span class="msg">{line.message}</span>
-          </li>
-        {/each}
-        {#if busy}
-          <li class="running"><span class="stage">…</span><span class="msg">running</span></li>
-        {/if}
-      </ol>
+    <!-- 4 · Narrative -->
+    <section class="panel stage-card" class:active={stages.narrative === "active"} class:done={stages.narrative === "done"}>
+      <div class="stage-head"><span class="stage-num">4</span><h2>Narrative — one grounded call</h2><span class="stage-lab">Lab 11</span></div>
+      <p class="stage-note">One <strong>real model call</strong> writes the campaign story, grounded strictly in the graph's entities (a loadable skill, not a hardcoded prompt). It streams in as it's written.</p>
+      {#if narrativeText}
+        <div class="narrative-body"><MarkdownView source={narrativeText} /></div>
+      {:else if stages.narrative === "active"}
+        <p class="stage-wait">synthesizing…</p>
+      {:else}
+        <p class="stage-wait">waiting for the graph…</p>
+      {/if}
     </section>
-  {/if}
-  {#if result}
-    <section class="panel">
-      <h2>Integrated Result</h2>
-      <div class="stats">
-        <article><strong>{result.findings.length}</strong><span>findings</span></article>
-        <article><strong>{result.graph.nodes.length}</strong><span>graph nodes</span></article>
-        <article><strong>{result.graph.edges.length}</strong><span>graph edges</span></article>
-      </div>
+
+    <!-- 5 · Report -->
+    <section class="panel stage-card" class:active={stages.report === "active"} class:done={stages.report === "done"}>
+      <div class="stage-head"><span class="stage-num">5</span><h2>Report — the saved artifact</h2><span class="stage-lab">output</span></div>
+      <p class="stage-note">The narrative is written to disk as a Markdown report — the hunt's single human-readable output.</p>
+      {#if result?.report}
+        <p class="report-path">{result.report.path}</p>
+        <p class="report-note">A fuller report (verdict table, timeline, recommended actions) and a notification hook (UI / Slack / webhook) are built in a later course; here the capstone saves the narrative.</p>
+      {:else}
+        <p class="stage-wait">waiting for the narrative…</p>
+      {/if}
     </section>
-    <section class="panel">
-      <h2>Narrative</h2>
-      <pre>{result.narrative}</pre>
-    </section>
-    {#if result.report}
-      <section class="panel">
-        <h2>Final Report</h2>
-        <p>The narrative, saved to disk as a Markdown file — the hunt's single human-readable artifact.</p>
-        <p class="path">{result.report.path}</p>
-      </section>
-    {/if}
   {/if}
   {:else}
     <!-- ═══════════════════════════════════════════════════ -->
@@ -496,75 +496,56 @@
   h1, h2, p { margin: 0; }
   h1 { color: #f5e663; font-size: clamp(2.5rem, 7vw, 5rem); line-height: .98; }
   h2 { color: #f5e663; margin-bottom: 1rem; }
-  p, .path { color: rgba(255,255,255,.62); line-height: 1.55; }
+  p { color: rgba(255,255,255,.62); line-height: 1.55; }
   button { width: fit-content; border: 1px solid rgba(245,230,99,.42); border-radius: 3px; padding: .7rem .95rem; background: rgba(245,230,99,.1); color: #f5e663; font: inherit; font-weight: 800; }
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
-  article { border: 1px solid rgba(255,255,255,.12); border-radius: 4px; padding: .9rem; display: grid; gap: .25rem; }
-  article strong { color: #8be9fd; font-size: 2rem; }
-  article span { color: rgba(255,255,255,.58); }
+  .lead { color: rgba(255,255,255,.72); line-height: 1.65; max-width: 64rem; }
+
+  /* ── Pipeline stepper ── */
+  .stepper { list-style: none; display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.2rem; padding: 0; }
+  .step { display: flex; align-items: center; gap: .5rem; padding: .45rem .8rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.02); opacity: .5; transition: opacity .3s, border-color .3s; }
+  .step.active, .step.done { opacity: 1; }
+  .step.active { border-color: rgba(245,230,99,.55); }
+  .step.done { border-color: rgba(80,250,123,.45); }
+  .step-n { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; font-size: .72rem; font-weight: 800; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.7); flex: none; }
+  .step.active .step-n { background: rgba(245,230,99,.16); border-color: #f5e663; color: #f5e663; }
+  .step.done .step-n { background: rgba(80,250,123,.16); border-color: #50fa7b; color: #50fa7b; }
+  .step-label { display: flex; flex-direction: column; line-height: 1.1; font-size: .82rem; color: rgba(255,255,255,.85); }
+  .step-label small { font-size: .64rem; color: rgba(255,255,255,.45); }
+
+  /* ── Stage cards ── */
+  .stage-card { border-left: 3px solid rgba(255,255,255,.14); opacity: .62; transition: opacity .3s, border-color .3s; }
+  .stage-card.active, .stage-card.done { opacity: 1; }
+  .stage-card.active { border-left-color: #f5e663; }
+  .stage-card.done { border-left-color: #50fa7b; }
+  .stage-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .2rem; }
+  .stage-head h2 { margin: 0; font-size: 1.05rem; }
+  .stage-num { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-size: .8rem; font-weight: 800; background: rgba(189,147,249,.16); border: 1px solid rgba(189,147,249,.5); color: #bd93f9; flex: none; }
+  .stage-lab { margin-left: auto; font-size: .7rem; font-family: var(--font-mono, ui-monospace, monospace); color: rgba(255,255,255,.45); border: 1px solid rgba(255,255,255,.16); border-radius: 5px; padding: .1rem .45rem; }
+  .stage-note { color: rgba(255,255,255,.62); font-size: .9rem; line-height: 1.55; margin: 0 0 .85rem; }
+  .stage-wait { color: rgba(255,255,255,.5); font-size: .85rem; font-family: var(--font-mono, ui-monospace, monospace); margin: 0; }
+
+  /* ── Worker wave ── */
+  .wave { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .chip { font-size: .72rem; font-family: var(--font-mono, ui-monospace, monospace); padding: .2rem .5rem; border-radius: 6px; border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.7); white-space: nowrap; transition: all .25s; }
+  .chip.running { border-color: rgba(245,230,99,.45); color: #f5e663; }
+  .chip.error { border-color: rgba(255,85,85,.5); color: #ff7b7b; }
+  .chip.done.tp { border-color: rgba(255,121,198,.55); color: #ff79c6; }
+  .chip.done.fp { border-color: rgba(80,250,123,.45); color: #50fa7b; }
+  @media (prefers-reduced-motion: no-preference) { .chip.running { animation: cpulse 1.3s ease-in-out infinite; } }
+  @keyframes cpulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+  /* ── Graph summary ── */
+  .gsummary { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  .gtype { font-size: .82rem; font-family: var(--font-mono, ui-monospace, monospace); padding: .25rem .6rem; border-radius: 6px; border: 1px solid rgba(139,233,253,.4); color: #8be9fd; }
+  .gedges { font-size: .8rem; color: rgba(255,255,255,.5); font-family: var(--font-mono, ui-monospace, monospace); margin-left: .2rem; }
+
+  /* ── Narrative + report ── */
+  .narrative-body { border: 1px solid rgba(189,147,249,.3); border-radius: 8px; padding: 1rem 1.1rem; background: rgba(189,147,249,.05); }
+  .report-path { font-family: var(--font-mono, ui-monospace, monospace); color: #8be9fd; font-size: .9rem; }
+  .report-note { color: rgba(255,255,255,.5); font-size: .82rem; line-height: 1.5; margin-top: .5rem; }
   pre { white-space: pre-wrap; color: rgba(255,255,255,.76); }
   .panel.error { border-color: rgba(255,85,85,.5); }
   .panel.error p { color: #ff8b8b; }
-  .progress-log { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; font-family: var(--font-mono, ui-monospace, monospace); }
-  .progress-log li { display: grid; grid-template-columns: 7.5rem 1fr; gap: .75rem; align-items: baseline; padding: .4rem .6rem; border: 1px solid rgba(255,255,255,.08); border-radius: 4px; background: rgba(255,255,255,.02); }
-  .progress-log .stage { color: #bd93f9; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; }
-  .progress-log .msg { color: rgba(255,255,255,.78); font-size: .86rem; }
-  .progress-log li.done { border-color: rgba(80,250,123,.4); }
-  .progress-log li.done .stage { color: #50fa7b; }
-  .progress-log li.running .stage, .progress-log li.running .msg { color: #f5e663; }
-
-  /* ═══ Orchestration flow map ═══════════════════════════ */
-  .flow-caption { color: rgba(255,255,255,.6); font-size: .9rem; line-height: 1.55; margin-bottom: 1.1rem; }
-  .flow-caption em { color: rgba(255,255,255,.85); font-style: normal; font-weight: 700; }
-
-  /* ── architectural overview map ── */
-  .archmap { display: grid; gap: .5rem; }
-  .band { border: 1.5px dashed rgba(255,255,255,.22); border-radius: 8px; padding: .7rem 1rem; text-align: center; opacity: .5; transition: opacity .4s, border-color .4s; }
-  .band-title { font-weight: 800; letter-spacing: .02em; }
-  .band-sub { font-size: .74rem; color: rgba(255,255,255,.55); margin-top: .12rem; font-family: var(--font-mono, ui-monospace, monospace); }
-  .archmap .band:first-of-type { border-color: rgba(245,230,99,.4); }
-  .archmap .band:first-of-type .band-title { color: #f5e663; }
-  .archmap .band:last-of-type { border-color: rgba(255,121,198,.4); }
-  .archmap .band:last-of-type .band-title { color: #ff79c6; }
-  .band.active, .band.done { opacity: 1; }
-  .band.done { border-style: solid; }
-
-  .rail { text-align: center; line-height: 1; }
-  .rail span { font-size: .66rem; color: rgba(255,255,255,.32); font-family: var(--font-mono, ui-monospace, monospace); }
-
-  .pipe { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: .4rem; padding: .4rem 0; }
-  .anode { display: flex; align-items: center; gap: .55rem; padding: .6rem .8rem; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(255,255,255,.02); opacity: .5; transition: opacity .4s, border-color .4s, background .4s; min-width: 0; }
-  .anode.wide { flex-direction: column; align-items: flex-start; gap: .45rem; min-width: 11rem; }
-  .anode.narr { flex-direction: column; align-items: flex-start; gap: .4rem; }
-  .anode-dot { width: .9rem; height: .9rem; border-radius: 50%; background: #2c2c3c; border: 2px solid #44445a; flex-shrink: 0; transition: all .4s; }
-  .anode-head { display: flex; align-items: baseline; gap: .45rem; }
-  .anode-txt strong, .anode-head strong { display: block; font-size: .88rem; color: rgba(255,255,255,.92); }
-  .anode-txt small, .anode-head small { display: block; font-size: .7rem; color: rgba(255,255,255,.5); }
-  .anode-line { display: flex; align-items: center; gap: .5rem; }
-  .anode.active { opacity: 1; border-color: rgba(245,230,99,.5); background: rgba(245,230,99,.05); }
-  .anode.active .anode-dot { background: #f5e663; border-color: #f5e663; animation: pulse 1.4s infinite; }
-  .anode.done { opacity: 1; border-color: rgba(80,250,123,.4); }
-  .anode.done .anode-dot { background: #50fa7b; border-color: #50fa7b; }
-
-  .sep { align-self: center; color: rgba(255,255,255,.25); font-size: 1.05rem; transition: color .4s; }
-  .sep.lit { color: #50fa7b; }
-
-  .mini-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
-  .mini { font-size: .66rem; font-family: var(--font-mono, ui-monospace, monospace); padding: .12rem .4rem; border-radius: 5px; border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.7); white-space: nowrap; transition: all .3s; }
-  .mini.running { border-color: rgba(245,230,99,.4); color: #f5e663; animation: pulse-soft 1.4s infinite; }
-  .mini.error { border-color: rgba(255,85,85,.5); color: #ff5555; }
-  .mini.v-true_positive { border-color: rgba(255,121,198,.5); color: #ff79c6; }
-  .mini.v-false_positive { border-color: rgba(80,250,123,.45); color: #50fa7b; }
-  .mini.sev-critical { border-color: rgba(255,85,85,.55); color: #ff6b6b; }
-  .mini.sev-high { border-color: rgba(255,184,108,.55); color: #ffb86c; }
-  .mini.sev-medium { border-color: rgba(245,230,99,.5); color: #f5e663; }
-  .mini.sev-low { border-color: rgba(80,250,123,.45); color: #50fa7b; }
-
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(245,230,99,.55); } 70% { box-shadow: 0 0 0 7px rgba(245,230,99,0); } 100% { box-shadow: 0 0 0 0 rgba(245,230,99,0); } }
-  @keyframes pulse-soft { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
-  @media (prefers-reduced-motion: reduce) { .anode.active .anode-dot, .mini.running { animation: none; } }
-
-  @media (max-width: 850px) { .stats { grid-template-columns: 1fr 1fr; } }
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top { display: flex; gap: 0; border-bottom: 1px solid #1a1a2e; margin-bottom: 1rem; }
   .tab-btn-top {
@@ -615,7 +596,6 @@
   .flow-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.7rem; margin-bottom: 0.35rem; }
   .flow-title { color: #e8e8f0; font-weight: 700; font-size: 1rem; }
   .flow-where { color: #6f6f86; font-size: 0.76rem; letter-spacing: 0.03em; margin-left: auto; }
-  .flow-badge { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #f5e663; border: 1px solid rgba(245, 230, 99, 0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
   .flow-body p { margin: 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.65; }
 
   /* Capstone chain */

@@ -212,6 +212,7 @@ export async function runAssessmentFanOut(
 
 export async function runInvestigation(
   onProgress: (event: ProgressEvent) => void = () => {},
+  onNarrativeToken?: (token: string) => void,
 ): Promise<{ findings: DetectionFinding[]; assessments: AssessmentFinding[]; narrative: string; model: string }> {
   const { findings, model: detModel } = await runDetectionFanOut(onProgress);
   const candidates = await loadCandidates();
@@ -219,10 +220,11 @@ export async function runInvestigation(
   // Detection → ASSESSMENT → narrative. Assessment enriches the significant findings (real calls).
   const { assessments, model: assessModel } = await runAssessmentFanOut(findings, candidates, onProgress);
 
-  onProgress({ stage: "graph", message: "Building shared entity graph" });
+  // Build the shared entity graph (deterministic), then emit it so the UI can show the graph stage.
   const graph = buildCandidateSubgraph(candidates);
+  onProgress({ stage: "graph", message: "Building shared entity graph", data: { nodes: graph.nodes, edges: graph.edges } });
   onProgress({ stage: "narrative", message: "Synthesizing campaign narrative" });
-  const narrative = await synthesizeNarrative(findings, graph);
+  const narrative = await synthesizeNarrative(findings, graph, onNarrativeToken);
   return { findings, assessments, narrative, model: assessModel || detModel };
 }
 
@@ -233,6 +235,7 @@ export async function runInvestigation(
 export async function runInvestigationState(
   sessionId: string,
   onProgress: (event: ProgressEvent) => void = () => {},
+  onNarrativeToken?: (token: string) => void,
 ): Promise<{
   state: PipelineState;
   findings: DetectionFinding[];
@@ -241,7 +244,7 @@ export async function runInvestigationState(
   graph: Subgraph;
   model: string;
 }> {
-  const { findings, assessments, narrative, model } = await runInvestigation(onProgress);
+  const { findings, assessments, narrative, model } = await runInvestigation(onProgress, onNarrativeToken);
   const timestamp = new Date().toISOString();
   const inputId = `input-${sessionId}`;
   const analysisModel = model || "unknown-model";
