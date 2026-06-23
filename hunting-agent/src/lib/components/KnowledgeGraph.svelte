@@ -12,7 +12,7 @@
   let cyError = $state("");
 
   const NODE_COLORS: Record<string, string> = {
-    candidate: "#ff79c6", host: "#8be9fd", user: "#bd93f9", process: "#ffb86c", ip: "#50fa7b",
+    finding: "#ff79c6", candidate: "#ff79c6", host: "#8be9fd", user: "#bd93f9", process: "#ffb86c", ip: "#50fa7b",
   };
 
   const cyStyle: unknown[] = [
@@ -52,14 +52,22 @@
 
   const LAYOUT = {
     name: "fcose", animate: false, randomize: true, quality: "proof",
-    nodeRepulsion: 15000, idealEdgeLength: 170, gravity: 0.08, gravityRange: 4,
-    nodeSeparation: 200, padding: 56,
+    nodeRepulsion: 26000, idealEdgeLength: 200, gravity: 0.05, gravityRange: 5,
+    nodeSeparation: 300, numIter: 4000, padding: 60,
   };
 
   function buildElements(g: typeof graph): unknown[] {
     const ids = new Set(g.nodes.map((n) => n.id));
     const nodes = g.nodes.map((n) => ({
-      data: { id: n.id, disp: n.label, full: `${n.type}: ${n.label}`, color: NODE_COLORS[n.type] ?? "#b6b6c6" },
+      data: {
+        // Strip a "DOMAIN\" prefix for the on-canvas label (e.g. NORTHWIND\jane.roberts ->
+        // jane.roberts) so the widest label stops colliding with edge labels in the centre.
+        // The full value is kept on hover.
+        id: n.id,
+        disp: n.label.includes("\\") ? n.label.slice(n.label.lastIndexOf("\\") + 1) : n.label,
+        full: `${n.type}: ${n.label}`,
+        color: NODE_COLORS[n.type] ?? "#b6b6c6",
+      },
     }));
     const edges = g.edges
       .filter((e) => ids.has(e.source) && ids.has(e.target))
@@ -111,7 +119,7 @@
 <style>
   .graphwrap { position: relative; }
   .graph {
-    width: 100%; height: 560px;
+    width: 100%; height: 620px;
     border: 1px solid rgba(98,114,164,.35); border-radius: 8px;
     background: radial-gradient(circle at 50% 55%, rgba(189,147,249,.06), transparent 62%), rgba(12,12,18,.6);
   }

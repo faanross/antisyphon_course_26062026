@@ -3,7 +3,7 @@ import { loadCandidates, type Candidate } from "./loaders.js";
 export interface GraphNode {
   readonly id: string;
   readonly label: string;
-  readonly type: "host" | "user" | "process" | "ip" | "candidate";
+  readonly type: "host" | "user" | "process" | "ip" | "candidate" | "finding";
 }
 
 export interface GraphEdge {
@@ -69,7 +69,14 @@ export function buildCampaignSubgraph(
   const keep = new Set(
     findings.filter((f) => f.verdict === "true_positive").map((f) => f.candidateId),
   );
-  return buildCandidateSubgraph(candidates.filter((c) => keep.has(c.candidate_id)));
+  const base = buildCandidateSubgraph(candidates.filter((c) => keep.has(c.candidate_id)));
+  // Present each kept candidate node AS a finding: in this lab every one of these IS a
+  // true-positive DetectionFinding (Lab 10's "a finding is its own node"), linked to the
+  // shared host/user/process/ip entities. The candidate is the finding's subject, so the id
+  // is unchanged — only the node type flips, which keeps the graph, the narrative, and the
+  // "findings cited" count all using the same word.
+  const nodes = base.nodes.map((n) => (n.type === "candidate" ? { ...n, type: "finding" as const } : n));
+  return { nodes, edges: base.edges };
 }
 
 if (process.argv.includes("--test")) {

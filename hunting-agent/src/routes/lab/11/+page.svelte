@@ -34,7 +34,7 @@
   // reads as a clean checklist, not a spam of 8 worker logs.
   function traceLabel(stage: string, data?: Record<string, unknown>): string | null {
     switch (stage) {
-      case "load": return "Loading candidates";
+      case "load": return "Loading candidates (detection inputs)";
       case "fan-out": return `Dispatching ${((data?.invocations as unknown[]) ?? []).length} detection workers (Lab 09)`;
       case "fan-in": return `Collected ${Number(data?.count ?? 0)} findings`;
       case "narrative": return "Synthesizing grounded narrative — streaming";
