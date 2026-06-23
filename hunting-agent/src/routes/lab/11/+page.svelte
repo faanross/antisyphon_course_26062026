@@ -132,11 +132,10 @@
           <span class="cv-eyebrow">Lab 11 · Walkthrough</span>
           <h2>Turn the knowledge graph into a written attack story</h2>
           <p>
-            This is the capstone read step. The findings and the shared entity graph already exist —
-            here you make a <strong>real model call</strong> that narrates them into a readable
+            The findings and the shared entity graph already exist —
+            here you make a <strong>model call</strong> that narrates them into a readable
             campaign story. The catch: the narrative is <strong>fenced by the graph</strong>, so it
-            can only describe entities and edges that actually exist. Watch structured state become
-            prose without ever leaving the data.
+            can only describe entities and edges that actually exist.
           </p>
         </header>
 
