@@ -9,18 +9,78 @@
   import LinkIcon from "phosphor-svelte/lib/LinkIcon";
   import RocketLaunchIcon from "phosphor-svelte/lib/RocketLaunchIcon";
 
-  type Finding = { id: string; candidateId: string; skillName: string; evidenceSummary: string; verdict: string };
+  import MarkdownView from "$lib/components/MarkdownView.svelte";
+
   type Graph = { nodes: Array<{ id: string; label: string; type: string }>; edges: Array<{ source: string; target: string; label: string }> };
+  type StreamEvent =
+    | { type: "graph"; graph: Graph }
+    | { type: "progress"; stage: string; message: string; data?: Record<string, unknown> }
+    | { type: "findings"; count: number }
+    | { type: "narrative-token"; value: string }
+    | { type: "narrative-done"; narrative: string }
+    | { type: "error"; message: string }
+    | { type: "done" };
 
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
-  let result = $state<{ graph: Graph; findings: Finding[]; narrative: string; progress: unknown[] } | null>(null);
   let busy = $state(false);
+  let started = $state(false);
+  let runError = $state("");
+  let graph = $state<Graph | null>(null);
+  let findingsCount = $state(0);
+  let trace = $state<string[]>([]);
+  let narrativeText = $state("");
+
+  // Only milestone stages become trace lines — per-worker events are dropped so the wait
+  // reads as a clean checklist, not a spam of 8 worker logs.
+  function traceLabel(stage: string, data?: Record<string, unknown>): string | null {
+    switch (stage) {
+      case "load": return "Loading candidates";
+      case "fan-out": return `Dispatching ${((data?.invocations as unknown[]) ?? []).length} detection workers (Lab 09)`;
+      case "fan-in": return `Collected ${Number(data?.count ?? 0)} findings`;
+      case "narrative": return "Synthesizing grounded narrative — streaming";
+      default: return null;
+    }
+  }
+
+  function applyEvent(event: StreamEvent) {
+    if (event.type === "graph") graph = event.graph;
+    else if (event.type === "progress") {
+      const label = traceLabel(event.stage, event.data);
+      if (label) trace = [...trace, label];
+    } else if (event.type === "findings") findingsCount = event.count;
+    else if (event.type === "narrative-token") narrativeText += event.value;
+    else if (event.type === "narrative-done") { if (!narrativeText) narrativeText = event.narrative; }
+    else if (event.type === "error") runError = event.message;
+  }
 
   async function run() {
-    busy = true;
-    const response = await fetch("/lab/11/api/narrative", { method: "POST" });
-    result = await response.json();
-    busy = false;
+    busy = true; started = true; runError = "";
+    graph = null; findingsCount = 0; trace = []; narrativeText = "";
+    try {
+      const response = await fetch("/lab/11/api/narrative", { method: "POST" });
+      if (!response.ok || !response.body) throw new Error(`Narrative API returned HTTP ${response.status}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl = buffer.indexOf("\n");
+        while (nl !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (line) applyEvent(JSON.parse(line) as StreamEvent);
+          nl = buffer.indexOf("\n");
+        }
+      }
+      const tail = buffer.trim();
+      if (tail) applyEvent(JSON.parse(tail) as StreamEvent);
+    } catch (err) {
+      runError = err instanceof Error ? err.message : "Narrative run failed";
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
@@ -34,7 +94,7 @@
     <h1>Graph-Grounded Narrative</h1>
     <p>Select graph context, combine it with detection findings, and synthesize an attack narrative that is grounded in explicit relationships.</p>
     {#if activeTab === "lab"}
-      <button onclick={run} disabled={busy}>{busy ? "Synthesizing" : "Run Narrative"}</button>
+      <button onclick={run} disabled={busy}>{busy ? "Running…" : "Run Narrative"}</button>
     {/if}
   </header>
 
@@ -140,26 +200,46 @@
       </div>
     </div>
   {:else if activeTab === "lab"}
-  {#if result}
+  {#if runError}
+    <section class="panel error"><h2>Run failed</h2><p>{runError}</p></section>
+  {/if}
+
+  {#if !started}
+    <section class="panel">
+      <h2>What this lab isolates</h2>
+      <p>This route reads graph state into the narrative stage — the <strong>read side</strong> of the graph, not graph construction. Press <strong>Run Narrative</strong> above: the harness gathers the findings, scopes the graph to the true-positive campaign, then one real model call streams the grounded story in.</p>
+    </section>
+  {:else}
     <section class="panel">
       <div class="panel-head">
         <h2>Selected Graph Context</h2>
-        <span>{result.graph.nodes.length} nodes | {result.graph.edges.length} edges</span>
+        {#if graph}<span>{graph.nodes.length} nodes | {graph.edges.length} edges · true-positive campaign</span>{/if}
       </div>
-      <KnowledgeGraph graph={result.graph} />
+      {#if graph}
+        <KnowledgeGraph graph={graph} />
+      {:else}
+        <p class="working">Gathering findings, then scoping the graph to the campaign…</p>
+      {/if}
     </section>
 
     <section class="panel">
       <div class="panel-head">
         <h2>Grounded Narrative</h2>
-        <span>{result.findings.length} findings cited</span>
+        <span>{findingsCount} findings cited</span>
       </div>
-      <pre>{result.narrative}</pre>
-    </section>
-  {:else}
-    <section class="panel">
-      <h2>What this lab isolates</h2>
-      <p>This route reads graph state into the narrative stage. It is the read side of the graph, not graph construction.</p>
+      {#if narrativeText}
+        <div class="narrative-body"><MarkdownView source={narrativeText} /></div>
+      {:else}
+        <ol class="trace">
+          {#if trace.length}
+            {#each trace as line, i}
+              <li class:active={busy && i === trace.length - 1}>{line}</li>
+            {/each}
+          {:else}
+            <li class="active">Starting…</li>
+          {/if}
+        </ol>
+      {/if}
     </section>
   {/if}
   {:else}
@@ -347,6 +427,17 @@
   button { width: fit-content; border: 1px solid rgba(245,230,99,.42); border-radius: 3px; padding: .7rem .95rem; background: rgba(245,230,99,.1); color: #f5e663; font: inherit; font-weight: 800; }
   .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
   pre { margin: 0; white-space: pre-wrap; color: rgba(255,255,255,.78); line-height: 1.55; }
+  .panel.error { border-color: rgba(255,85,85,.5); }
+  .panel.error p { color: #ff8b8b; }
+  .working { color: rgba(255,255,255,.55); font-family: "JetBrains Mono", monospace; font-size: .9rem; }
+  .narrative-body { border: 1px solid rgba(189,147,249,.3); border-radius: 8px; padding: 1rem 1.1rem; background: rgba(189,147,249,.05); }
+  .trace { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; font-family: "JetBrains Mono", monospace; }
+  .trace li { position: relative; padding-left: 1.3rem; color: rgba(255,255,255,.55); font-size: .9rem; }
+  .trace li::before { content: "✓"; position: absolute; left: 0; color: #50fa7b; font-weight: 800; }
+  .trace li.active { color: #f5e663; }
+  .trace li.active::before { content: "▸"; color: #f5e663; }
+  @media (prefers-reduced-motion: no-preference) { .trace li.active { animation: g11pulse 1.3s ease-in-out infinite; } }
+  @keyframes g11pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top {

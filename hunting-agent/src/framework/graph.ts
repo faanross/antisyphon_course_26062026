@@ -57,6 +57,21 @@ export async function loadWorkshopGraph(): Promise<Subgraph> {
   return buildCandidateSubgraph(await loadCandidates());
 }
 
+// Scope the graph to the TRUE-POSITIVE campaign: only the candidates that produced a
+// true-positive finding, plus the host/user/process/ip entities they touch. Shared
+// entities (referenced by >=2 findings) dedupe into one node, so the campaign's
+// connections become the visible centre instead of being lost in false-positive noise.
+// The narrative is grounded in THIS graph, so what is displayed === what the story can name.
+export function buildCampaignSubgraph(
+  candidates: readonly Candidate[],
+  findings: readonly { candidateId: string; verdict: string }[],
+): Subgraph {
+  const keep = new Set(
+    findings.filter((f) => f.verdict === "true_positive").map((f) => f.candidateId),
+  );
+  return buildCandidateSubgraph(candidates.filter((c) => keep.has(c.candidate_id)));
+}
+
 if (process.argv.includes("--test")) {
   const graph = await loadWorkshopGraph();
   console.log(`nodes=${graph.nodes.length} edges=${graph.edges.length}`);
