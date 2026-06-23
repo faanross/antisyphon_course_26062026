@@ -115,16 +115,26 @@ const FAN_IN_REDUCE_PROMPT =
 export async function reduceFindingsToTriage(
   findings: readonly DetectionFinding[],
   onToken?: (token: string) => void,
+  onPrompt?: (prompts: { systemPrompt: string; userPrompt: string }) => void,
 ): Promise<string> {
   if (findings.length === 0) return "No findings to synthesize — every worker failed or was dropped.";
   const summary = findings
     .map((f) => `- ${f.candidateId} [${f.skillName}] verdict=${f.verdict} score=${f.compositeScore.toFixed(2)} :: ${f.evidenceSummary}`)
     .join("\n");
+  const userPrompt = `Findings from ${findings.length} parallel workers:\n\n${summary}`;
+
+  // Surface the prompts so the lab can show HOW the fan-in agent is instructed (system) and
+  // enabled (user) — with the collected findings shown as a placeholder, not dumped again.
+  onPrompt?.({
+    systemPrompt: FAN_IN_REDUCE_PROMPT,
+    userPrompt: `Findings from ${findings.length} parallel workers:\n\n[ the ${findings.length} collected findings are injected here — one line each: candidate id · skill · verdict · score · evidence summary ]`,
+  });
+
   const provider = getProvider();
   let text = "";
   const result = await provider.invoke({
     systemPrompt: FAN_IN_REDUCE_PROMPT,
-    userPrompt: `Findings from ${findings.length} parallel workers:\n\n${summary}`,
+    userPrompt,
     onToken: (token) => {
       text += token;
       onToken?.(token);

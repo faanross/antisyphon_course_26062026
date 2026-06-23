@@ -34,6 +34,7 @@
   let triage = $state("");
   type Worker = { id: string; skill: string; candidateId: string; status: "running" | "done" | "error"; verdict?: string; score?: number };
   let workers = $state<Worker[]>([]);
+  let reducePrompts = $state<{ systemPrompt: string; userPrompt: string } | null>(null);
   let started = $derived(phase !== "idle");
 
   // Distinct colour per orchestration stage so the trace teaches instead of being one grey wall.
@@ -53,6 +54,7 @@
     findings = [];
     triage = "";
     workers = [];
+    reducePrompts = null;
     phase = "running";
     try {
       const response = await fetch("/lab/09/api/orchestrate", { method: "POST" });
@@ -82,6 +84,7 @@
             }
           } else if (ev.type === "findings") findings = ev.findings;
           else if (ev.type === "reduce-start") phase = "reducing";
+          else if (ev.type === "reduce-prompt") reducePrompts = { systemPrompt: ev.systemPrompt, userPrompt: ev.userPrompt };
           else if (ev.type === "reduce-token") triage += ev.value;
           else if (ev.type === "reduce-done") { triage = ev.triage || triage; phase = "done"; }
           else if (ev.type === "error") errorMsg = ev.message;
@@ -333,6 +336,25 @@
         {/each}
       </div>
     </section>
+
+    <!-- REDUCE prompts: how the fan-in agent was instructed + enabled -->
+    {#if reducePrompts}
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Reduce · Agent Prompts</h2>
+          <span>system + user</span>
+        </div>
+        <p class="panel-note">How the fan-in agent is <strong>instructed</strong> (system prompt) and <strong>enabled</strong> (user prompt) to synthesize. The collected findings are injected where the placeholder sits — same shape as the worker prompts you saw earlier.</p>
+        <div class="prompt-block">
+          <span class="prompt-label">System prompt</span>
+          <pre class="prompt-pre">{reducePrompts.systemPrompt}</pre>
+        </div>
+        <div class="prompt-block">
+          <span class="prompt-label">User prompt</span>
+          <pre class="prompt-pre">{reducePrompts.userPrompt}</pre>
+        </div>
+      </section>
+    {/if}
 
     <!-- REDUCE: synthesized batch triage -->
     <section class="panel">
@@ -604,6 +626,13 @@
     .worker.running { animation: wpulse 1.3s ease-in-out infinite; }
   }
   @keyframes wpulse { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
+  .prompt-block { display: grid; gap: .3rem; margin-top: .6rem; }
+  .prompt-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #bd93f9; font-weight: 700; }
+  .prompt-pre {
+    margin: 0; padding: .7rem .85rem; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
+    background: rgba(25, 26, 33, .82); border: 1px solid rgba(98, 114, 164, .42);
+    color: rgba(255, 255, 255, 0.82); font-size: .8rem; line-height: 1.5;
+  }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
   .tab-bar-top {

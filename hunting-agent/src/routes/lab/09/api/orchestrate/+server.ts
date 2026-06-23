@@ -16,7 +16,11 @@ export const POST: RequestHandler = async () => {
 
           // REDUCE: one synthesis call over the whole batch, streamed token by token.
           send({ type: "reduce-start" });
-          const triage = await reduceFindingsToTriage(findings, (token) => send({ type: "reduce-token", value: token }));
+          const triage = await reduceFindingsToTriage(
+            findings,
+            (token) => send({ type: "reduce-token", value: token }),
+            (prompts) => send({ type: "reduce-prompt", ...prompts }),
+          );
           send({ type: "reduce-done", triage });
 
           send({ type: "done" });
