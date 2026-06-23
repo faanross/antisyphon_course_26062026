@@ -36,6 +36,14 @@ export function createClaudeCodeProvider(
         "",
         "--disable-slash-commands",
         "--no-session-persistence",
+        // Spawn a CLEAN completion. Without these, the host's user settings load SessionStart
+        // hooks (e.g. superpowers) that inject "you must use skills" context — which derails the
+        // model into emitting tool-call scaffolding instead of an answer — and MCP servers start
+        // up on every call (pure latency). --setting-sources excludes user settings (auth via
+        // OAuth/credentials is unaffected); --strict-mcp-config loads no MCP servers.
+        "--strict-mcp-config",
+        "--setting-sources",
+        "project,local",
       ];
 
       if (process.env.CLAUDE_CODE_BARE === "1") {

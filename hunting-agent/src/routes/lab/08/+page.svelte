@@ -1,9 +1,8 @@
 <script lang="ts">
   import chunks from "$lib/data/workshop/rag/chunks.json";
-  import ChatPanel from "$lib/components/ChatPanel.svelte";
   import CorpusBrowser from "$lib/components/lab07/CorpusBrowser.svelte";
   import RAGResultsPanel from "$lib/components/lab07/RAGResultsPanel.svelte";
-  import SynthesisPanel from "$lib/components/lab07/SynthesisPanel.svelte";
+  import MarkdownView from "$lib/components/MarkdownView.svelte";
   import CursorClickIcon from "phosphor-svelte/lib/CursorClickIcon";
   import VectorThreeIcon from "phosphor-svelte/lib/VectorThreeIcon";
   import MagnifyingGlassIcon from "phosphor-svelte/lib/MagnifyingGlassIcon";
@@ -26,37 +25,67 @@
   };
 
   let activeTab = $state<"instructions" | "lab" | "code">("instructions");
-  let query = $state("CrowdFalcon EDR heartbeat beacon false positive 10.42.10.0/24");
-  let synthesis = $state("");
-  let hits = $state<Hit[]>([]);
+  let query = $state("previous cases where HTTPS beaconing was used");
   let busy = $state(false);
   let errorMsg = $state("");
+
+  // Staged RAG pipeline state — filled in as the NDJSON stream arrives.
+  type Stage = "idle" | "embedding" | "retrieving" | "augmenting" | "generating" | "done";
+  const STAGE_ORDER: Stage[] = ["idle", "embedding", "retrieving", "augmenting", "generating", "done"];
+  let stage = $state<Stage>("idle");
+  let embedModel = $state("");
+  let hits = $state<Hit[]>([]);
+  let contextText = $state("");
+  let synthesis = $state("");
+  let synthModel = $state("");
+
+  let started = $derived(stage !== "idle");
+  const isActive = (s: Stage) => stage === s;
+  const isDone = (s: Stage) => STAGE_ORDER.indexOf(stage) > STAGE_ORDER.indexOf(s);
 
   async function run(value: string) {
     busy = true;
     errorMsg = "";
+    hits = [];
+    contextText = "";
+    synthesis = "";
+    synthModel = "";
+    stage = "embedding";
     try {
       const response = await fetch("/api/lab07/query", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query: value }),
       });
-      const data = await response.json();
-      if (!response.ok || data.error) {
-        // 503 from the route when the embedding model isn't reachable.
-        errorMsg = data.error ?? `Request failed (HTTP ${response.status}).`;
-        hits = [];
-        synthesis = "";
-        return;
+      if (!response.ok || !response.body) throw new Error(`Request failed (HTTP ${response.status}).`);
+
+      // Read the NDJSON stream line by line and drive the pipeline stages.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value: chunk, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line);
+          if (ev.type === "embed") { embedModel = ev.model; stage = "retrieving"; }
+          else if (ev.type === "retrieved") { hits = ev.hits; stage = "augmenting"; }
+          else if (ev.type === "context") { contextText = ev.context; stage = "generating"; }
+          else if (ev.type === "model-start") { stage = "generating"; }
+          else if (ev.type === "token") { synthesis += ev.value; }
+          else if (ev.type === "done") { synthesis = ev.synthesis || synthesis; synthModel = ev.model; stage = "done"; }
+          else if (ev.type === "error") { errorMsg = ev.message; }
+        }
       }
-      hits = data.hits;
-      synthesis = data.synthesis;
     } catch (error) {
       errorMsg = error instanceof Error ? error.message : "Could not reach the RAG endpoint.";
-      hits = [];
-      synthesis = "";
     } finally {
       busy = false;
+      if (errorMsg) stage = "idle";
     }
   }
 </script>
@@ -103,10 +132,11 @@
                 <span class="flow-where">Lab tab · Prior Investigation Corpus</span>
               </div>
               <p>
-                Go to the <strong>Lab</strong> tab. On the right, the
+                Go to the <strong>Lab</strong> tab. At the top, the
                 <strong>Prior Investigation Corpus</strong> lists the past reports the agent can draw
-                on — each with its verdict and tags. This is the library RAG searches; skim it so you
-                know what precedent is available.
+                on — each with its verdict and tags. This is the library RAG searches:
+                <strong>expand any report</strong> to read its full text (the same content the retriever
+                embeds and returns), so you know what precedent is available.
               </p>
             </div>
           </li>
@@ -195,17 +225,79 @@
       </div>
     </div>
   {:else if activeTab === "lab"}
-  <section class="workspace">
-    <ChatPanel title="RAG Query" bind:value={query} output={synthesis} {busy} onSubmit={run} />
+  <div class="lab-stack">
     <CorpusBrowser chunks={chunks} />
-  </section>
 
-  {#if errorMsg}
-    <p class="rag-error">{errorMsg}</p>
-  {/if}
+    <!-- Query input only — the answer renders in stage 4 of the pipeline below. -->
+    <section class="ask-card">
+      <h2>Ask the corpus</h2>
+      <p class="ask-note">Ask in plain language. RAG finds the most relevant prior cases and answers grounded in them — watch it work in stages below.</p>
+      <textarea bind:value={query} rows="2" placeholder="e.g. previous cases where HTTPS beaconing was used"></textarea>
+      <button class="ask-btn" onclick={() => run(query)} disabled={busy || !query.trim()}>
+        {busy ? "Running…" : "Run RAG query"}
+      </button>
+    </section>
 
-  <RAGResultsPanel {hits} />
-  <SynthesisPanel {synthesis} />
+    {#if errorMsg}
+      <p class="rag-error">{errorMsg}</p>
+    {/if}
+
+    {#if started}
+      <ol class="pipeline">
+        <!-- 1 · EMBED -->
+        <li class="stage" class:active={isActive("embedding")} class:done={isDone("embedding")}>
+          <div class="stage-head"><span class="stage-n">1</span> Embed — your question becomes a vector</div>
+          <p class="stage-note">The query is encoded into a 768-number vector with <code>{embedModel || "nomic-embed-text"}</code> — the same model the corpus was indexed with. Meaning is compared as distance in this shared space.</p>
+          <div class="embed-viz">
+            <code class="q">"{query}"</code>
+            <ArrowRightIcon size={16} weight="bold" />
+            <span class="vec">[ 0.02, -0.14, 0.08, … ] · 768 dims</span>
+          </div>
+        </li>
+
+        <!-- 2 · RETRIEVE -->
+        <li class="stage" class:active={isActive("retrieving")} class:done={isDone("retrieving")}>
+          <div class="stage-head"><span class="stage-n">2</span> Retrieve — the nearest prior cases</div>
+          <p class="stage-note">Cosine similarity scores the query vector against all 96 chunks; the top 5 (higher score = closer) are kept. This is the <strong>R</strong> in RAG — pure vector math, no model yet. (We scan a flat in-memory index here, not a vector database — the <strong>Code tab → E</strong> explains why, and when you'd use a real one.)</p>
+          {#if hits.length}
+            <RAGResultsPanel {hits} />
+          {:else}
+            <p class="stage-wait">Searching…</p>
+          {/if}
+        </li>
+
+        <!-- 3 · AUGMENT -->
+        <li class="stage" class:active={isActive("augmenting")} class:done={isDone("augmenting")}>
+          <div class="stage-head"><span class="stage-n">3</span> Augment — build the prompt</div>
+          <p class="stage-note">The retrieved text is pasted into the prompt. The model sees <strong>only these snippets</strong>, not the whole corpus — that's what keeps the answer grounded.</p>
+          {#if contextText}
+            <details class="ctx">
+              <summary>Show the injected context ({contextText.length.toLocaleString()} chars)</summary>
+              <pre>{contextText}</pre>
+            </details>
+          {:else}
+            <p class="stage-wait">Assembling…</p>
+          {/if}
+        </li>
+
+        <!-- 4 · GENERATE -->
+        <li class="stage" class:active={isActive("generating")} class:done={isDone("generating")}>
+          <div class="stage-head">
+            <span class="stage-n">4</span> Generate — grounded answer
+            {#if synthModel}<span class="model-tag">{synthModel}</span>{/if}
+          </div>
+          <p class="stage-note">The model writes the answer grounded in the retrieved precedent — the <strong>G</strong>. It streams in as it's generated.</p>
+          {#if synthesis}
+            <div class="answer"><MarkdownView source={synthesis} /></div>
+          {:else if isActive("generating")}
+            <p class="stage-wait">Generating… <span class="hint">the model is reading the retrieved cases — this can take a few seconds</span></p>
+          {:else}
+            <p class="stage-wait">Waiting for retrieval…</p>
+          {/if}
+        </li>
+      </ol>
+    {/if}
+  </div>
   {:else}
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- CODE VIEW  (architectural reference, non-interactive)-->
@@ -355,6 +447,38 @@
       └─ <span class="tr-file">rag.ts</span>               <span class="tr-cm">← embed query · cosine search · build context</span></code></pre>
         </details>
 
+        <!-- E · The vector store: workshop vs production -->
+        <details class="cv-section" open>
+          <summary class="cv-h3"><span class="cv-num">E</span> The vector store: workshop vs. production<span class="cv-chev" aria-hidden="true">▸</span></summary>
+          <p class="cv-lead">
+            In the slides we teach RAG with a <strong>vector database</strong> (e.g. ChromaDB) — but this lab
+            deliberately doesn't use one. The retrieval you watched is a <strong>flat in-memory scan</strong>:
+            load <code>vectors.bin</code>, compute cosine against all 96 vectors, keep the top 5. No DB, no index.
+          </p>
+          <div class="cv-cards">
+            <article class="cv-card">
+              <div class="cv-card-head"><DatabaseIcon size={26} weight="duotone" /><h4>Why a flat scan here</h4></div>
+              <p><strong>Nothing extra to install</strong> beyond Ollama. <strong>Exact</strong> — it compares every vector, so results are ground truth, not approximate. And it keeps the lesson <strong>honest</strong>: you can see retrieval is just cosine math (Stage 2), not magic behind a DB API. At 96 vectors a full scan is sub-millisecond.</p>
+            </article>
+            <article class="cv-card">
+              <div class="cv-card-head"><VectorThreeIcon size={26} weight="duotone" /><h4>Why production uses a vector DB</h4></div>
+              <p>A flat scan is <em>O(n)</em> per query — fine for hundreds, hopeless for millions. A vector DB (ChromaDB, pgvector, Qdrant, FAISS) builds an <strong>approximate-nearest-neighbour index</strong> (e.g. HNSW) that finds close matches without scanning everything — and adds what a living corpus needs.</p>
+            </article>
+          </div>
+          <p class="cv-note"><strong>When to reach for a real vector DB in your own RAG:</strong></p>
+          <ul class="cv-list">
+            <li><strong>Scale</strong> — tens of thousands of vectors and up, where scanning every query gets too slow. Below that, a flat scan (or <code>sqlite-vec</code>) is often plenty.</li>
+            <li><strong>Live updates</strong> — add / update / delete documents without rebuilding the whole index file.</li>
+            <li><strong>Metadata filtering &amp; hybrid search</strong> — "nearest vectors <em>where</em> verdict = malicious", or blend keyword + semantic ranking.</li>
+            <li><strong>Persistence &amp; serving</strong> — a durable store many processes/users query concurrently, not a file loaded into one process.</li>
+          </ul>
+          <p class="cv-note">
+            The trade is approximate-but-fast vs. exact-but-linear, plus a service to run. For 96 chunks the flat
+            scan wins on every axis except the one that doesn't apply yet — scale. The <strong>concepts are
+            identical</strong>: embed, measure cosine similarity, take the top matches.
+          </p>
+        </details>
+
         <!-- Callout -->
         <aside class="cv-callout">
           <BooksIcon size={22} weight="duotone" />
@@ -405,12 +529,9 @@
     line-height: 1.02;
   }
 
-  .workspace {
+  .lab-stack {
     display: grid;
-    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
     gap: 1rem;
-    align-items: start;
-    margin-bottom: 1rem;
   }
 
   .rag-error {
@@ -424,10 +545,85 @@
     line-height: 1.5;
   }
 
-  @media (max-width: 980px) {
-    .workspace {
-      grid-template-columns: 1fr;
-    }
+  /* Ask card — query input only */
+  .ask-card {
+    display: grid; gap: .6rem;
+    border: 1px solid rgba(98, 114, 164, 0.55); border-radius: 8px;
+    padding: 1rem; background: rgba(33, 34, 44, 0.9);
+  }
+  .ask-card h2 { margin: 0; color: var(--dracula-pink); font-family: var(--font-heading); font-size: 1rem; }
+  .ask-note { margin: 0; color: var(--dracula-muted); font-size: .85rem; line-height: 1.5; }
+  .ask-card textarea {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 3rem;
+    padding: .7rem .85rem; border-radius: 8px;
+    border: 1px solid rgba(98, 114, 164, 0.5); background: rgba(25, 26, 33, 0.72);
+    color: var(--dracula-fg); font-family: var(--font-mono); font-size: .92rem; line-height: 1.5;
+  }
+  .ask-btn {
+    justify-self: start; padding: .55rem 1.4rem; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(189, 147, 249, .5); background: rgba(189, 147, 249, .16);
+    color: var(--dracula-fg); font-family: var(--font-heading); font-size: .9rem;
+    transition: background .15s ease, transform .15s ease;
+  }
+  .ask-btn:hover:not(:disabled) { background: rgba(189, 147, 249, .28); transform: translateY(-1px); }
+  .ask-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+  /* Deconstructed RAG pipeline */
+  .pipeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+  .stage {
+    border: 1px solid rgba(68, 71, 90, 0.9);
+    border-left: 3px solid rgba(98, 114, 164, .45);
+    border-radius: 8px; padding: 1rem; background: rgba(33, 34, 44, 0.72);
+    opacity: .55; transition: border-color .2s ease, opacity .2s ease;
+  }
+  .stage.active, .stage.done { opacity: 1; }
+  .stage.active { border-left-color: var(--dracula-purple); }
+  .stage.done { border-left-color: var(--dracula-green, #50fa7b); }
+  .stage-head {
+    display: flex; align-items: center; gap: .55rem;
+    font-family: var(--font-heading); font-size: .95rem; color: var(--dracula-fg);
+  }
+  .stage-n {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 1.5rem; height: 1.5rem; border-radius: 50%;
+    background: rgba(189, 147, 249, .16); border: 1px solid rgba(189, 147, 249, .5);
+    color: var(--dracula-purple); font-size: .8rem;
+  }
+  .stage.done .stage-n {
+    background: rgba(80, 250, 123, .14); border-color: rgba(80, 250, 123, .5);
+    color: var(--dracula-green, #50fa7b);
+  }
+  .stage-note { margin: .55rem 0 .75rem; color: var(--dracula-muted); font-size: .85rem; line-height: 1.55; }
+  .stage-note code { color: var(--dracula-cyan); }
+  .stage-wait { margin: 0; color: var(--dracula-comment); font-size: .85rem; font-family: var(--font-heading); }
+  .stage-wait .hint { color: var(--dracula-muted); font-family: var(--font-mono); font-size: .8rem; }
+
+  .embed-viz {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+    padding: .7rem .85rem; border-radius: 8px;
+    background: rgba(25, 26, 33, 0.7); border: 1px solid rgba(98, 114, 164, .42);
+  }
+  .embed-viz .q { color: var(--dracula-yellow, #f1fa8c); font-family: var(--font-mono); font-size: .85rem; }
+  .embed-viz .vec { color: var(--dracula-cyan); font-family: var(--font-mono); font-size: .85rem; }
+
+  .ctx summary {
+    cursor: pointer; color: var(--dracula-purple); font-family: var(--font-heading);
+    font-size: .8rem; padding: .25rem 0;
+  }
+  .ctx pre {
+    margin: .5rem 0 0; padding: .75rem .85rem; border-radius: 8px; max-height: 16rem; overflow: auto;
+    background: rgba(25, 26, 33, 0.82); border: 1px solid rgba(98, 114, 164, .42);
+    color: var(--dracula-muted); font-size: .78rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+
+  .model-tag {
+    margin-left: auto; padding: .15rem .5rem; border-radius: 6px;
+    background: rgba(139, 233, 253, .1); border: 1px solid rgba(139, 233, 253, .35);
+    color: var(--dracula-cyan); font-family: var(--font-heading); font-size: .7rem;
+  }
+  .answer {
+    padding: .9rem 1rem; border-radius: 8px;
+    background: rgba(189, 147, 249, 0.05); border: 1px solid rgba(189, 147, 249, .34);
   }
 
   /* ═══ Top tab bar ══════════════════════════════════════ */
@@ -748,6 +944,9 @@
   .cv-tree .tr-dir { color: #8be9fd; }
   .cv-tree .tr-file { color: #f1fa8c; }
   .cv-tree .tr-cm { color: #6f6f86; }
+
+  .cv-list { margin: .5rem 0 0; padding-left: 1.25rem; display: grid; gap: .45rem; }
+  .cv-list li { color: #c9c9d6; font-size: .9rem; line-height: 1.55; }
 
   .cv-callout {
     display: flex;

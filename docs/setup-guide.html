@@ -455,8 +455,12 @@ GEMINI_MODEL=gemini-2.5-flash
   <div class="step-row"><div class="step-n">1</div><p>Install <strong>Ollama</strong> from <a href="https://ollama.com">ollama.com</a> and make sure it's running (the desktop app starts the server automatically; or run <code>ollama serve</code>). <em>If you chose Path&nbsp;B above you already have it — just do step&nbsp;2.</em></p></div>
   <div class="step-row"><div class="step-n">2</div><p>Pull the embedding model once (~275&nbsp;MB):</p></div>
   <pre><code><span class="p">$</span> ollama pull nomic-embed-text</code></pre>
-  <div class="step-row"><div class="step-n">3</div><p>That's all — the app reaches Ollama at <code>http://localhost:11434</code> by default, so no <code>.env</code> change is needed. To use Ollama on another machine, set <code>EMBED_BASE_URL</code> (and optionally <code>EMBED_MODEL</code>) in <code>.env</code>.</p></div>
-  <div class="step-row"><div class="step-n">4</div><p>Quick check that it answers:</p></div>
+  <div class="step-row"><div class="step-n">3</div><p><strong>Running Ollama on this machine (most people):</strong> nothing to set — the app already uses <code>http://localhost:11434</code> and <code>nomic-embed-text</code> by default. (Those keys are in <code>.env.example</code> if you'd rather make them explicit.)</p></div>
+  <div class="step-row"><div class="step-n">3b</div><p><strong>Already run Ollama on another box on your LAN?</strong> Point the app at it — and make sure <code>nomic-embed-text</code> is pulled <em>on that box</em> — by adding these to <code>.env</code>:</p></div>
+  <pre><code>EMBED_BASE_URL=http://192.168.1.50:11434   <span class="c"># the LAN host running Ollama</span>
+EMBED_MODEL=nomic-embed-text</code></pre>
+  <div class="callout warn"><span class="tag">LAN requirement</span><p>Same as the local-model path above: the machine running Ollama must listen on all interfaces — start it with <code>OLLAMA_HOST=0.0.0.0 ollama serve</code> — and allow port <code>11434</code> through its firewall. Pull the embedding model on <em>that</em> host (<code>ollama pull nomic-embed-text</code>), not on your laptop.</p></div>
+  <div class="step-row"><div class="step-n">4</div><p>Quick check that it answers (swap in your host if it's on the LAN):</p></div>
   <pre><code><span class="p">$</span> curl http://localhost:11434/api/embeddings -d '{"model":"nomic-embed-text","prompt":"hello"}'</code></pre>
   <div class="callout"><span class="tag">Already built</span><p>The lab's vector index (<code>data/rag/vectors.bin</code>) ships prebuilt, so you don't generate anything up front — you only need Ollama running so your <em>queries</em> can be embedded at search time. (If you ever change the corpus, rebuild the index with <code>npm run rag:build</code>.)</p></div>
 

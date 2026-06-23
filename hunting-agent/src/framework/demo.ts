@@ -4,6 +4,7 @@ import { addAnalysis, addInput } from "./state.js";
 import type { Candidate } from "./loaders.js";
 import type { PipelineState } from "./types.js";
 import { buildRagContext, queryPriorInvestigations, type RagHit } from "./rag.js";
+import { embedConfig, EMBED_DIMENSIONS } from "./embeddings.js";
 import {
   executeAgentToolCall,
   isAgentToolName,
@@ -795,22 +796,53 @@ export async function processChatMemoryTurnStreaming(
   return result;
 }
 
-export async function runRagInvestigation(query: string): Promise<{
-  hits: RagHit[];
-  context: string;
-  synthesis: string;
-}> {
-  const [hits, contextDocs] = await Promise.all([
-    queryPriorInvestigations(query, 5),
-    loadContextDocuments(),
-  ]);
+// The staged RAG pipeline, emitted as events so Lab 08 can teach each step as it happens.
+export type RagStreamEvent =
+  | { type: "embed"; query: string; model: string; dimensions: number }
+  | { type: "retrieved"; hits: RagHit[] }
+  | { type: "context"; context: string }
+  | { type: "model-start" }
+  | { type: "token"; value: string }
+  | { type: "done"; synthesis: string; model: string };
+
+const RAG_SYNTH_SYSTEM_PROMPT =
+  "You are a SOC analyst's assistant. Using ONLY the prior investigations in the provided context, " +
+  "answer the analyst's question. Compare the evidence before borrowing a verdict, and cite the report " +
+  "IDs you rely on (e.g. INV-2026-0087). Be concise. Format the answer in Markdown.";
+
+export async function runRagInvestigation(
+  query: string,
+  onEvent?: (event: RagStreamEvent) => void,
+): Promise<{ hits: RagHit[]; context: string; synthesis: string }> {
+  const emit = (event: RagStreamEvent) => onEvent?.(event);
+
+  // 1 · Embed — the query becomes a vector (throws EmbeddingUnavailableError if Ollama is down).
+  emit({ type: "embed", query, model: embedConfig().model, dimensions: EMBED_DIMENSIONS });
+
+  // 2 · Retrieve — cosine similarity over the corpus, top-5 nearest chunks.
+  const hits = await queryPriorInvestigations(query, 5);
+  emit({ type: "retrieved", hits });
+
+  // 3 · Augment — assemble the retrieved text into the prompt the model will see.
+  const contextDocs = await loadContextDocuments();
   const context = `${renderContextBlock(contextDocs)}\n\n${buildRagContext(hits)}`;
-  const provider = getProvider();
+  emit({ type: "context", context });
+
+  // 4 · Generate — stream the grounded answer. Default model, or RAG_SYNTH_MODEL if set.
+  const provider = getProvider(process.env.RAG_SYNTH_MODEL || undefined);
+  emit({ type: "model-start" });
+  let synthesis = "";
   const response = await provider.invoke({
-    systemPrompt: "Use prior investigations as precedent, but compare evidence before borrowing a verdict.",
+    systemPrompt: RAG_SYNTH_SYSTEM_PROMPT,
     userPrompt: `${query}\n\n${context}`,
+    onToken: (token) => {
+      synthesis += token;
+      emit({ type: "token", value: token });
+    },
   });
-  return { hits, context, synthesis: response.text };
+  const finalText = synthesis || response.text;
+  emit({ type: "done", synthesis: finalText, model: response.model });
+  return { hits, context, synthesis: finalText };
 }
 
 if (process.argv[1]?.endsWith("demo.ts")) {
