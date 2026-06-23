@@ -41,6 +41,15 @@
     return id === "finding:df-a" ? EXAMPLE_FINDINGS[0].skillName : id === "finding:df-b" ? EXAMPLE_FINDINGS[1].skillName : "";
   }
 
+  // Light Cypher syntax highlight. Input is deterministic (no user data); HTML-escaped first,
+  // then keyword + string-literal spans — so the only tags reaching {@html} are ours.
+  function highlightCypher(text: string): string {
+    const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return esc
+      .replace(/\b(MERGE|SET)\b/g, '<span class="cy-kw">$1</span>')
+      .replace(/'[^']*'/g, (m) => `<span class="cy-str">${m}</span>`);
+  }
+
   // ── Knowledge-graph rendering via Cytoscape.js (accurate edge routing + labels) ──
   const NODE_COLORS: Record<string, string> = {
     finding: "#ff79c6", host: "#8be9fd", user: "#bd93f9", candidate: "#f5e663", technique: "#50fa7b",
@@ -242,7 +251,7 @@
             <ol class="cypher-lines">
               {#each cypherLog as line}
                 <li class="cy-{line.finding}" class:reused={line.reused} transition:fade>
-                  <code>{line.text}</code>
+                  <code>{@html highlightCypher(line.text)}</code>
                   {#if line.reused}<span class="reused-tag">↺ reused</span>{/if}
                 </li>
               {/each}
@@ -323,14 +332,16 @@
 
   /* ── Cypher panel ── */
   .cypher { border: 1px solid rgba(98,114,164,.4); border-radius: 8px; background: rgba(18,18,26,.7); overflow: hidden; }
-  .cypher-head { display: flex; align-items: center; gap: .4rem; padding: .55rem .8rem; font-size: .76rem; color: #8be9fd; border-bottom: 1px solid rgba(98,114,164,.3); }
+  .cypher-head { display: flex; align-items: center; gap: .4rem; padding: .7rem .9rem; font-size: .85rem; color: #8be9fd; border-bottom: 1px solid rgba(98,114,164,.3); }
   .cypher-empty { color: rgba(255,255,255,.4); padding: 1.2rem .9rem; font-size: .85rem; }
-  .cypher-lines { list-style: none; margin: 0; padding: .6rem; display: grid; gap: .4rem; }
-  .cypher-lines li { display: flex; align-items: center; gap: .5rem; padding-left: .6rem; border-left: 2px solid transparent; }
-  .cypher-lines code { background: none; color: rgba(255,255,255,.85); font-size: .73rem; line-height: 1.4; word-break: break-word; }
+  .cypher-lines { list-style: none; margin: 0; padding: .8rem; display: grid; gap: .75rem; }
+  .cypher-lines li { display: flex; align-items: flex-start; gap: .6rem; padding-left: .7rem; border-left: 2px solid transparent; }
+  .cypher-lines code { background: none; color: rgba(255,255,255,.88); font-size: .92rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .cy-df-a { border-left-color: #ff79c6; }
   .cy-df-b { border-left-color: #f5e663; }
-  .cypher-lines li.reused code { color: rgba(255,255,255,.45); }
+  .cypher-lines li.reused { opacity: .5; }
+  .cypher-lines :global(.cy-kw) { color: #ff79c6; font-weight: 700; }
+  .cypher-lines :global(.cy-str) { color: #f1fa8c; }
   .reused-tag { flex-shrink: 0; font-size: .64rem; font-weight: 800; color: #50fa7b; border: 1px solid rgba(80,250,123,.5); border-radius: 999px; padding: .04rem .4rem; }
 
   /* ── Graph (Cytoscape canvas) ── */

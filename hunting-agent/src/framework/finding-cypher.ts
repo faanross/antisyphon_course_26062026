@@ -49,7 +49,7 @@ export function findingToCypher(f: ProjectableFinding): CypherProjection {
     nodes.push({ id, label, type });
     edges.push({ source: fid, target: id, label: rel });
     const v = varDecl.split(":")[0];
-    cypher.push(`MERGE (${varDecl} {id:'${label}'})  MERGE (f)-[:${rel}]->(${v})`);
+    cypher.push(`MERGE (${varDecl} {id:'${label}'})\nMERGE (f)-[:${rel}]->(${v})`);
   };
 
   if (f.scope.host) link(`host:${f.scope.host}`, f.scope.host, "host", "h:Host", "TARGETS");
