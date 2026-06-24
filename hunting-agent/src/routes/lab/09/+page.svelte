@@ -10,6 +10,7 @@
   import GitForkIcon from "phosphor-svelte/lib/GitForkIcon";
   import WarningIcon from "phosphor-svelte/lib/WarningIcon";
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
+  import TargetIcon from "phosphor-svelte/lib/TargetIcon";
   import MarkdownView from "$lib/components/MarkdownView.svelte";
 
   type Finding = {
@@ -278,6 +279,40 @@
       </div>
     </div>
   {:else if activeTab === "lab"}
+    <section class="hunt-plan">
+      <div class="hp-head">
+        <TargetIcon size={16} weight="duotone" />
+        <span>Hunt plan — why these skills loaded</span>
+      </div>
+      <p class="hp-text">
+        A developer workstation, <code>DEV-WS03</code>, shows a suspicious lineage off its AI coding
+        assistant: <strong>VS&nbsp;Code spawned a rare child process</strong>, an
+        <strong>encoded PowerShell</strong> stage ran, and a binary <strong>masquerading as
+        <code>svchost</code></strong> began <strong>beaconing out</strong>. The hypothesis is a single
+        kill chain — <code>AI&nbsp;tool → encoded&nbsp;PowerShell → C2&nbsp;beacon</code> — so the plan
+        selects the three detection skills that each cover one stage and fans them out over the
+        in-scope candidates.
+      </p>
+      <ul class="hp-skills">
+        <li>
+          <div class="hp-skill-row"><span class="hp-stage">entry</span><code>hunt-ai-tool-execution-anomaly</code><span class="hp-cand">UPCA · 2</span></div>
+          <span class="hp-desc">a coding / AI assistant spawning a rare child process</span>
+        </li>
+        <li>
+          <div class="hp-skill-row"><span class="hp-stage">stage</span><code>hunt-malicious-powershell-payload</code><span class="hp-cand">PSI · 1</span></div>
+          <span class="hp-desc">an anomalous, likely-encoded PowerShell invocation</span>
+        </li>
+        <li>
+          <div class="hp-skill-row"><span class="hp-stage">channel</span><code>hunt-c2-over-https</code><span class="hp-cand">BEA · 5</span></div>
+          <span class="hp-desc">HTTPS beacons from the masquerading binary</span>
+        </li>
+      </ul>
+      <p class="hp-note">
+        Three skills, scoped to their candidate types — <strong>8 detection jobs</strong>. The
+        orchestrator fans them out concurrently in the trace below; most return benign, and the real
+        work is the discrimination, then reduce deciding which findings are one incident.
+      </p>
+    </section>
   {#if errorMsg}
     <p class="orch-error">{errorMsg}</p>
   {/if}
@@ -613,6 +648,88 @@
   article span { color: rgba(255, 255, 255, 0.54); }
   .panel-note { margin: 0 0 .85rem; color: rgba(255, 255, 255, 0.6); font-size: .9rem; line-height: 1.55; }
   .empty { margin: 0; color: rgba(255, 255, 255, 0.5); }
+  .hunt-plan {
+    margin: 0 0 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(189, 147, 249, 0.28);
+    border-left: 3px solid #bd93f9;
+    border-radius: 8px;
+    background: rgba(189, 147, 249, 0.06);
+  }
+  .hp-head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #bd93f9;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hp-head :global(svg) { flex-shrink: 0; }
+  .hp-text {
+    margin: 0.55rem 0 0;
+    color: #f0f0f5;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .hp-text code {
+    background: rgba(139, 233, 253, 0.1);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.86em;
+    color: #8be9fd;
+  }
+  .hp-skills {
+    list-style: none;
+    margin: 0.75rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.55rem;
+  }
+  .hp-skills li {
+    padding-left: 0.7rem;
+    border-left: 2px solid rgba(189, 147, 249, 0.4);
+  }
+  .hp-skill-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .hp-stage {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #bd93f9;
+    border: 1px solid rgba(189, 147, 249, 0.4);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+  }
+  .hp-skills code {
+    font-size: 0.84rem;
+    color: #f5e663;
+  }
+  .hp-cand {
+    margin-left: auto;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: #8a8aa0;
+  }
+  .hp-desc {
+    display: block;
+    margin-top: 0.15rem;
+    color: #b8b8c8;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  .hp-note {
+    margin: 0;
+    color: #9aa0b4;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
   .orch-error {
     margin: 1rem 0 0; padding: .75rem .9rem; border-radius: 6px;
     border: 1px solid rgba(255, 85, 85, .5); background: rgba(255, 85, 85, .08); color: #ff7b7b;
