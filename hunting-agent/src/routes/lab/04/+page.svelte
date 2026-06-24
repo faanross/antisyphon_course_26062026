@@ -543,7 +543,7 @@ None yet.`;
                   </div>
                   <p>
                     Open <strong>Execution Trace</strong> to see how each answer was built. For
-                    every turn you get the <strong>Tool Action</strong>: the <em>Selection Note</em>
+                    every turn you get the full <strong>TAO step</strong>: the <em>Thought</em>
                     (its reasoning), the <em>Action</em> — <code>tool(args)</code> it ran — and the
                     <em>Observation</em> it got back. Two things to judge here: did the
                     <strong>conclusion hold up</strong> given that evidence, and did it
@@ -646,7 +646,7 @@ None yet.`;
                         </div>
                         <div class="tao-row">
                           <div>
-                            <span class="label">Selection Note</span>
+                            <span class="label">Thought</span>
                             <p>{trace.thought}</p>
                           </div>
                           <div>
