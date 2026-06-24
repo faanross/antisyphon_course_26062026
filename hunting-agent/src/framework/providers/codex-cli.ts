@@ -82,6 +82,12 @@ export function createCodexCliProvider(
         ],
         { stdio: ["pipe", "pipe", "pipe"] },
       );
+      // Swallow pipe-level errors: if the subprocess dies early, writing its stdin emits EPIPE as
+      // an unhandled 'error' event that would crash the whole dev server. The real outcome is still
+      // reported via the 'close'/'error' handlers below. (Mirrors the claude-code provider.)
+      child.stdin.on("error", () => {});
+      child.stdout.on("error", () => {});
+      child.stderr.on("error", () => {});
       child.stdin.write(prompt);
       child.stdin.end();
       let stderr = "";

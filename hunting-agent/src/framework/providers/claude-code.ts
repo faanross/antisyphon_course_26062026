@@ -60,41 +60,86 @@ export function createClaudeCodeProvider(
         // default; override by setting MAX_THINKING_TOKENS in the environment if a lab wants it.
         env: { ...process.env, MAX_THINKING_TOKENS: process.env.MAX_THINKING_TOKENS ?? "0" },
       });
-      child.stdin.write(combined);
-      child.stdin.end();
+      // A subprocess that dies early — bad spawn, an overloaded machine, or the idle watchdog
+      // below killing it — makes writes to its stdin emit EPIPE and can emit 'error' on its
+      // pipes. Unhandled, those 'error' events crash the WHOLE dev server. Swallow pipe-level
+      // errors here; the real outcome is reported via the child 'close'/'error' settlement below.
+      child.stdin.on("error", () => {});
+      child.stdout.on("error", () => {});
+      child.stderr.on("error", () => {});
+
       let stderr = "";
       child.stderr.on("data", (chunk) => {
         stderr = `${stderr}${chunk.toString()}`.slice(-4000);
       });
 
-      const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
+      // Idle watchdog: kill the subprocess if it emits nothing for this long, so a stalled model
+      // call (wedged auth refresh, network black-hole, an overloaded machine) fails fast with a
+      // clear error instead of hanging the lab forever on "No output yet". The timer resets on
+      // every stream line (including thinking deltas), so a slow-but-progressing call is never
+      // killed. Override with LLM_CALL_TIMEOUT_MS.
+      const idleTimeoutMs = Number(process.env.LLM_CALL_TIMEOUT_MS ?? "120000");
+      let timedOut = false;
+      let watchdog: ReturnType<typeof setTimeout> | undefined;
+      const pokeWatchdog = () => {
+        if (watchdog) clearTimeout(watchdog);
+        watchdog = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGKILL");
+        }, idleTimeoutMs);
+      };
 
-      for await (const line of rl) {
-        if (!line.trim()) continue;
-        try {
-          const ev = JSON.parse(line);
-          if (
-            ev.type === "stream_event" &&
-            ev.event?.type === "content_block_delta" &&
-            ev.event?.delta?.type === "text_delta"
-          ) {
-            yield ev.event.delta.text;
-          }
-        } catch {
-          // skip malformed lines
-        }
-      }
-
-      await new Promise<void>((resolve, reject) => {
+      // Settle on exit. Registered BEFORE we write stdin or consume stdout, so a fast death can't
+      // fire 'close' before we are listening (which would hang the await forever). The extra
+      // no-op .catch keeps an early for-await throw from surfacing as an unhandled rejection.
+      const settled = new Promise<void>((resolve, reject) => {
+        child.on("error", (err) => reject(err));
         child.on("close", (code) => {
+          if (timedOut) {
+            reject(
+              new Error(
+                `Claude Code call stalled (no output for ${Math.round(idleTimeoutMs / 1000)}s) and was terminated — re-run the lab. Set LLM_CALL_TIMEOUT_MS to adjust.`,
+              ),
+            );
+            return;
+          }
           if (code === 0) resolve();
           else {
             const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
             reject(new Error(`Claude Code exited with code ${code}${detail}`));
           }
         });
-        child.on("error", reject);
       });
+      settled.catch(() => {});
+
+      child.stdin.write(combined);
+      child.stdin.end();
+      pokeWatchdog();
+
+      try {
+        const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
+
+        for await (const line of rl) {
+          pokeWatchdog();
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line);
+            if (
+              ev.type === "stream_event" &&
+              ev.event?.type === "content_block_delta" &&
+              ev.event?.delta?.type === "text_delta"
+            ) {
+              yield ev.event.delta.text;
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
+
+        await settled;
+      } finally {
+        if (watchdog) clearTimeout(watchdog);
+      }
     },
   };
 }
