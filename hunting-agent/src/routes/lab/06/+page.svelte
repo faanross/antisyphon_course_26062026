@@ -752,11 +752,11 @@
             <article class="vs-card win">
               <div class="vs-top"><span class="vs-id"><TargetIcon size={16} weight="duotone" /> BEA-001</span><span class="vs-badge win">chosen</span></div>
               <div class="vs-math">
-                <div class="vs-line"><span>corroboration 3 × 2</span><b class="pos">+6.00</b></div>
+                <div class="vs-line"><span>corroboration 2 × 2</span><b class="pos">+4.00</b></div>
                 <div class="vs-line"><span>beacon score</span><b class="pos">+0.90</b></div>
-                <div class="vs-total"><span>rank</span><b class="pos">6.90</b></div>
+                <div class="vs-total"><span>rank</span><b class="pos">4.90</b></div>
               </div>
-              <p class="vs-note">TLS anomaly, threat-intel hit, and data transfer all converge on the same activity — three independent signals.</p>
+              <p class="vs-note">A TLS anomaly and a threat-intel hit both point at the same source→destination — two independent signals converging.</p>
             </article>
             <article class="vs-card lose">
               <div class="vs-top"><span class="vs-id">BEA-002</span><span class="vs-badge lose">no corroboration</span></div>
@@ -765,16 +765,16 @@
                 <div class="vs-line"><span>beacon score</span><b class="pos">+0.93</b></div>
                 <div class="vs-total"><span>rank</span><b class="neg">0.93</b></div>
               </div>
-              <p class="vs-note">The <em>highest</em> raw score — a very regular beacon to a CDN — but not one other candidate points at it. A lone signal.</p>
+              <p class="vs-note">The <em>highest</em> raw score — a 24/7 EDR sensor heartbeat (CrowdFalcon.exe) — but not one other candidate points at it. A lone signal.</p>
             </article>
             <article class="vs-card lose">
-              <div class="vs-top"><span class="vs-id">BEA-003</span><span class="vs-badge lose">no corroboration</span></div>
+              <div class="vs-top"><span class="vs-id">BEA-004</span><span class="vs-badge lose">no corroboration</span></div>
               <div class="vs-math">
                 <div class="vs-line"><span>corroboration 0 × 2</span><b>+0.00</b></div>
-                <div class="vs-line"><span>beacon score</span><b class="pos">+0.88</b></div>
-                <div class="vs-total"><span>rank</span><b class="neg">0.88</b></div>
+                <div class="vs-line"><span>beacon score</span><b class="pos">+0.72</b></div>
+                <div class="vs-total"><span>rank</span><b class="neg">0.72</b></div>
               </div>
-              <p class="vs-note">A regular keep-alive to Microsoft 365 — again, high regularity but zero corroborating evidence.</p>
+              <p class="vs-note">A lower-regularity beacon (rundll32.exe) on the same host — and, like BEA-002, no other candidate points at it.</p>
             </article>
           </div>
 
@@ -783,7 +783,6 @@
             <div class="cvg-items">
               <span class="cvg-item"><code>TLS-001</code> same source→dest</span>
               <span class="cvg-item"><code>INTEL-001</code> same destination</span>
-              <span class="cvg-item"><code>DT-001</code> same process</span>
             </div>
             <ArrowsInIcon class="cvg-arrow" size={22} weight="bold" />
             <span class="cvg-target"><TargetIcon size={16} weight="duotone" /> BEA-001</span>
@@ -797,7 +796,7 @@
             <strong>Raw score is not priority — corroboration is.</strong> A lone high-regularity beacon
             is exactly what a benign service (a CDN, an EDR heartbeat, an M365 keep-alive) produces. The
             real threat is the beacon where <em>independent evidence converges</em> — BEA-001 at 0.90 with
-            three corroborating signals, not the lone 0.93 beacon. The harness targets and gathers; the
+            two corroborating signals, not the lone 0.93 beacon. The harness targets and gathers; the
             model then judges, and the <em>assessment</em> layer later decides legitimacy.
           </p>
         </aside>
@@ -1031,9 +1030,10 @@ invocationTriggerCandidate: beacon
 invocationGate:
   observedService: ssl
 correlatingCandidates:
-  - type: tls_anomaly   scope: same_network_tuple
-  - type: intel_match   scope: destination
-mitreTechniques: [T1071.001, T1573.002]</code></pre>
+  - type: tls_anomaly    scope: same_network_tuple
+  - type: intel_match    scope: destination
+  - type: data_transfer  scope: same_network_tuple
+mitreTechniques: [T1071.001, T1573.002, T1041]</code></pre>
             </div>
             <div class="sf-zone sf-body">
               <div class="sf-tag"><FileMdIcon size={14} weight="bold" /> body — the procedure (the model reads this)</div>
@@ -1045,7 +1045,7 @@ Load the trigger beacon, inspect its score,
 rarity, intel, and process attribution…
 
 # Scoring
-compositeScore = max(beacon, intel, tls)</code></pre>
+compositeScore = max(beacon, tls, intel, exfil)</code></pre>
             </div>
           </div>
           <p class="cv-note">
