@@ -14,7 +14,7 @@
 </script>
 
 <div class="panel">
-  <h3>Least Frequency Analysis</h3>
+  <h3>Rarity Analysis</h3>
   <p class="intro">How many hosts across the fleet ever talked to this destination? The fewer, the rarer — and the more interesting. Rarity is computed once across the whole population, then stamped onto the candidate.</p>
 
   <div class="fleet" class:rare={isRare} aria-label="fleet prevalence">

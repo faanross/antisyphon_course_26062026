@@ -3,6 +3,18 @@
 
   let { pair }: { pair: ConnectionPair } = $props();
 
+  // Map each fixture key to the canonical candidate id used everywhere else in
+  // the lab (funnel, instructions) — the fixtures carry no candidate_id field.
+  // Keys verified by dest_ip/process against the dataset; normal-browsing is a
+  // benign contrast fixture with no BEA candidate, so it falls back to pair.id.
+  const CANDIDATE_IDS: Record<string, string> = {
+    "c2-beacon": "BEA-001",
+    "edr-heartbeat": "BEA-002",
+    "m365-keepalive": "BEA-003",
+    "suspicious-pair": "BEA-004",
+  };
+  let candidateId = $derived(CANDIDATE_IDS[pair.id] ?? pair.id);
+
   let candidate = $derived(pair.candidate);
   let candidateJson = $derived(JSON.stringify(candidate, null, 2));
   let identityRows = $derived([
@@ -69,7 +81,7 @@
   </div>
 
   <div class="candidate-id">
-    <span>{pair.id}</span>
+    <span>{candidateId}</span>
     <strong>{candidate.entity_key.src_ip} -> {candidate.entity_key.dest_ip}:{candidate.entity_key.dest_port}</strong>
   </div>
 

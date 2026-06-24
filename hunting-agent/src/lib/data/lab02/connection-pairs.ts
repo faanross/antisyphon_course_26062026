@@ -384,7 +384,7 @@ export const connectionPairs = {
       "duration_consistency": 0.94,
       "histogram_score": 0.87,
       "consecutive_hours": 6,
-      "composite_score": 0.971,
+      "composite_score": 0.9,
       "beacon_score": 0.9
     },
     "weights": {
@@ -1893,7 +1893,7 @@ export const connectionPairs = {
         "duration_consistency": 0.94,
         "histogram_score": 0.87,
         "consecutive_hours": 6,
-        "composite_score": 0.971,
+        "composite_score": 0.9,
         "beacon_score": 0.9
       },
       "connection_count": 361,
@@ -2254,7 +2254,7 @@ export const connectionPairs = {
       "duration_consistency": 0.97,
       "histogram_score": 0.95,
       "consecutive_hours": 24,
-      "composite_score": 0.981,
+      "composite_score": 0.93,
       "beacon_score": 0.93
     },
     "weights": {
@@ -13839,7 +13839,7 @@ export const connectionPairs = {
         "duration_consistency": 0.97,
         "histogram_score": 0.95,
         "consecutive_hours": 24,
-        "composite_score": 0.981,
+        "composite_score": 0.93,
         "beacon_score": 0.93
       },
       "connection_count": 2880,
@@ -14199,7 +14199,7 @@ export const connectionPairs = {
       "duration_consistency": 0.88,
       "histogram_score": 0.72,
       "consecutive_hours": 9,
-      "composite_score": 0.842,
+      "composite_score": 0.88,
       "beacon_score": 0.88
     },
     "weights": {
@@ -15360,7 +15360,7 @@ export const connectionPairs = {
         "duration_consistency": 0.88,
         "histogram_score": 0.72,
         "consecutive_hours": 9,
-        "composite_score": 0.842,
+        "composite_score": 0.88,
         "beacon_score": 0.88
       },
       "connection_count": 274,
@@ -15735,7 +15735,7 @@ export const connectionPairs = {
       "duration_consistency": 0.65,
       "histogram_score": 0.48,
       "consecutive_hours": 4,
-      "composite_score": 0.677,
+      "composite_score": 0.72,
       "beacon_score": 0.72
     },
     "weights": {
@@ -15992,7 +15992,7 @@ export const connectionPairs = {
         "duration_consistency": 0.65,
         "histogram_score": 0.48,
         "consecutive_hours": 4,
-        "composite_score": 0.677,
+        "composite_score": 0.72,
         "beacon_score": 0.72
       },
       "connection_count": 48,
@@ -16339,7 +16339,7 @@ export const connectionPairs = {
       "duration_consistency": 0.12,
       "histogram_score": 0.31,
       "consecutive_hours": 3,
-      "composite_score": 0.189,
+      "composite_score": 0.14,
       "beacon_score": 0.14
     },
     "weights": {
@@ -16992,7 +16992,7 @@ export const connectionPairs = {
         "duration_consistency": 0.12,
         "histogram_score": 0.31,
         "consecutive_hours": 3,
-        "composite_score": 0.189,
+        "composite_score": 0.14,
         "beacon_score": 0.14
       },
       "connection_count": 147,

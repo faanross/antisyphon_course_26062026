@@ -74,10 +74,10 @@ export const PIPELINE_STEPS: PipelineStep[] = [
   {
     id: "lfa",
     index: 4,
-    label: "Least Frequency Analysis",
+    label: "Rarity Analysis",
     produces: "Candidate + rarity",
     caption:
-      "Step 4 of 5 — Least Frequency Analysis: how many hosts across the fleet talked to this destination? Rarer destinations are more interesting.",
+      "Step 4 of 5 — Rarity Analysis: how many hosts across the fleet talked to this destination? Rarer destinations are more interesting.",
     isBoundary: false,
     funnelStage: "candidates",
   },

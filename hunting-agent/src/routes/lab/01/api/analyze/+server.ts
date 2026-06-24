@@ -1,4 +1,4 @@
-import { selectProvider } from "$lib/server/provider.js";
+import { getProvider } from "../../../../../framework/providers/index.js";
 import {
   addAnalysis,
   addInput,
@@ -20,7 +20,9 @@ function selectedModel(): string {
 }
 
 const SYSTEM_PROMPT =
-  "You are a concise security analyst. Produce a short initial analysis.";
+  "You are a concise security analyst. Given an observation, respond with a short initial analysis ONLY. " +
+  "Begin directly with the analysis — do not narrate your process, do not mention checking or reading memory, " +
+  "files, tools, skills, or project context, and add no preamble, meta-commentary, or sign-off.";
 
 export const POST: RequestHandler = async ({ request }) => {
   const { text, sessionId } = (await request.json()) as {
@@ -35,7 +37,7 @@ export const POST: RequestHandler = async ({ request }) => {
     });
   }
 
-  const provider = selectProvider();
+  const provider = getProvider();
   const state0 = createPipelineState(sessionId ?? "session-ui");
   const state1 = addInput(state0, {
     id: `inp-${Date.now()}`,

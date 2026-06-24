@@ -158,6 +158,7 @@
   <div class="formula">
     <span>composition</span>
     <code>weighted dimensions -> composite score {pair.scoring.composite_score.toFixed(3)} -> beacon score {score.toFixed(2)}</code>
+    <small class="formula-note">The composite is the candidate's beacon-derived score from the dataset; the regularity dimensions below are its components, shown representatively — they need not sum exactly to the composite.</small>
   </div>
 
   <div class="waterfall" aria-label="Score composition">
@@ -284,6 +285,13 @@
     font-family: var(--font-heading);
     font-size: .8rem;
     overflow-wrap: anywhere;
+  }
+
+  .formula-note {
+    margin-top: .2rem;
+    color: var(--dracula-comment);
+    font-size: .76rem;
+    line-height: 1.5;
   }
 
   .waterfall {

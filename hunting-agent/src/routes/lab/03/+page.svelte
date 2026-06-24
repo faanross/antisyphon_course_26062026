@@ -240,7 +240,7 @@
               <p>
                 This is where it all becomes concrete. See exactly what the harness assembles
                 for each model call: the <strong>system prompt</strong>, the
-                <strong>pinned</strong> and <strong>recent</strong> turns kept word-for-word,
+                <strong>recent</strong> turns kept word-for-word,
                 and the older turns collapsed into a <strong>memory summary</strong>. The
                 colour-coded messages array shows which turns are kept verbatim vs. compacted.
               </p>

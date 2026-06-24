@@ -593,7 +593,7 @@
   .cap-stage small { color: #7d7d92; font-size: 0.66rem; }
   .cv-note { margin: 1rem 0 0; color: #aeaebe; font-size: 0.9rem; line-height: 1.7; }
 
-  /* Concept cards (override lab14 global article) */
+  /* Concept cards (override the global article style) */
   .cv-cards { display: flex; flex-direction: column; gap: 1rem; }
   .cv-card { display: block; border: 1px solid #1c1c30; border-radius: 10px; background: rgba(18, 18, 26, 0.6); padding: 1.1rem 1.2rem 1.25rem; transition: border-color 0.2s, transform 0.2s; }
   .cv-card:hover { border-color: #33335a; transform: translateY(-2px); }

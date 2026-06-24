@@ -79,7 +79,11 @@
   }
 
   function hourColor(hour: number): string {
-    if (hour >= 8 && hour < 18) return "rgba(245, 230, 99, 0.78)";
+    // Scenario clock is America/New_York (EDT, UTC-4); the axis is in UTC.
+    // Business hours 08:00-18:00 local == 12:00-22:00 UTC, so the candidate's
+    // active 14:00-20:00 UTC bars correctly read as business hours (matching
+    // the enrichment "100% business hours" value).
+    if (hour >= 12 && hour < 22) return "rgba(245, 230, 99, 0.78)";
     return "rgba(189, 147, 249, 0.72)";
   }
 </script>
@@ -215,7 +219,7 @@
       <span><i class="off"></i>Outside business hours</span>
       <span><i class="mean"></i>Mean/hr</span>
     </div>
-    <p class="caption">This mirrors the candidate-review density view: when traffic happens matters as much as how regular it is.</p>
+    <p class="caption">This mirrors the candidate-review density view: when traffic happens is as telling as how regular it is.</p>
   </article>
 </section>
 

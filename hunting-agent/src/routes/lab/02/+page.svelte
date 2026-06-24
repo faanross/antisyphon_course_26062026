@@ -105,7 +105,7 @@
               </div>
               <p>
                 Start at <strong>Step 0</strong> (the raw telemetry wall) and walk forward
-                one stage at a time: Housekeeping → Correlation → Scoring → Least-Frequency
+                one stage at a time: Housekeeping → Correlation → Scoring → Rarity
                 Analysis → Enrichment. Use the <strong>Next/Back</strong> buttons, the
                 numbered stepper, or your <strong>arrow keys</strong>. Step back and forth to
                 compare a stage with the one before it.

@@ -80,7 +80,7 @@
         body: "Adds coarse infrastructure ownership and location context. It helps explain whether traffic points to a known cloud provider, SaaS platform, ISP, or unusual hosting.",
         details: [
           "GeoIP can be wrong or imprecise.",
-          "ASN often matters more than country for infrastructure triage.",
+          "ASN is often more informative than country for infrastructure triage.",
         ],
       },
     },
