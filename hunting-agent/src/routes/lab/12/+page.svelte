@@ -158,9 +158,10 @@
           <h2>Run the whole hunt, start to finish</h2>
           <p>
             This is the capstone. One click runs the <strong>entire pipeline</strong> you built up
-            across Labs 09–11 — fan-out detection, the shared graph, and the narrative. Nothing here
-            is new; the goal is to watch every stage you learned in isolation execute
-            <strong>in sequence</strong>, and recognise the primitives composing into one system.
+            across Labs 07 and 09–11 — fan-out detection, per-true-positive assessment, the shared
+            graph, and the narrative. Nothing here is new; the goal is to watch every stage you
+            learned in isolation execute <strong>in sequence</strong>, and recognise the primitives
+            composing into one system.
           </p>
         </header>
 
@@ -186,13 +187,14 @@
             <span class="flow-rail"><StackIcon size={22} weight="duotone" /></span>
             <div class="flow-body">
               <div class="flow-top">
-                <span class="flow-title">2 · Read the integrated result</span>
-                <span class="flow-where">Integrated Result panel</span>
+                <span class="flow-title">2 · Watch the stages stream</span>
+                <span class="flow-where">pipeline stepper + stage cards</span>
               </div>
               <p>
-                When it finishes, the <strong>Integrated Result</strong> panel shows the headline
-                numbers: how many <strong>findings</strong> fan-out detection produced, and the
-                <strong>graph nodes</strong> and <strong>edges</strong> that linked them.
+                A five-step stepper — <strong>Detection → Assessment → Graph → Narrative →
+                Report</strong> — lights up as each stage runs. The Detection and Assessment cards
+                show one box per worker, flipping to <strong>TP</strong> / <strong>FP</strong> as the
+                real model calls return — no per-stage clicking like the earlier labs.
               </p>
             </div>
           </li>
@@ -203,15 +205,15 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">3 · Read the narrative</span>
-                <span class="flow-where">Narrative panel</span>
+                <span class="flow-where">Narrative card</span>
               </div>
               <p>
-                The <strong>Narrative</strong> panel holds the campaign story the model wrote —
+                The <strong>Narrative</strong> card streams the campaign story the model wrote —
                 grounded strictly in the graph's entities and edges (Lab 11). Like detection and
                 assessment, narrative is driven by a <strong>loadable skill file</strong>
                 (<code>skills/narrative/narrate-host-activity.md</code>), not a hardcoded prompt. The
                 hunt then saves that narrative as a final <strong>Markdown report</strong> — the
-                single human-readable artifact (see the <strong>Final Report</strong> panel).
+                single human-readable artifact (see the <strong>Report</strong> card).
               </p>
             </div>
           </li>
@@ -225,9 +227,9 @@
                 <span class="flow-where">Code tab · optional</span>
               </div>
               <p>
-                Every number on screen traces back to a lab you already ran: detect (09) → connect
-                (10) → narrate (11). The optional <strong>Code</strong> tab walks the exact ordering
-                and which stages call the model.
+                Every stage on screen traces back to a lab you already ran: detect (09) → assess (07)
+                → connect (10) → narrate (11). The optional <strong>Code</strong> tab walks the exact
+                ordering and which stages call the model.
               </p>
             </div>
           </li>
@@ -327,7 +329,7 @@
 
     <!-- 5 · Report -->
     <section class="panel stage-card" class:active={stages.report === "active"} class:done={stages.report === "done"}>
-      <div class="stage-head"><span class="stage-num">5</span><h2>Report — the saved artifact</h2><span class="stage-lab">output</span></div>
+      <div class="stage-head"><span class="stage-num">5</span><h2>Report — the saved artifact</h2><span class="stage-lab">artifact</span></div>
       <p class="stage-note">The narrative is written to disk as a Markdown report — the hunt's single human-readable output.</p>
       {#if result?.report}
         <p class="report-path">{result.report.path}</p>
@@ -407,6 +409,8 @@
           <p class="cv-lead">Each stage is a thing you already built. The capstone just runs them in order:</p>
           <div class="cap-chain">
             <span class="cap-stage"><ArrowsOutIcon size={15} weight="duotone" />detect<small>Lab 09</small></span>
+            <ArrowRightIcon size={14} weight="bold" />
+            <span class="cap-stage"><CpuIcon size={15} weight="duotone" />assess<small>Lab 07</small></span>
             <ArrowRightIcon size={14} weight="bold" />
             <span class="cap-stage"><GraphIcon size={15} weight="duotone" />connect<small>Lab 10</small></span>
             <ArrowRightIcon size={14} weight="bold" />
