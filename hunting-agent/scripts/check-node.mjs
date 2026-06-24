@@ -1,6 +1,6 @@
-// Runs automatically on `npm install` (preinstall). Blocks the install with a
-// friendly, actionable message if the Node version is one the workshop toolchain
-// can't use. Supported: Node 20.19+, 22.12+ (recommended LTS), or 24+. NOT 21 or 23.
+// Runs automatically on `npm install` (preinstall) AND `npm run dev` (predev), so an
+// unsupported Node is caught before either can fail or crash the dev server. Blocks with a
+// friendly, actionable message. Supported: Node 20.19+, 22.12+ (recommended LTS), or 24+. NOT 21/23.
 const [major, minor] = process.versions.node.split('.').map(Number);
 const ok = (major === 20 && minor >= 19) || (major === 22 && minor >= 12) || major >= 24;
 
@@ -10,7 +10,7 @@ if (!ok) {
 ${RED}✖ Node ${process.versions.node} is not supported by this workshop.${RST}
 
   Supported: ${YEL}Node 22.12+ (recommended LTS)${RST}, or 20.19+, or 24+.
-  ${DIM}Node 21 and 23 are NOT supported (npm install fails with EBADENGINE).${RST}
+  ${DIM}Vite 8 needs 20.19+ / 22.12+ — on older Node the dev server is unstable and crashes. Node 21 and 23 are also unsupported.${RST}
 
   Easiest fix — run the setup script for your OS from the project folder:
     ${CYN}macOS / Linux:${RST}  ./setup.sh
@@ -20,7 +20,7 @@ ${RED}✖ Node ${process.versions.node} is not supported by this workshop.${RST}
     ${CYN}volta:${RST}  volta install node@22.12.0
     ${CYN}nvm:${RST}    nvm install 22.12.0 && nvm use 22.12.0
     ${CYN}fnm:${RST}    fnm install 22.12.0 && fnm use 22.12.0
-  ${DIM}(.node-version in this folder pins 22.12.0 for managers that read it.)${RST}
+  ${DIM}(This folder pins 22.12.0 via .nvmrc and .node-version — with nvm or fnm you can just run 'nvm use' here.)${RST}
 `);
   process.exit(1);
 }

@@ -24,6 +24,8 @@ The app defaults to `LLM_PROVIDER=mock` when no `.env` file is present, so it ca
 
 ## Setup
 
+**Requires Node 22.12+** (or 20.19+ / 24+ — Vite 8 is unstable on older Node and the dev server will crash). `npm ci` and `npm run dev` both refuse to run on an unsupported version and print how to switch. Easiest path: run `./setup.sh` (macOS/Linux) or `powershell -ExecutionPolicy Bypass -File setup.ps1` (Windows) — it installs the right Node + dependencies. With nvm/fnm, `nvm use` in this folder picks up the pinned `.nvmrc` (22.12.0).
+
 ```bash
 npm ci
 npm run check
@@ -41,7 +43,7 @@ Lab 08 embeds text with a real local model, separate from your chat `LLM_PROVIDE
 ollama pull nomic-embed-text
 ```
 
-Defaults to `http://localhost:11434` (`nomic-embed-text`); override with `EMBED_BASE_URL` / `EMBED_MODEL`. The vector index `data/rag/vectors.bin` is committed; regenerate it with `npm run rag:build`.
+Defaults to `http://localhost:11434` (`nomic-embed-text`); override with `EMBED_BASE_URL` / `EMBED_MODEL`. The vector index `data/rag/vectors.bin` is committed; regenerate it with `npm run rag:build` (needs Ollama). The clean, pre-chunk corpus the browser displays, `data/rag/reports.json`, is rebuilt from `data/rag/corpus/*.md` with `npm run rag:corpus` (no Ollama).
 
 ## Data
 
@@ -51,6 +53,7 @@ The app consumes the generated workshop artifacts in:
 - `data/events_enriched.json`
 - `data/rag/chunks.json`
 - `data/rag/vectors.bin`
+- `data/rag/reports.json`
 - `skills/`
 - `context/`
 - `graph/`
