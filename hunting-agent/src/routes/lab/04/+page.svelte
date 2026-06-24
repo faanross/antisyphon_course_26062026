@@ -106,42 +106,45 @@
       }
     | { type: "error"; message: string };
 
+  // Display mirror of LAB03_TOOL_DEFINITIONS in framework/tools.ts (server-only — it imports
+  // data loaders, so it can't be imported into this client page). This MUST stay in sync with
+  // that catalog: it is the exact tool list the model is shown in its prompt (renderToolCatalog).
   const initialTools: ToolDefinition[] = [
     {
       name: "query_candidates",
-      purpose: "Find candidates by type, score, host, destination, process, or id.",
-      args: ["type?", "minBeaconScore?", "host?", "destIp?", "candidateIds?"],
+      purpose: "Find candidate records by type, score, host, destination, process, or candidate id.",
+      args: ["type?", "minBeaconScore?", "minCompositeScore?", "host?", "destIp?", "processGuid?", "processName?", "candidateIds?", "limit?"],
       returns: "Compact candidate rows sorted by score.",
     },
     {
       name: "get_candidate_detail",
-      purpose: "Open one candidate for attribution, enrichment, and evidence ids.",
+      purpose: "Open one candidate when the agent needs attribution, enrichment, score, and evidence ids.",
       args: ["candidateId"],
-      returns: "Detailed candidate record.",
+      returns: "Detailed candidate record with key triage fields.",
     },
     {
       name: "get_related_events",
-      purpose: "Retrieve raw supporting events for a selected candidate.",
+      purpose: "Retrieve raw supporting events for a candidate after the candidate has been identified.",
       args: ["candidateId", "eventTypes?", "limit?"],
-      returns: "Sysmon and connection evidence.",
+      returns: "Sysmon and connection evidence tied to the candidate.",
     },
     {
       name: "lookup_asset",
-      purpose: "Look up host context to weigh the user or process role.",
+      purpose: "Look up host context to weigh the process or user role.",
       args: ["host?", "srcIp?"],
-      returns: "Observed users, processes, and inferred asset role.",
+      returns: "Observed users, processes, candidate count, and inferred asset role.",
     },
     {
       name: "lookup_threat_intel",
-      purpose: "Check whether a destination has threat-intel context.",
+      purpose: "Check whether a destination has threat intelligence context.",
       args: ["destIp"],
-      returns: "Intel source, tags, and related candidates.",
+      returns: "Threat-intel match, source, tags, and related candidates.",
     },
     {
       name: "explain_score",
-      purpose: "Inspect why a candidate scored high or low.",
+      purpose: "Inspect why a candidate scored high or low before treating score as maliciousness.",
       args: ["candidateId"],
-      returns: "Score dimensions and interpretation.",
+      returns: "Score dimensions and a short score interpretation.",
     },
   ];
 
@@ -171,13 +174,13 @@ Choose the next best action for this investigation.
 `;
   const WIRE_CATALOG = `Available tools:
 - query_candidates
-  purpose: Find candidates by type, score, host, destination, process, or id.
-  args: type?, minBeaconScore?, host?, destIp?, candidateIds?
+  purpose: Find candidate records by type, score, host, destination, process, or candidate id.
+  args: type?, minBeaconScore?, minCompositeScore?, host?, destIp?, processGuid?, processName?, candidateIds?, limit?
   returns: Compact candidate rows sorted by score.
 - get_candidate_detail
-  purpose: Open one candidate for attribution, enrichment, and evidence ids.
+  purpose: Open one candidate when the agent needs attribution, enrichment, score, and evidence ids.
   args: candidateId
-  returns: Detailed candidate record.
+  returns: Detailed candidate record with key triage fields.
   … all six tools, in the same format, exactly as listed in Available Tools above …`;
   const WIRE_U2 = `
 
