@@ -624,7 +624,8 @@
               </div>
               <p>
                 Everything below the strip is <em>net-new from this layer</em>. Expand
-                <strong>Execution Trace</strong> to see the deterministic steps, open the
+                <strong>Execution Trace</strong> to see the deterministic trace scaffolding of the run
+                (its final step narrates the agentic model loop), open the
                 <strong>Handoff</strong> tab for where the finding originates, and the optional
                 <strong>Code</strong> tab for how context injection works under the hood.
               </p>
@@ -726,7 +727,8 @@
         <p class="panel-intro">
           Unlike detection — where the harness injects the candidates directly — the assessment agent
           <strong>retrieves its own entity context</strong> by calling tools in a bounded loop, then judges.
-          The org-wide compliance baseline is injected; the asset record and incident history are tool-fetched.
+          The severity skill has the org-wide compliance baseline injected; the behavioral-context skill
+          injects nothing and relies entirely on the tool-fetched asset record and incident history.
         </p>
 
         {#if injectedContext.length}
@@ -855,7 +857,7 @@
   <span class="c-key">"attackNarrative"</span>: <span class="c-str">"the model's detection write-up…"</span>,  <span class="c-cm">// a typed field, not a blob</span>
   <span class="c-key">"evidenceRefs"</span>: &#123;
     <span class="c-key">"candidateIds"</span>: [<span class="c-str">"TLS-001"</span>, <span class="c-str">"INTEL-001"</span>, <span class="c-str">"DT-001"</span>],  <span class="c-cm">// → pull supporting evidence</span>
-    <span class="c-key">"eventIds"</span>: [<span class="c-str">"EVT-1180"</span>, <span class="c-str">"EVT-1182"</span>]
+    <span class="c-key">"eventIds"</span>: [<span class="c-str">"EVT-SYSMON-EID1-001"</span>, <span class="c-str">"EVT-CONN-001"</span>]
   &#125;
 &#125;</code></pre>
           <p class="cv-note">The DetectionFinding is a <strong>typed object</strong> — its reasoning lives in named fields (<code>attackNarrative</code>, <code>evidenceSummary</code>), never one prose blob. The harness uses <code>candidateId</code> to re-load the candidate and <code>evidenceRefs.candidateIds</code> to pull its correlated evidence. The agent then looks up org context keyed off the finding's own <code>scope.host</code>, and the assessment runs over the finding, that retrieved context, and the injected compliance baseline.</p>
@@ -922,9 +924,11 @@
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">A</span> The journey of one assessment<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">
-            Five phases. The new one is <em>agentic context retrieval</em>: the model calls tools to
-            fetch the entity context it needs, then judges. Unlike Lab 06's single call, the model
-            runs in a short bounded loop here.
+            Five phases, listed in conceptual order. The new one is <em>agentic context retrieval</em>:
+            the model calls tools to fetch the entity context it needs, then judges. Unlike Lab 06's
+            single call, the model runs in a short bounded loop here. In the actual run that loop fires
+            during the execute phase — after the supporting evidence is loaded — so in the Execution
+            Trace it appears as the final step.
           </p>
 
           <ol class="flow">
@@ -946,7 +950,7 @@
               <span class="flow-rail"><FoldersIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Agentic context retrieval</span><span class="flow-badge">the key step</span><span class="flow-where">server · assessment-agent-loop.ts</span></div>
-                <p>This is the difference from detection. The agent runs a <strong>bounded tool loop</strong> (max 4 steps): it calls <code>get_asset_record</code> and <code>get_incident_history</code> to fetch the entity context it needs, keying off the finding's own host / user / subnet. The org-wide compliance baseline is injected; the entity records are <strong>retrieved by the model itself</strong>. Watch each step in panel 04.</p>
+                <p>This is the difference from detection. The agent runs a <strong>bounded tool loop</strong> (max 4 steps): it calls <code>get_asset_record</code> and <code>get_incident_history</code> to fetch the entity context it needs, keying off the finding's own host / user / subnet. The severity skill also has the org-wide compliance baseline injected; the entity records are always <strong>retrieved by the model itself</strong>. Watch each step in panel 04.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
@@ -986,7 +990,7 @@
               </div>
               <div class="asm-row asm-user">
                 <BuildingsIcon size={18} weight="duotone" />
-                <div><strong>Context</strong><small>→ user prompt: injected compliance + the records the agent retrieved</small></div>
+                <div><strong>Context</strong><small>→ user prompt: any injected compliance (severity skill only) + the records the agent retrieved</small></div>
               </div>
               <div class="asm-row asm-user">
                 <DatabaseIcon size={18} weight="duotone" />
@@ -1017,7 +1021,7 @@
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><SyringeIcon size={26} weight="duotone" /><h4>The agent retrieves its own context</h4></div>
-              <p>Unlike detection (candidates injected directly), the assessment agent calls tools — <code>get_asset_record</code>, <code>get_incident_history</code> — to fetch entity context itself, the same agentic pattern as Lab 04. Org-wide compliance is the one piece injected up front.</p>
+              <p>Unlike detection (candidates injected directly), the assessment agent calls tools — <code>get_asset_record</code>, <code>get_incident_history</code> — to fetch entity context itself, the same agentic pattern as Lab 04. For the severity skill, org-wide compliance is the one piece injected up front; the behavioral-context skill injects nothing.</p>
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><StackIcon size={26} weight="duotone" /><h4>Organizational context is layered</h4></div>

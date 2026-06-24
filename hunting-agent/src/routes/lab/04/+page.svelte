@@ -127,7 +127,7 @@
     },
     {
       name: "lookup_asset",
-      purpose: "Look up host context when user or process role matters.",
+      purpose: "Look up host context to weigh the user or process role.",
       args: ["host?", "srcIp?"],
       returns: "Observed users, processes, and inferred asset role.",
     },
@@ -146,7 +146,7 @@
   ];
 
 
-  let sessionId = $state(`lab03-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  let sessionId = $state(`lab04-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   let activeTab = $state<"instructions" | "chat" | "trace" | "code">("instructions");
   let message = $state("");
   let turns = $state<Turn[]>([]);
@@ -211,7 +211,7 @@ None yet.`;
 
   function resetConversation() {
     if (busy) return;
-    sessionId = createId("lab03");
+    sessionId = createId("lab04");
     message = "";
     turns = [];
     availableTools = initialTools;
@@ -495,9 +495,10 @@ None yet.`;
                     <span class="flow-where">Available Tools panel</span>
                   </div>
                   <p>
-                    First, expand <strong>Available Tools</strong> below the console. These six are
-                    what the agent can reach, each with a one-line purpose. Read them so you know
-                    what a <em>correct</em> choice looks like before you start asking.
+                    When you switch to the Chat tab, expand <strong>Available Tools</strong> below
+                    the console first. These six are what the agent can reach, each with a one-line
+                    purpose. Read them so you know what a <em>correct</em> choice looks like before
+                    you start asking.
                   </p>
                 </div>
               </li>
@@ -823,9 +824,9 @@ None yet.`;
                 </article>
                 <article class="cv-card">
                   <div class="cv-card-head"><ShieldCheckIcon size={26} weight="duotone" /><h4>A strict contract keeps the loop bounded</h4></div>
-                  <p>Every decision must be valid JSON naming a known tool; anything else is rejected as an error trace. And the loop is capped at four steps — it can gather evidence, but it can't spin forever.</p>
+                  <p>Each step must be a JSON decision naming a known tool — or, once it has gathered evidence, the model may simply answer in prose to finish. A JSON object naming an unknown tool, or non-JSON before any evidence, is rejected as an error trace. And the loop is capped at four steps — it can gather evidence, but it can't spin forever.</p>
                   <div class="cv-chain">
-                    <span class="cv-chip">valid JSON only</span>
+                    <span class="cv-chip">JSON decision or prose finish</span>
                     <span class="cv-chip">known tools only</span>
                     <span class="cv-chip cv-chip-live">≤ 4 steps</span>
                   </div>

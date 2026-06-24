@@ -215,8 +215,10 @@
               <p>
                 Now the <strong>reduce</strong>: one model call reads <em>all</em> the collected findings
                 at once and writes a prioritized triage — the overall picture, what to look at first, and
-                which findings are the same incident. That cross-finding view is something no single
-                worker could produce. <strong>This</strong> is the synthesis.
+                which findings are the same incident. First a <strong>Reduce · Agent Prompts</strong> panel
+                shows how the fan-in agent is instructed before it synthesizes (just as the worker prompts
+                were shown in earlier labs); then the triage streams into <strong>Reduce · Batch Synthesis</strong>.
+                That cross-finding view is something no single worker could produce. <strong>This</strong> is the synthesis.
               </p>
             </div>
           </li>
@@ -243,11 +245,13 @@
           <p>
             <strong>Your whole detection library, run at once.</strong> The plan no longer fans out a
             single skill — it fans out <em>every</em> detection skill across the candidate set. Three
-            skills now cover three candidate types: <code>hunt-c2-over-https</code> (HTTPS beacons),
+            skills cover three candidate types: <code>hunt-c2-over-https</code> (HTTPS beacons),
             <code>hunt-ai-tool-execution-anomaly</code> (a coding / AI assistant spawning a rare child),
-            and <code>hunt-malicious-powershell-payload</code> (encoded PowerShell). So the findings
-            come back as a <em>mix of types</em> that line up into one kill chain — AI&nbsp;tool →
-            encoded&nbsp;PowerShell → C2&nbsp;beacon — not three copies of the same finding.
+            and <code>hunt-malicious-powershell-payload</code> (encoded PowerShell). Across this candidate
+            set that's <strong>8 detection jobs</strong> — so most workers come back <em>benign</em>. The
+            real work is discrimination: separating the kill chain (AI&nbsp;tool → encoded&nbsp;PowerShell
+            → C2&nbsp;beacon) from the benign look-alikes (EDR heartbeats, Outlook, backup agents), then
+            letting reduce synthesize which findings are one incident.
           </p>
         </aside>
 
@@ -403,6 +407,9 @@
             <span class="cv-mm-sep">→</span>
             <ArrowsInIcon size={20} weight="duotone" />
             <span>collect findings</span>
+            <span class="cv-mm-sep">→</span>
+            <ListChecksIcon size={20} weight="duotone" />
+            <span>reduce to one triage</span>
           </div>
         </header>
 
@@ -433,14 +440,14 @@
               <span class="flow-rail"><ArrowsOutIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Fan out — dispatch concurrently</span><span class="flow-badge">the key step</span><span class="flow-where">server · orchestrator.ts</span></div>
-                <p><code>Promise.allSettled()</code> launches every job at once. Because the jobs don't depend on each other, they run in parallel instead of one-after-another.</p>
+                <p>The <code>map()</code> invokes every async job at once (each runs up to its first <code>await</code>), then <code>Promise.allSettled()</code> waits for them all without short-circuiting on a failure. Because the jobs don't depend on each other, they run in parallel instead of one-after-another.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 270ms">
               <span class="flow-rail"><RobotIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Each worker runs a detection</span><span class="flow-where">server · providers/*</span></div>
-                <p>Every job is a real detection-skill execution — exactly what you saw in Lab 06 — producing one structured <code>DetectionFinding</code>. Each emits its own progress event.</p>
+                <p>Every job is the same detection-skill execution <em>pattern</em> as Lab 06 — skill as system prompt, evidence bundle as user prompt, one real model call → a structured <code>DetectionFinding</code>. Each emits its own progress event.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 360ms">
@@ -448,6 +455,13 @@
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Fan in — collect the findings</span><span class="flow-where">server · orchestrator.ts</span></div>
                 <p>Fulfilled jobs contribute their finding; failed or unparseable ones are reported and <strong>dropped</strong>, never faked. The trace plus the collected findings stream back to the UI.</p>
+              </div>
+            </li>
+            <li class="flow-step" style="--d: 450ms">
+              <span class="flow-rail"><ListChecksIcon size={22} weight="duotone" /></span>
+              <div class="flow-body">
+                <div class="flow-top"><span class="flow-title">Reduce — synthesize the batch</span><span class="flow-where">server · orchestrator.ts</span></div>
+                <p><code>reduceFindingsToTriage()</code> makes one more model call over the whole collected list and writes a prioritized triage — the cross-finding view no single worker had. That synthesis streams back token by token.</p>
               </div>
             </li>
           </ol>
@@ -505,7 +519,7 @@
             </article>
             <article class="cv-card">
               <div class="cv-card-head"><RepeatIcon size={26} weight="duotone" /><h4>It's Lab 06, multiplied</h4></div>
-              <p>Each worker is the exact detection-skill execution from Lab 06. Orchestration adds nothing to the unit of work — it just composes many of them. Scale comes from composition, not new magic.</p>
+              <p>Each worker is the same detection-skill execution <em>pattern</em> as Lab 06 — skill as system prompt, evidence as user prompt, one real model call. The fan-out worker trusts the model's <code>compositeScore</code> rather than recomputing it, but the unit of work is unchanged; orchestration just composes many of them. Scale comes from composition, not new magic.</p>
             </article>
           </div>
         </details>
@@ -517,10 +531,10 @@
           <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/src/</span>
 │
 ├─ <span class="tr-dir">routes/lab/09/api/orchestrate/</span>
-│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← endpoint → runDetectionFanOut()</span>
+│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← endpoint → runDetectionFanOut() + reduceFindingsToTriage()</span>
 │
 └─ <span class="tr-dir">framework/</span>
-   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← plan · fan-out (allSettled) · fan-in</span>
+   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← plan · fan-out (allSettled) · fan-in · reduce</span>
    └─ <span class="tr-file">skill-execution.ts</span>     <span class="tr-cm">← plan invocations · run one detection (the worker)</span></code></pre>
         </details>
 

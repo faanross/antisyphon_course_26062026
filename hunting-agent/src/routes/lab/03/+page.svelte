@@ -343,7 +343,6 @@
           {/each}
         </div>
         <div class="msg-legend">
-          <span><i class="dot pinned"></i> pinned</span>
           <span><i class="dot compacted"></i> compacted memory</span>
           <span><i class="dot middle"></i> middle</span>
           <span><i class="dot recent"></i> recent</span>
@@ -552,7 +551,7 @@
             <div class="cw-legend">
               <span><i class="cw-dot cw-sys"></i> System prompt — fixed overhead, sent every call</span>
               <span><i class="cw-dot cw-mem"></i> Compacted memory — a summary that stands in for dropped turns</span>
-              <span><i class="cw-dot cw-pin"></i> Pinned turns — the first turns, kept verbatim</span>
+              <span><i class="cw-dot cw-pin"></i> Pinned turns — an optional knob to keep the first turns verbatim (off in this lab)</span>
               <span><i class="cw-dot cw-old"></i> Older turns — the compactable middle</span>
               <span><i class="cw-dot cw-rec"></i> Recent turns — the latest turns, kept verbatim</span>
             </div>
@@ -560,7 +559,7 @@
               As you chat, the filled portion grows. The moment it crosses the trigger, the
               <strong class="cw-hl-old">older</strong> middle turns are summarized into
               <strong class="cw-hl-mem">compacted memory</strong> and dropped — the bar falls
-              sharply, while pinned and recent turns stay verbatim. Nothing important is lost; it
+              sharply, while the recent turns stay verbatim. Nothing important is lost; it
               just gets smaller.
             </p>
           </div>
@@ -611,12 +610,13 @@
                 <h4>The middle folds; the ends are protected</h4>
               </div>
               <p>
-                Compaction only ever touches the <em>middle</em>. The first few turns (pinned)
-                set up the conversation, and the last few (recent) keep follow-ups accurate — both
-                are always kept verbatim.
+                Compaction only ever touches the <em>middle</em>. The last few turns (recent) keep
+                follow-ups accurate and are always kept verbatim. An optional knob can also pin the
+                first few turns, but this lab ships with that off — so only the recent turns are
+                protected.
               </p>
               <div class="cv-chain">
-                <span class="cv-chip cv-chip-iface">pinned</span>
+                <span class="cv-chip cv-chip-iface">pinned (off)</span>
                 <ArrowRightIcon size={14} weight="bold" />
                 <span class="cv-chip cv-chip-live">older → memory</span>
                 <ArrowRightIcon size={14} weight="bold" />
@@ -637,7 +637,7 @@
               </p>
               <pre class="cv-code"><code>MEMORY_MAX_TOKENS=600       <span class="c-cm">// the ceiling (retained context)</span>
 MEMORY_TRIGGER_RATIO=0.67   <span class="c-cm">// compact at 67% → trigger 402</span>
-MEMORY_PINNED_TURNS=0       <span class="c-cm">// opening turns kept verbatim</span>
+MEMORY_PINNED_TURNS=0       <span class="c-cm">// opening turns to pin (0 = off in this lab)</span>
 MEMORY_KEEP_RECENT=2        <span class="c-cm">// latest turns kept verbatim</span></code></pre>
             </article>
           </div>

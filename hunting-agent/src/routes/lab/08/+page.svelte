@@ -147,11 +147,11 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">2 · Describe your situation and run a query</span>
-                <span class="flow-where">RAG Query · Send</span>
+                <span class="flow-where">Ask the corpus · Run RAG query</span>
               </div>
               <p>
-                In the <strong>RAG Query</strong> box, describe what you're investigating in plain
-                language — symptoms, hosts, behaviour — then hit <strong>Send</strong>. You're not
+                In the <strong>Ask the corpus</strong> box, describe what you're investigating in plain
+                language — symptoms, hosts, behaviour — then hit <strong>Run RAG query</strong>. You're not
                 typing keywords or filenames; you're describing the case, and the system finds the
                 most similar past work by meaning.
               </p>
@@ -185,10 +185,10 @@
             <div class="flow-body">
               <div class="flow-top">
                 <span class="flow-title">4 · Read the synthesis</span>
-                <span class="flow-where">Synthesis · RAG Query output</span>
+                <span class="flow-where">Generate — grounded answer</span>
               </div>
               <p>
-                The <strong>Synthesis</strong> panel is the model's answer — a real model call, written
+                Stage 4 (<strong>Generate — grounded answer</strong>) is the model's answer — a real model call, written
                 <em>using the retrieved cases as precedent</em>. Notice how it references the prior
                 investigations rather than reasoning from scratch: that's retrieval feeding generation.
               </p>
@@ -269,7 +269,7 @@
         <!-- 3 · AUGMENT -->
         <li class="stage" class:active={isActive("augmenting")} class:done={isDone("augmenting")}>
           <div class="stage-head"><span class="stage-n">3</span> Augment — build the prompt</div>
-          <p class="stage-note">The retrieved text is pasted into the prompt. The model sees <strong>only these snippets</strong>, not the whole corpus — that's what keeps the answer grounded.</p>
+          <p class="stage-note">The retrieved snippets are pasted into the prompt alongside the case's standing context (asset, user, policy and prior-incident layers). The model sees <strong>these</strong> — not all 96 corpus chunks — which is what keeps the answer grounded.</p>
           {#if contextText}
             <details class="ctx">
               <summary>Show the injected context ({contextText.length.toLocaleString()} chars)</summary>
@@ -346,7 +346,7 @@
             <li class="flow-step" style="--d: 90ms">
               <span class="flow-rail"><VectorThreeIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
-                <div class="flow-top"><span class="flow-title">Embed the query</span><span class="flow-where">server · rag.ts</span></div>
+                <div class="flow-top"><span class="flow-title">Embed the query</span><span class="flow-where">server · rag.ts → embeddings.ts</span></div>
                 <p>The query text is turned into a <strong>768-number vector</strong> — a point in "meaning space" — using the <strong>same embedding model the library was built with</strong> (<code>nomic-embed-text</code>, served locally by Ollama).</p>
               </div>
             </li>
@@ -444,7 +444,9 @@
    ├─ <span class="tr-dir">routes/api/lab07/query/</span>
    │  └─ <span class="tr-file">+server.ts</span>           <span class="tr-cm">← endpoint → runRagInvestigation()</span>
    └─ <span class="tr-dir">framework/</span>
-      └─ <span class="tr-file">rag.ts</span>               <span class="tr-cm">← embed query · cosine search · build context</span></code></pre>
+      ├─ <span class="tr-file">demo.ts</span>              <span class="tr-cm">← runRagInvestigation(): embed → retrieve → augment → stream</span>
+      ├─ <span class="tr-file">rag.ts</span>               <span class="tr-cm">← cosine search over the index · build context</span>
+      └─ <span class="tr-file">embeddings.ts</span>        <span class="tr-cm">← real nomic-embed-text call (Ollama), 768-d, L2-normalized</span></code></pre>
         </details>
 
         <!-- E · The vector store: workshop vs production -->

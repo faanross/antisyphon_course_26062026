@@ -302,7 +302,7 @@ export async function runGtiMcpLifecycle(options: {
     });
 
     client = new Client(
-      { name: "antisiphon-lab04-gti", version: "1.0.0" },
+      { name: "antisyphon-lab05-gti", version: "1.0.0" },
       { capabilities: {} },
     );
 

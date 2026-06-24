@@ -73,7 +73,7 @@ export const LAB03_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   },
   {
     name: "lookup_asset",
-    purpose: "Look up host context when process or user role matters.",
+    purpose: "Look up host context to weigh the process or user role.",
     args: ["host?", "srcIp?"],
     returns: "Observed users, processes, candidate count, and inferred asset role.",
   },

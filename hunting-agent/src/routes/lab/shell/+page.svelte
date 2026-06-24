@@ -274,8 +274,9 @@
           <span>
             <strong>Home lab — runs real commands on your own machine.</strong> It's gated by
             <code>command-policy.json</code> (deny / ask / allow), but you're still executing
-            model-chosen commands. Read the policy before you start, and only run this on a machine
-            you're comfortable with.
+            model-chosen commands. Open <code>command-policy.json</code> at the project root to read
+            the deny / ask lists before you start (the Trace tab also echoes the counts once you've
+            run), and only run this on a machine you're comfortable with.
           </span>
         </div>
 
@@ -442,11 +443,11 @@
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">B</span> The gate, then the executor<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">The harness classifies the command, and only then maybe runs it:</p>
-          <pre class="cv-code"><code><span class="c-cm">// deny → never runs · ask → pause for user · else → execFile/spawn</span>
+          <pre class="cv-code"><code><span class="c-cm">// deny → never runs · ask → pause for user · else → spawn</span>
 <span class="c-key">const</span> verdict = classifyCommand(command, policy);
 <span class="c-key">if</span> (verdict.decision === <span class="c-str">"deny"</span>) observe(<span class="c-str">"blocked by policy"</span>);
 <span class="c-key">else if</span> (verdict.decision === <span class="c-str">"ask"</span>) <span class="c-key">await</span> awaitPermission(id);
-<span class="c-key">const</span> result = <span class="c-key">await</span> execCommand(command, sandboxDir); <span class="c-cm">// real shell</span></code></pre>
+<span class="c-key">const</span> result = <span class="c-key">await</span> execCommand(command, cwd); <span class="c-cm">// real shell</span></code></pre>
           <p class="cv-note">Execution uses Node's <code>child_process.spawn</code> with a timeout and an output cap. The permission pause is an in-memory promise the <code>/permission</code> endpoint resolves when you click.</p>
         </details>
 

@@ -19,7 +19,7 @@ export const POST: RequestHandler = async ({ request }) => {
           try {
             await processChatTurnStreaming(
               body.message ?? "",
-              body.sessionId ?? "lab03-session",
+              body.sessionId ?? "lab04-session",
               send,
             );
           } catch (error) {
@@ -43,6 +43,6 @@ export const POST: RequestHandler = async ({ request }) => {
 
   return json(await processChatTurn(
     body.message ?? "",
-    body.sessionId ?? "lab03-session",
+    body.sessionId ?? "lab04-session",
   ));
 };

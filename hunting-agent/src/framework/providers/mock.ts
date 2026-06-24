@@ -61,7 +61,7 @@ function finalAnswer(prompt: string): string {
     return [
       "CrowdFalcon is a likely false positive even though it has the highest beacon score.",
       "",
-      "The TAO trace matters here: the agent selected `query_candidates` to isolate the CrowdFalcon destination, then selected `explain_score` to inspect why the score is high. The observation shows regularity and consistency, which is expected for an EDR heartbeat. The LOTS match, known security-service context, and expected process explain the high score without requiring compromise.",
+      "The TAO trace is the point here: the agent selected `query_candidates` to isolate the CrowdFalcon destination, then selected `explain_score` to inspect why the score is high. The observation shows regularity and consistency, which is expected for an EDR heartbeat. The LOTS match, known security-service context, and expected process explain the high score without requiring compromise.",
       "",
       "The key distinction is that score measures beacon shape. It does not prove malicious intent.",
     ].join("\n");

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
-  import GraphIcon from "phosphor-svelte/lib/GraphIcon";
   import DatabaseIcon from "phosphor-svelte/lib/DatabaseIcon";
   import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
   import ArrowCounterClockwiseIcon from "phosphor-svelte/lib/ArrowCounterClockwiseIcon";
@@ -18,7 +17,7 @@
   const aIds = new Set(projA.nodes.map((n) => n.id));
   const sharedIds = new Set(projB.nodes.filter((n) => aIds.has(n.id)).map((n) => n.id));
 
-  // step: 0 nothing · 1 finding A projected · 2 finding B projected · 3 connection revealed
+  // step: 0 nothing · 1 finding A projected · 2 finding B projected (connection visible)
   let step = $state(0);
   let cyError = $state("");
 
@@ -268,7 +267,7 @@
   for each candidateId:  MERGE (c:Candidate …) MERGE (f)-[:BASED_ON]->(c)
   for each technique:    MERGE (t:Technique …) MERGE (f)-[:USES_TECHNIQUE]->(t)
 }`}</code></pre>
-      <p class="filehint">Real source: <code>src/framework/graph-projection.ts</code> (this lab uses a trimmed <code>finding-cypher.ts</code> shim).</p>
+      <p class="filehint">In the production engine this is <code>graph-projection.ts</code> (<code>projectDetectionFinding</code>); this lab ships a trimmed <code>finding-cypher.ts</code> shim with the same shape.</p>
       <p>One detail the labels above gloss for readability: the real engine does <strong>not</strong> create a Neo4j label per entity type. Every node is a generic <code>:Entity</code> and every edge a generic <code>:REL</code>; the semantic type is a <em>property</em> — <code>(:Entity &#123;type:'host'&#125;)</code>, <code>[:REL &#123;type:'targets'&#125;]</code>. The five canonical edge types are <code>targets</code>, <code>involves</code>, <code>based_on</code>, <code>uses_technique</code>, and <code>matches_campaign</code>. Pretty <code>:Host</code> / <code>:TARGETS</code> labels are a teaching aid only.</p>
       <p>And writes flow through this one deterministic path. Ad-hoc Cypher against the graph is <strong>read-only</strong> — conclusions enter the graph only as projected findings, never by hand-written <code>MERGE</code>.</p>
 

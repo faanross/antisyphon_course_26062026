@@ -128,7 +128,7 @@ export function buildFinalTriagePrompt(input: {
     "",
     "Answer the analyst's latest message using only the session context and tool observations below.",
     "Do not invent candidate data. If evidence is missing, say what is missing.",
-    "Mention which tool observations mattered. Keep the answer concise but explain the decision logic.",
+    "State which tool observations drove the verdict. Keep the answer concise but explain the decision logic.",
     "",
     "Current user message:",
     input.userMessage,

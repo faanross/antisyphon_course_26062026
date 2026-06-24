@@ -330,12 +330,13 @@
                 <span class="flow-where">GTI Result · Raw MCP Result</span>
               </div>
               <p>
-                The <strong>GTI Result</strong> card lays the intelligence out in two clearly
-                separated parts: <strong>AV engine detections</strong> (how many scanners flagged
-                it — the closest thing to a verdict) and <strong>community signals</strong> (votes
-                and reputation — opinions, which can disagree with the engines). <strong>Raw MCP
-                Result</strong> is the full payload off the wire. Real Google Threat Intelligence
-                data you can fold into an investigation.
+                The <strong>GTI Result</strong> card opens with an identity/metadata grid, then
+                two clearly separated signal blocks: <strong>AV engine detections</strong> (how many
+                scanners flagged it — the closest thing to a verdict) and <strong>community
+                signals</strong> (votes and reputation — opinions, which can disagree with the
+                engines), plus any tags below. <strong>Raw MCP Result</strong> is the full payload
+                off the wire. Real Google Threat Intelligence data you can fold into an
+                investigation.
               </p>
             </div>
           </li>
@@ -681,7 +682,7 @@
               <span class="flow-rail"><PlugsConnectedIcon size={22} weight="duotone" /></span>
               <div class="flow-body">
                 <div class="flow-top"><span class="flow-title">Connect — spawn the MCP server</span><span class="flow-badge">real subprocess</span><span class="flow-where">server · mcp.ts</span></div>
-                <p>The harness launches Google's GTI server as a <em>separate process</em> (<code>uv run server.py</code>) and connects to it over stdio. No HTTP, no SDK for each vendor — just the MCP protocol.</p>
+                <p>The harness launches Google's GTI server as a <em>separate process</em> (<code>uv --directory …/gti_mcp run server.py</code>) and connects to it over stdio. No HTTP, no SDK for each vendor — just the MCP protocol.</p>
               </div>
             </li>
             <li class="flow-step" style="--d: 180ms">
@@ -808,7 +809,7 @@
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">E</span> Where each piece lives<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">The MCP client is one small framework file; the server is vendored alongside the app.</p>
-          <pre class="cv-tree"><code><span class="tr-dir">antisyphon_workshop_12062026/</span>
+          <pre class="cv-tree"><code><span class="tr-dir">antisyphon_course/</span>
 │
 ├─ <span class="tr-dir">hunting-agent/src/</span>
 │  ├─ <span class="tr-dir">routes/lab/05/api/mcp/</span>
@@ -817,7 +818,7 @@
 │     └─ <span class="tr-file">mcp.ts</span>              <span class="tr-cm">← connect · listTools · agent decides · callTool</span>
 │
 └─ <span class="tr-dir">mcp-security/</span>             <span class="tr-cm">← Google's GTI MCP server, vendored</span>
-   └─ <span class="tr-dir">server/gti/</span>           <span class="tr-cm">← spawned as a subprocess (uv run server.py)</span></code></pre>
+   └─ <span class="tr-dir">server/gti/gti_mcp/</span>    <span class="tr-cm">← spawned as a subprocess (uv --directory …/gti_mcp run server.py)</span></code></pre>
         </details>
 
         <!-- Callout -->

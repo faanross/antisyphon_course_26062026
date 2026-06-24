@@ -97,9 +97,9 @@
   ];
 </script>
 
-<svelte:head><title>Bonus - Further Learning</title></svelte:head>
+<svelte:head><title>Bonus | Further Learning</title></svelte:head>
 
-<main class="lab14-shell">
+<main class="further-learning-shell">
   <section class="hero">
     <div class="hero-icon" aria-hidden="true">
       <CompassIcon size={44} weight="duotone" />
@@ -185,7 +185,7 @@
     background: #07070a;
   }
 
-  .lab14-shell {
+  .further-learning-shell {
     --bg: #07070a;
     --panel: #15151d;
     --panel-2: #1b1b25;
@@ -387,7 +387,7 @@
   }
 
   @media (max-width: 720px) {
-    .lab14-shell {
+    .further-learning-shell {
       padding-top: 1rem;
     }
 
