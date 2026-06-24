@@ -39,9 +39,9 @@ export const ASSESSMENT_TOOL_DEFINITIONS: readonly AssessmentToolDefinition[] = 
   },
   {
     name: "get_incident_history",
-    purpose: "Fetch the Layer-5 prior-incident history for a host or subnet named in the finding (precedent TP / FP verdicts).",
+    purpose: "Fetch the Layer-5 prior-incident history for the host and/or subnet named in the finding (precedent TP / FP verdicts).",
     args: ["host?", "subnet?"],
-    returns: "Incident-history markdown for the named entity.",
+    returns: "Incident-history markdown for every entity named in the call — pass host and subnet together to get both in one call.",
   },
 ];
 
@@ -70,12 +70,48 @@ export function makeAssessmentTrace(input: {
   return { id: `atool-${Date.now()}-${input.step}-${Math.random().toString(36).slice(2)}`, ...input };
 }
 
-function pickEntityKey(args: Record<string, unknown>, keys: readonly string[]): string | undefined {
+interface EntityResolution {
+  readonly content: string; // full markdown of every resolved record, for the assessment prompt
+  readonly observationBody: string; // per-record truncated preview, for the trace display
+  readonly resolvedFrom: string; // e.g. "host=dev-ws03, user=jane-roberts"
+  readonly resultCount: number;
+}
+
+// Resolve the per-entity context for EVERY entity key the call names (host AND user, or host
+// AND subnet) and concatenate the records, so one call returns everything the agent asked for.
+// Resolving only the first key would silently drop the rest and force redundant follow-up calls
+// for the same finding. The agent frequently asks for several entities in a single call.
+async function resolveEntityRecords(
+  args: Record<string, unknown>,
+  entities: Record<string, string>,
+  spec: { readonly keys: readonly string[]; readonly layer: string; readonly suffix: string; readonly id: string },
+): Promise<EntityResolution> {
+  const requested = spec.keys.filter(
+    (key) => typeof args[key] === "string" && (args[key] as string).trim() !== "" && Boolean(entities[key]),
+  );
+  // Fall back to the first candidate key (host) when the call named none — resolving it lets the
+  // shared resolver throw its "could not resolve entity" error, matching the prior behaviour.
+  const keys = requested.length > 0 ? requested : spec.keys.slice(0, 1);
+  const fullSections: string[] = [];
+  const shownSections: string[] = [];
+  const labels: string[] = [];
   for (const key of keys) {
-    const value = args[key];
-    if (typeof value === "string" && value.trim()) return key;
+    const resolved = await resolveContextRequirement(
+      { id: spec.id, mode: "resolve", path: "", entity: key, layer: spec.layer, suffix: spec.suffix, reason: spec.id },
+      entities,
+    );
+    if (resolved.content.trim() !== "") {
+      fullSections.push(resolved.content);
+      shownSections.push(truncate(resolved.content));
+      labels.push(`${key}=${entities[key] ?? "?"}`);
+    }
   }
-  return undefined;
+  return {
+    content: fullSections.join("\n\n"),
+    observationBody: shownSections.join("\n\n"),
+    resolvedFrom: labels.join(", "),
+    resultCount: Math.max(fullSections.length, 1),
+  };
 }
 
 function truncate(text: string, max = 600): string {
@@ -109,47 +145,14 @@ export async function executeAssessmentTool(
 ): Promise<AssessmentToolResult> {
   const startedAt = Date.now();
   try {
-    let content = "";
-    let resolvedFrom = "";
-    let observationBody = "";
-    let resultCount = 1;
-    if (call.tool === "get_asset_record") {
-      // The finding can name both a host and a user, and the agent often asks for both in
-      // one call. Resolve EVERY entity key it requested (host, user) so a single call returns
-      // every record asked for — otherwise the first key would win and the rest would be
-      // silently dropped, forcing a redundant follow-up call for the same finding.
-      const requested = (["host", "user"] as const).filter(
-        (key) => typeof call.args[key] === "string" && (call.args[key] as string).trim() !== "" && Boolean(entities[key]),
-      );
-      const keys: readonly ("host" | "user")[] = requested.length > 0 ? requested : (["host"] as const);
-      const fullSections: string[] = [];
-      const shownSections: string[] = [];
-      const labels: string[] = [];
-      for (const key of keys) {
-        const resolved = await resolveContextRequirement(
-          { id: "asset", mode: "resolve", path: "", entity: key, layer: "layer_1_assets", reason: "asset record" },
-          entities,
-        );
-        if (resolved.content.trim() !== "") {
-          fullSections.push(resolved.content);
-          shownSections.push(truncate(resolved.content));
-          labels.push(`${key}=${entities[key] ?? "?"}`);
-        }
-      }
-      content = fullSections.join("\n\n");
-      observationBody = shownSections.join("\n\n");
-      resolvedFrom = labels.join(", ");
-      resultCount = Math.max(fullSections.length, 1);
-    } else {
-      const entityKey = pickEntityKey(call.args, ["host", "subnet"]) ?? "host";
-      const resolved = await resolveContextRequirement(
-        { id: "history", mode: "resolve", path: "", entity: entityKey, layer: "layer_5_incidents", suffix: "-history", reason: "incident history" },
-        entities,
-      );
-      content = resolved.content;
-      observationBody = truncate(content);
-      resolvedFrom = `${entityKey}=${entities[entityKey] ?? "?"}`;
-    }
+    // Both tools resolve per-entity context; they differ only in which entity keys they accept
+    // and which layer/suffix they read. resolveEntityRecords fetches EVERY named entity so a
+    // single call returns everything asked for (host+user, or host+subnet) — no silent drop.
+    const spec =
+      call.tool === "get_asset_record"
+        ? { keys: ["host", "user"], layer: "layer_1_assets", suffix: "", id: "asset" }
+        : { keys: ["host", "subnet"], layer: "layer_5_incidents", suffix: "-history", id: "history" };
+    const { content, observationBody, resolvedFrom, resultCount } = await resolveEntityRecords(call.args, entities, spec);
     const observation = `${resolvedFrom} retrieved (${content.length} chars):\n${observationBody}`;
     const trace = makeAssessmentTrace({
       step, thought, tool: call.tool, args: call.args, status: "ok", resultCount, elapsedMs: Date.now() - startedAt, observation,
