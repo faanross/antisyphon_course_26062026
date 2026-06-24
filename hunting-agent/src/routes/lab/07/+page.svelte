@@ -642,6 +642,18 @@
             re-scoring what detection already decided.
           </p>
         </aside>
+
+        <aside class="cv-callout">
+          <RobotIcon size={22} weight="duotone" />
+          <p>
+            <strong>Running this lab on its own?</strong> Labs can be taken in any order. If you open
+            Lab 07 <em>without</em> running <strong>Lab 06</strong> first, there's no handoff waiting in
+            the browser — so the lab generates its upstream <code>DetectionFinding</code> itself by
+            making a real detection model call. That's by design (it always has a genuine finding to
+            assess), but it means the <strong>first load takes a little longer</strong> — roughly half a
+            minute — while that detection runs. Run Lab 06 first and the finding is already there, instantly.
+          </p>
+        </aside>
       </div>
     </div>
   {:else if activeTab === "lab"}
