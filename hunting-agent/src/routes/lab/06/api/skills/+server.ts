@@ -147,6 +147,21 @@ function eventIds(candidate: Candidate): string[] {
   return asArray(candidate.constituent_event_ids).map(String);
 }
 
+// Drop the bare event-ID arrays before a candidate is serialized into a MODEL prompt: the model
+// cites behavioural candidate fields, not opaque event IDs. These arrays otherwise dominate the
+// detection prompt, and nothing in detection needs them (events are reachable via the candidate).
+function slimCandidateForModel(candidate: Candidate): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...candidate };
+  delete copy.constituent_event_ids;
+  const ev = copy.evidence;
+  if (ev && typeof ev === "object" && !Array.isArray(ev)) {
+    const evCopy = { ...(ev as Record<string, unknown>) };
+    delete evCopy.constituent_event_ids;
+    copy.evidence = evCopy;
+  }
+  return copy;
+}
+
 function compactCandidate(candidate: Candidate) {
   return {
     id: candidateId(candidate),
@@ -605,8 +620,10 @@ function buildEvidenceBundle(
       invocationGate: skill.metadata.invocationGate,
       correlatingCandidates: skill.metadata.correlatingCandidates,
     },
-    invocationCandidate: trigger,
-    correlatingCandidates,
+    invocationCandidate: slimCandidateForModel(trigger),
+    correlatingCandidates: Object.fromEntries(
+      Object.entries(correlatingCandidates).map(([type, list]) => [type, list.map(slimCandidateForModel)]),
+    ),
     querySummary: {
       [candidateType(trigger)]: 1,
       ...Object.fromEntries(

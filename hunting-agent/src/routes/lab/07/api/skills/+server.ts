@@ -215,6 +215,23 @@ function eventIds(candidate: Candidate): string[] {
   return asArray(candidate.constituent_event_ids).map(String);
 }
 
+// Drop the bare event-ID arrays before a candidate is serialized into a MODEL prompt: the model
+// cites behavioural candidate fields, not opaque event IDs, and the events it reasons over are
+// supplied separately as rawEvents. Re-sent on every loop step, these arrays otherwise dominate
+// the prompt. collectEvents has already run against the FULL candidates, so event resolution is
+// unaffected — this only slims the copy that goes to the model.
+function slimCandidateForModel(candidate: Candidate): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...candidate };
+  delete copy.constituent_event_ids;
+  const ev = copy.evidence;
+  if (ev && typeof ev === "object" && !Array.isArray(ev)) {
+    const evCopy = { ...(ev as Record<string, unknown>) };
+    delete evCopy.constituent_event_ids;
+    copy.evidence = evCopy;
+  }
+  return copy;
+}
+
 function compactCandidate(candidate: Candidate) {
   return {
     id: candidateId(candidate),
@@ -780,8 +797,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
   // Full candidate records (not the compact display view) so the model can cite real fields.
   const modelEvidenceBundle = {
-    invocationCandidate: trigger,
-    supportingCandidates: related,
+    invocationCandidate: slimCandidateForModel(trigger),
+    supportingCandidates: related.map(slimCandidateForModel),
     rawEvents: rawEvents.slice(0, 12),
     rawEventCount: rawEvents.length,
   };
