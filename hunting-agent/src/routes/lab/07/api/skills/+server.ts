@@ -9,7 +9,7 @@ import {
   type SkillMetadata,
 } from "../../../../../framework/skill-loader.js";
 import { selectProvider } from "$lib/server/provider.js";
-import { runAssessmentAgentLoop } from "../../../../../framework/assessment-agent-loop.js";
+import { runAssessmentAgentLoop, ASSESSMENT_DECISION_FORMAT } from "../../../../../framework/assessment-agent-loop.js";
 import { renderAssessmentToolCatalog, makeAssessmentTrace } from "../../../../../framework/assessment-tools.js";
 
 type JsonRecord = Record<string, unknown>;
@@ -815,7 +815,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
         try {
           send({ type: "skill", skill: skillSummary(skill) });
-          send({ type: "tool-catalog", catalog: toolCatalog });
+          send({ type: "tool-catalog", catalog: toolCatalog, callFormat: ASSESSMENT_DECISION_FORMAT });
           for (const step of trace) send({ type: "trace", step });
           send({ type: "context", injected: injectedContext });
           send({ type: "evidence", evidenceBundle: displayEvidenceBundle });

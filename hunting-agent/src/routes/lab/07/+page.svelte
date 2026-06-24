@@ -139,7 +139,7 @@
     | { type: "trace"; step: TraceStep }
     | { type: "context"; injected: InjectedSection[] }
     | { type: "tool-step"; trace: ToolStep }
-    | { type: "tool-catalog"; catalog: string }
+    | { type: "tool-catalog"; catalog: string; callFormat?: string }
     | { type: "evidence"; evidenceBundle: EvidenceBundle }
     | { type: "prompt"; systemPrompt: string; userPrompt: string }
     | { type: "model-start"; message: string }
@@ -216,6 +216,7 @@
   let injectedContext = $state<InjectedSection[]>([]);
   let toolSteps = $state<ToolStep[]>([]);
   let toolCatalog = $state("");
+  let toolCallFormat = $state("");
   let streamedEvidence = $state<EvidenceBundle | null>(null);
   let systemPrompt = $state("");
   let userPrompt = $state("");
@@ -412,6 +413,7 @@
     injectedContext = [];
     toolSteps = [];
     toolCatalog = "";
+    toolCallFormat = "";
     streamedEvidence = null;
     systemPrompt = "";
     userPrompt = "";
@@ -440,6 +442,7 @@
         break;
       case "tool-catalog":
         toolCatalog = event.catalog;
+        toolCallFormat = event.callFormat ?? "";
         break;
       case "evidence":
         streamedEvidence = event.evidenceBundle;
@@ -762,6 +765,10 @@
           <div class="tool-catalog">
             <span class="tc-label">Tools the agent may call</span>
             <pre class="tc-body">{toolCatalog}</pre>
+            {#if toolCallFormat}
+              <span class="tc-label tc-label-2">How to call one</span>
+              <pre class="tc-body">{toolCallFormat}</pre>
+            {/if}
           </div>
         {/if}
 
@@ -1368,6 +1375,7 @@
   .tool-catalog { margin-bottom: .9rem; border: 1px solid rgba(98, 114, 164, 0.35); border-radius: 8px; background: rgba(12, 12, 18, 0.5); padding: .7rem .85rem; }
   .tc-label { display: block; color: var(--dracula-comment); font-family: var(--font-heading); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; margin-bottom: .45rem; }
   .tc-body { margin: 0; white-space: pre-wrap; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .82rem; color: rgba(255, 255, 255, .8); line-height: 1.55; }
+  .tc-label-2 { margin-top: .8rem; }
 
   .tao-traces { display: grid; gap: .75rem; }
   .trace-card { padding: .85rem; border: 1px solid rgba(68, 71, 90, 0.9); border-radius: 8px; background: rgba(25, 26, 33, 0.62); }

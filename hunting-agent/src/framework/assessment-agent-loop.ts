@@ -15,6 +15,11 @@ import {
 
 export const MAX_ASSESSMENT_STEPS = 4;
 
+// The tool-call format the model is given each retrieval step. Exported so the lab UI can show
+// it next to the catalog — the same "here's how to call a tool" the Lab 04 prompt shows.
+export const ASSESSMENT_DECISION_FORMAT = `Decide your next step. Reply with ONE JSON object: {"thought": string, "action": "call_tool" | "finish", "tool"?: string, "args"?: object}.
+Call a tool to retrieve entity context you still need; reply {"action":"finish"} once you have enough context to judge. Do NOT write the assessment yet.`;
+
 // ── decision parser (local copy of demo.ts's provider-agnostic parser) ─────────────────────
 
 interface ToolDecision {
@@ -117,8 +122,7 @@ export async function runAssessmentAgentLoop(opts: {
       "",
       observations.length ? `## Observations so far\n${observations.join("\n\n")}` : "## Observations so far\n(none yet)",
       "",
-      'Decide your next step. Reply with ONE JSON object: {"thought": string, "action": "call_tool" | "finish", "tool"?: string, "args"?: object}.',
-      'Call a tool to retrieve entity context you still need; reply {"action":"finish"} once you have enough context to judge. Do NOT write the assessment yet.',
+      ASSESSMENT_DECISION_FORMAT,
     ].join("\n");
 
     const result = await opts.provider.invoke({ systemPrompt: opts.systemPrompt, userPrompt: decisionPrompt });
