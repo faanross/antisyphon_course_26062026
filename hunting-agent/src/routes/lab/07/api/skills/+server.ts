@@ -244,7 +244,7 @@ function compactCandidate(candidate: Candidate) {
     processGuid: asString(candidate.process_guid),
     score: Number(candidateScore(candidate).toFixed(2)),
     lots: candidateLots(candidate),
-    eventIds: eventIds(candidate),
+    eventCount: eventIds(candidate).length,
   };
 }
 

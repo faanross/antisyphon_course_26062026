@@ -66,7 +66,7 @@
     processGuid: string;
     score: number;
     lots: string;
-    eventIds: string[];
+    eventCount: number;
   };
 
   type TraceStep = {
@@ -1428,7 +1428,7 @@ compositeScore = max(beacon, tls, intel, exfil)</code></pre>
           <span>{typeLabel(candidate.type)}</span>
           <strong>{candidate.id}</strong>
           <p>{candidate.host} | {candidate.destIp || candidate.srcIp || "no network observable"}</p>
-          <small>{candidate.processName} | score {candidate.score} | {candidate.eventIds.length} event refs</small>
+          <small>{candidate.processName} | score {candidate.score} | {candidate.eventCount} event refs</small>
         </article>
       {/each}
     </div>

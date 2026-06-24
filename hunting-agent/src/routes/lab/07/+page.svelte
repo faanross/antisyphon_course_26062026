@@ -73,7 +73,7 @@
     processGuid: string;
     score: number;
     lots: string;
-    eventIds: string[];
+    eventCount: number;
   };
 
   type TraceStep = {
