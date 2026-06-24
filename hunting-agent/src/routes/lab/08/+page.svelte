@@ -1,5 +1,5 @@
 <script lang="ts">
-  import chunks from "$lib/data/workshop/rag/chunks.json";
+  import reports from "$lib/data/workshop/rag/reports.json";
   import CorpusBrowser from "$lib/components/lab07/CorpusBrowser.svelte";
   import RAGResultsPanel from "$lib/components/lab07/RAGResultsPanel.svelte";
   import MarkdownView from "$lib/components/MarkdownView.svelte";
@@ -135,8 +135,8 @@
                 Go to the <strong>Lab</strong> tab. At the top, the
                 <strong>Prior Investigation Corpus</strong> lists the past reports the agent can draw
                 on — each with its verdict and tags. This is the library RAG searches:
-                <strong>expand any report</strong> to read its full text (the same content the retriever
-                embeds and returns), so you know what precedent is available.
+                <strong>expand any report</strong> to read its full, original text (the whole case as
+                written, before chunking), so you know what precedent is available.
               </p>
             </div>
           </li>
@@ -226,7 +226,7 @@
     </div>
   {:else if activeTab === "lab"}
   <div class="lab-stack">
-    <CorpusBrowser chunks={chunks} />
+    <CorpusBrowser reports={reports} />
 
     <!-- Query input only — the answer renders in stage 4 of the pipeline below. -->
     <section class="ask-card">

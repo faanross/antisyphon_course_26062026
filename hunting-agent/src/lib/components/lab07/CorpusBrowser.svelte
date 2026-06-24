@@ -1,43 +1,17 @@
 <script lang="ts">
-  let { chunks = [] }: {
-    chunks?: Array<{
-      source_report: string;
-      report_title: string;
+  // The corpus browser shows each report PRE-CHUNK — the whole, original case a human analyst
+  // wrote (one Findings, one Verdict, no mid-sentence cuts). Chunking is what the RETRIEVER does;
+  // that is shown in the Retrieved Chunks panel and the Code tab, not here. reports.json is built
+  // from data/rag/corpus/*.md by scripts/build-corpus-reports.mjs.
+  let { reports = [] }: {
+    reports?: Array<{
+      id: string;
+      title: string;
       verdict: string;
       tags: string[];
-      section: string;
-      text: string;
+      sections: Array<{ heading: string; text: string }>;
     }>;
   } = $props();
-
-  type Report = {
-    id: string;
-    title: string;
-    verdict: string;
-    tags: string[];
-    sections: Array<{ section: string; text: string }>;
-  };
-
-  // Group the chunks back into their source reports, keeping every section's text so a
-  // reader can actually open a report and skim what RAG would retrieve.
-  let reports = $derived.by(() => {
-    const map = new Map<string, Report>();
-    for (const chunk of chunks) {
-      const existing = map.get(chunk.source_report);
-      if (existing) {
-        existing.sections.push({ section: chunk.section, text: chunk.text });
-      } else {
-        map.set(chunk.source_report, {
-          id: chunk.source_report,
-          title: chunk.report_title,
-          verdict: chunk.verdict,
-          tags: chunk.tags,
-          sections: [{ section: chunk.section, text: chunk.text }],
-        });
-      }
-    }
-    return Array.from(map.values());
-  });
 </script>
 
 <details class="corpus" open>
@@ -48,7 +22,7 @@
   </summary>
 
   <div class="corpus-body">
-    <p class="hint">This is the library RAG searches. Click any report to read its full text — the same content the retriever embeds and returns.</p>
+    <p class="hint">This is the library RAG searches — each is a complete prior investigation. Click any report to read its full, original text. (The retriever doesn't embed whole reports; it splits each into ~150-token chunks, so a search returns the relevant <em>passage</em> — run a query above to see which chunks surface.)</p>
     {#each reports as report}
       <details class="report">
         <summary class="report-head">
@@ -60,7 +34,7 @@
         <div class="report-body">
           {#each report.sections as sec}
             <div class="sec">
-              <span class="sec-label">{sec.section}</span>
+              <span class="sec-label">{sec.heading}</span>
               <p class="sec-text">{sec.text}</p>
             </div>
           {/each}
@@ -179,5 +153,6 @@
     font-size: .85rem;
     line-height: 1.6;
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 </style>

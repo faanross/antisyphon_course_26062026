@@ -1,0 +1,611 @@
+[
+  {
+    "id": "INV-2026-0064",
+    "title": "Confirmed C2 Beacon (Cobalt Strike)",
+    "verdict": "True Positive",
+    "tags": [
+      "beacon",
+      "true-positive",
+      "cobalt-strike",
+      "C2",
+      "phishing",
+      "APT",
+      "10.42.14.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0064\n- Date: 2025-10-28\n- Analyst: K. Marchetti\n- Priority: Critical\n- Verdict: True Positive\n- Investigation Type: Network\n- Subnet: 10.42.14.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "SRV-APP04 beacons to 45.33.32.156 every 60 seconds. Threat intelligence and TLS structure confirmed Cobalt Strike infrastructure.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include beacon, true-positive, cobalt-strike, C2, phishing, APT, 10.42.14.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Initial access was traced to a malicious attachment that launched WINWORD.EXE, cmd.exe, powershell.exe, and beacon.exe. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The server used a self-signed certificate and a JA3 profile associated with Cobalt Strike. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The host was isolated within two hours and no lateral movement was observed in the initial containment window. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Initial access was traced to a malicious attachment that launched WINWORD.EXE, cmd.exe, powershell.exe, and beacon.exe. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The server used a self-signed certificate and a JA3 profile associated with Cobalt Strike. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The host was isolated within two hours and no lateral movement was observed in the initial containment window. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "True Positive. SRV-APP04 beacons to 45.33.32.156 every 60 seconds. Threat intelligence and TLS structure confirmed Cobalt Strike infrastructure."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Retain Cobalt Strike JA3 and infrastructure matching in the high-priority triage path.\n2. Use confirmed C2 precedent when assessing future beacon investigations."
+      },
+      {
+        "heading": "Tags",
+        "text": "beacon, true-positive, cobalt-strike, C2, phishing, APT, 10.42.14.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0072",
+    "title": "Credential Stuffing",
+    "verdict": "True Positive",
+    "tags": [
+      "credential-stuffing",
+      "true-positive",
+      "VPN",
+      "brute-force",
+      "identity"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0072\n- Date: 2025-11-15\n- Analyst: S. Petrov\n- Priority: High\n- Verdict: True Positive\n- Investigation Type: Identity\n- Subnet: N/A"
+      },
+      {
+        "heading": "Summary",
+        "text": "Northwind VPN saw 847 failed logins from 12 source IPs against 142 usernames. No authentication succeeded.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include credential-stuffing, true-positive, VPN, brute-force, identity."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Source IPs mapped to residential proxy infrastructure. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Targeted usernames matched public employee profile naming conventions. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: MFA enforcement would have blocked successful password reuse. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Source IPs mapped to residential proxy infrastructure. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Targeted usernames matched public employee profile naming conventions. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: MFA enforcement would have blocked successful password reuse. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "True Positive. Northwind VPN saw 847 failed logins from 12 source IPs against 142 usernames. No authentication succeeded."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Tune VPN rate limiting.\n2. Review credential monitoring coverage."
+      },
+      {
+        "heading": "Tags",
+        "text": "credential-stuffing, true-positive, VPN, brute-force, identity"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0079",
+    "title": "Data Exfiltration Attempt",
+    "verdict": "True Positive",
+    "tags": [
+      "data-exfiltration",
+      "true-positive",
+      "insider-threat",
+      "dropbox",
+      "off-hours",
+      "10.42.12.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0079\n- Date: 2025-12-03\n- Analyst: R. Okonkwo\n- Priority: High\n- Verdict: True Positive\n- Investigation Type: Network\n- Subnet: 10.42.12.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "ACCT-WS05 uploaded 2.3 GB to Dropbox during off-hours. Investigation confirmed insider exfiltration by a departing employee.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include data-exfiltration, true-positive, insider-threat, dropbox, off-hours, 10.42.12.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Uploaded files included customer contact lists and pricing spreadsheets. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Process attribution showed chrome.exe using a personal Dropbox account. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Legal and HR were involved after containment. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Uploaded files included customer contact lists and pricing spreadsheets. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Process attribution showed chrome.exe using a personal Dropbox account. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Legal and HR were involved after containment. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "True Positive. ACCT-WS05 uploaded 2.3 GB to Dropbox during off-hours. Investigation confirmed insider exfiltration by a departing employee."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Alert on unsanctioned cloud upload volume.\n2. Tie off-hours transfer alerts to HR risk context where legally approved."
+      },
+      {
+        "heading": "Tags",
+        "text": "data-exfiltration, true-positive, insider-threat, dropbox, off-hours, 10.42.12.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0083",
+    "title": "Brute Force on VPN",
+    "verdict": "False Positive",
+    "tags": [
+      "brute-force",
+      "false-positive",
+      "lockout",
+      "service-accounts",
+      "CyberArk",
+      "identity"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0083\n- Date: 2025-12-18\n- Analyst: S. Petrov\n- Priority: Low\n- Verdict: False Positive\n- Investigation Type: Identity\n- Subnet: N/A"
+      },
+      {
+        "heading": "Summary",
+        "text": "Eight service accounts locked out in a 15-minute window. The cause was a password rotation script defect.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include brute-force, false-positive, lockout, service-accounts, CyberArk, identity."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: All affected accounts were managed by IT Operations. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: No external source IP was involved. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: CyberArk rotation timing was patched after the investigation. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: All affected accounts were managed by IT Operations. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: No external source IP was involved. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: CyberArk rotation timing was patched after the investigation. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. Eight service accounts locked out in a 15-minute window. The cause was a password rotation script defect."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Stagger service account password rotation.\n2. Tag password tooling sources in identity alerts."
+      },
+      {
+        "heading": "Tags",
+        "text": "brute-force, false-positive, lockout, service-accounts, CyberArk, identity"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0087",
+    "title": "Beacon False Positive (EDR Heartbeat)",
+    "verdict": "False Positive",
+    "tags": [
+      "beacon",
+      "false-positive",
+      "EDR",
+      "CrowdFalcon",
+      "heartbeat",
+      "10.42.10.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0087\n- Date: 2026-01-14\n- Analyst: K. Marchetti\n- Priority: Medium\n- Verdict: False Positive\n- Investigation Type: Network\n- Subnet: 10.42.10.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "Beacon-like outbound HTTPS traffic from DEV-WS07 to 104.18.32.7 scored 0.91 and was investigated as possible C2. The traffic was confirmed as CrowdFalcon EDR heartbeat activity.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include beacon, false-positive, EDR, CrowdFalcon, heartbeat, 10.42.10.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Destination 104.18.32.7 resolved through the CrowdFalcon cloud management path and matched the approved LOTS catalog. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Process attribution showed crowdfalcon-sensor.exe running as SYSTEM with parent services.exe, which matched the expected sensor service model. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The interval and byte profile were intentionally regular and matched documented EDR heartbeat behavior. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Destination 104.18.32.7 resolved through the CrowdFalcon cloud management path and matched the approved LOTS catalog. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Process attribution showed crowdfalcon-sensor.exe running as SYSTEM with parent services.exe, which matched the expected sensor service model. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The interval and byte profile were intentionally regular and matched documented EDR heartbeat behavior. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. Beacon-like outbound HTTPS traffic from DEV-WS07 to 104.18.32.7 scored 0.91 and was investigated as possible C2. The traffic was confirmed as CrowdFalcon EDR heartbeat activity."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Suppress by CrowdFalcon domain and process attribution, not IP alone.\n2. Keep a recurring review because CDN-backed service IPs can be shared."
+      },
+      {
+        "heading": "Tags",
+        "text": "beacon, false-positive, EDR, CrowdFalcon, heartbeat, 10.42.10.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0088",
+    "title": "Suspicious Cloud API Calls",
+    "verdict": "False Positive",
+    "tags": [
+      "cloud-api",
+      "false-positive",
+      "CI-CD",
+      "Jenkins",
+      "AWS",
+      "10.42.11.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0088\n- Date: 2026-01-17\n- Analyst: T. Vasquez\n- Priority: Medium\n- Verdict: False Positive\n- Investigation Type: Endpoint\n- Subnet: 10.42.11.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "BUILD-SVR01 made AWS API calls that resembled reconnaissance. The activity was a scheduled CI/CD infrastructure audit.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include cloud-api, false-positive, CI-CD, Jenkins, AWS, 10.42.11.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Jenkins executed DescribeInstances, GetCallerIdentity, and ListBuckets. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The service account and cron schedule were documented. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The same pattern existed across 90 days of logs. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Jenkins executed DescribeInstances, GetCallerIdentity, and ListBuckets. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The service account and cron schedule were documented. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The same pattern existed across 90 days of logs. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. BUILD-SVR01 made AWS API calls that resembled reconnaissance. The activity was a scheduled CI/CD infrastructure audit."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Document CI/CD cloud inventory jobs.\n2. Suppress by service account and schedule only."
+      },
+      {
+        "heading": "Tags",
+        "text": "cloud-api, false-positive, CI-CD, Jenkins, AWS, 10.42.11.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0091",
+    "title": "Suspicious PowerShell (Admin Tooling)",
+    "verdict": "False Positive",
+    "tags": [
+      "powershell",
+      "false-positive",
+      "admin-tooling",
+      "VS-Code",
+      "developer",
+      "10.42.10.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0091\n- Date: 2026-01-22\n- Analyst: R. Okonkwo\n- Priority: Medium\n- Verdict: False Positive\n- Investigation Type: Endpoint\n- Subnet: 10.42.10.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "Code.exe spawned powershell.exe with ExecutionPolicy Bypass on DEV-WS04. Investigation confirmed an approved Azure DevOps extension workflow.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include powershell, false-positive, admin-tooling, VS-Code, developer, 10.42.10.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: The command was unencoded, short, and matched Get-AzDevOpsProject administration activity. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: No hidden window flag, download cradle, or child process creation followed the PowerShell command. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The VS Code extension was present in the IT-approved developer tooling catalog. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: The command was unencoded, short, and matched Get-AzDevOpsProject administration activity. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: No hidden window flag, download cradle, or child process creation followed the PowerShell command. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The VS Code extension was present in the IT-approved developer tooling catalog. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. Code.exe spawned powershell.exe with ExecutionPolicy Bypass on DEV-WS04. Investigation confirmed an approved Azure DevOps extension workflow."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Document the extension command pattern as a known false positive.\n2. Continue alerting when encoded command, hidden window, or download behavior appears."
+      },
+      {
+        "heading": "Tags",
+        "text": "powershell, false-positive, admin-tooling, VS-Code, developer, 10.42.10.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0093",
+    "title": "Beacon False Positive (M365 Keepalive)",
+    "verdict": "False Positive",
+    "tags": [
+      "beacon",
+      "false-positive",
+      "M365",
+      "Outlook",
+      "keepalive",
+      "10.42.12.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0093\n- Date: 2026-02-04\n- Analyst: T. Vasquez\n- Priority: Low\n- Verdict: False Positive\n- Investigation Type: Network\n- Subnet: 10.42.12.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "Regular HTTPS from ACCT-WS02 to 13.107.42.14 scored 0.84. Outlook keepalive to Microsoft 365 was confirmed.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include beacon, false-positive, M365, Outlook, keepalive, 10.42.12.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Destination ASN was Microsoft AS8075. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Process attribution showed OUTLOOK.EXE under the interactive user. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The same destination range was common across workstation fleet telemetry. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Destination ASN was Microsoft AS8075. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Process attribution showed OUTLOOK.EXE under the interactive user. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The same destination range was common across workstation fleet telemetry. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. Regular HTTPS from ACCT-WS02 to 13.107.42.14 scored 0.84. Outlook keepalive to Microsoft 365 was confirmed."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Preserve M365 LOTS enrichment.\n2. Do not suppress M365 traffic when process attribution is absent."
+      },
+      {
+        "heading": "Tags",
+        "text": "beacon, false-positive, M365, Outlook, keepalive, 10.42.12.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0096",
+    "title": "Lateral Movement (PsExec)",
+    "verdict": "True Positive",
+    "tags": [
+      "lateral-movement",
+      "true-positive",
+      "PsExec",
+      "10.42.14.0/24",
+      "cobalt-strike"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0096\n- Date: 2026-02-11\n- Analyst: K. Marchetti\n- Priority: Critical\n- Verdict: True Positive\n- Investigation Type: Endpoint\n- Subnet: 10.42.14.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "PsExec lateral movement was detected from SRV-APP04 to SRV-DB01 after the October Cobalt Strike incident.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include lateral-movement, true-positive, PsExec, 10.42.14.0/24, cobalt-strike."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: PSEXESVC.exe service creation was observed on the target host. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Admin credentials were likely harvested from LSASS on the source host. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The event required full domain credential rotation. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: PSEXESVC.exe service creation was observed on the target host. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Admin credentials were likely harvested from LSASS on the source host. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The event required full domain credential rotation. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "True Positive. PsExec lateral movement was detected from SRV-APP04 to SRV-DB01 after the October Cobalt Strike incident."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Retain follow-on lateral movement checks after C2 containment.\n2. Correlate service creation with prior compromised hosts."
+      },
+      {
+        "heading": "Tags",
+        "text": "lateral-movement, true-positive, PsExec, 10.42.14.0/24, cobalt-strike"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0101",
+    "title": "Rare Destination (SaaS Vendor Onboarding)",
+    "verdict": "False Positive",
+    "tags": [
+      "rare-destination",
+      "false-positive",
+      "vendor-onboarding",
+      "SaaS",
+      "10.42.10.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0101\n- Date: 2026-02-20\n- Analyst: R. Okonkwo\n- Priority: Medium\n- Verdict: False Positive\n- Investigation Type: Network\n- Subnet: 10.42.10.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "DEV-WS09 connected to a rare destination during a CodeReview.io vendor evaluation. The rare destination was approved SaaS onboarding.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include rare-destination, false-positive, vendor-onboarding, SaaS, 10.42.10.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Procurement tracking confirmed manager-approved vendor evaluation. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: Traffic was interactive browsing rather than periodic beaconing. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The destination became common two weeks later as more engineers evaluated the service. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Procurement tracking confirmed manager-approved vendor evaluation. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: Traffic was interactive browsing rather than periodic beaconing. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The destination became common two weeks later as more engineers evaluated the service. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. DEV-WS09 connected to a rare destination during a CodeReview.io vendor evaluation. The rare destination was approved SaaS onboarding."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Use procurement context during rare-destination triage.\n2. Do not classify rarity alone as malicious."
+      },
+      {
+        "heading": "Tags",
+        "text": "rare-destination, false-positive, vendor-onboarding, SaaS, 10.42.10.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0104",
+    "title": "DNS Tunneling Suspicion",
+    "verdict": "Inconclusive",
+    "tags": [
+      "DNS-tunneling",
+      "inconclusive",
+      "monitoring",
+      "internal-domain",
+      "10.42.13.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0104\n- Date: 2026-02-26\n- Analyst: T. Vasquez\n- Priority: Medium\n- Verdict: Inconclusive\n- Investigation Type: Network\n- Subnet: 10.42.13.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "QA-SVR03 generated high-frequency DNS queries to structured subdomains. Entropy was elevated but below tunneling thresholds.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include DNS-tunneling, inconclusive, monitoring, internal-domain, 10.42.13.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: The domain was owned by Northwind Research and no external resolution occurred. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The pattern could be internal telemetry or low-rate tunneling. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: A 30-day monitoring plan was opened. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: The domain was owned by Northwind Research and no external resolution occurred. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The pattern could be internal telemetry or low-rate tunneling. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: A 30-day monitoring plan was opened. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "Inconclusive. QA-SVR03 generated high-frequency DNS queries to structured subdomains. Entropy was elevated but below tunneling thresholds."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Continue monitoring entropy and query volume.\n2. Close if the pattern remains stable and internally owned."
+      },
+      {
+        "heading": "Tags",
+        "text": "DNS-tunneling, inconclusive, monitoring, internal-domain, 10.42.13.0/24"
+      }
+    ]
+  },
+  {
+    "id": "INV-2026-0108",
+    "title": "Encoded PowerShell from Dev Workstation",
+    "verdict": "False Positive",
+    "tags": [
+      "powershell",
+      "false-positive",
+      "encoded-command",
+      "npm",
+      "developer",
+      "10.42.10.0/24"
+    ],
+    "sections": [
+      {
+        "heading": "Metadata",
+        "text": "- Report ID: INV-2026-0108\n- Date: 2026-03-04\n- Analyst: K. Marchetti\n- Priority: Medium\n- Verdict: False Positive\n- Investigation Type: Endpoint\n- Subnet: 10.42.10.0/24"
+      },
+      {
+        "heading": "Summary",
+        "text": "DEV-WS02 ran encoded PowerShell from an npm postinstall script. The decoded command installed Azure Functions tooling.\n\nThis report is part of the Northwind Research SOC institutional memory corpus. It is written for retrieval during future investigations, so the key indicators, differentiators, and final verdict are explicit. The most useful retrieval terms for this case include powershell, false-positive, encoded-command, npm, developer, 10.42.10.0/24."
+      },
+      {
+        "heading": "Investigation Steps",
+        "text": "1. Loaded the triggering alert and confirmed the affected host, user, subnet, score, and primary observable.\n2. Reviewed process attribution and parent-child relationships where endpoint data was available.\n3. Checked destination ownership, LOTS status, prior prevalence, and threat-intelligence coverage.\n4. Compared the behavior against known benign patterns and known malicious incidents in the SOC history.\n5. Recorded the final verdict with the evidence that most strongly supported or weakened the alert."
+      },
+      {
+        "heading": "Findings",
+        "text": "The investigation team validated this point against telemetry, ownership records, and analyst notes: Parent process was node.exe, not Code.exe directly. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: The decoded command was Install-Module -Name Az.Functions -Scope CurrentUser -Force. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe investigation team validated this point against telemetry, ownership records, and analyst notes: No network connections or child processes followed the PowerShell execution beyond the installer flow. This mattered because the team needed to separate surface similarity from operational meaning. Similar alerts can have different outcomes when process lineage, destination ownership, user role, and timing are considered together.\n\nThe key lesson from this case is not the verdict alone. The useful lesson is the discriminator. Analysts should ask what was true here that would also need to be true in a future case before borrowing this verdict. A high beacon score, encoded command, or rare destination can be benign when ownership, process context, and business workflow explain it. The same surface indicator becomes more serious when those benign explanations are absent or contradicted by other evidence."
+      },
+      {
+        "heading": "Retrieval Notes",
+        "text": "For future retrieval, this point should be treated as a discriminator rather than a keyword: Parent process was node.exe, not Code.exe directly. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: The decoded command was Install-Module -Name Az.Functions -Scope CurrentUser -Force. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nFor future retrieval, this point should be treated as a discriminator rather than a keyword: No network connections or child processes followed the PowerShell execution beyond the installer flow. If a later investigation shares only the surface alert name but not this discriminator, the old verdict should not be copied forward. Analysts should compare host role, user role, process lineage, destination ownership, service approval, timing, and whether the same explanation accounts for all observed events.\n\nThis case should be used carefully as precedent. A future alert may retrieve this report because it contains similar words, such as beacon, PowerShell, rare destination, cloud service, or developer workstation. Similar vocabulary is only the starting point. The analyst still needs to ask whether the current evidence has the same benign owner, the same expected process path, the same approved business workflow, and the same absence of corroborating malicious indicators. If those conditions are not present, this report may strengthen suspicion by showing what the benign version looked like."
+      },
+      {
+        "heading": "Analyst Notes",
+        "text": "The SOC recorded this report with enough operational detail to support later semantic retrieval. The report intentionally includes the alert shape, the entities involved, the observed telemetry, the decisive evidence, the benign or malicious explanation, and the conditions under which the verdict should or should not generalize. This structure helps an agent use the report as institutional memory rather than as a bare label.\n\nWhen this report is retrieved for a future investigation, the agent should cite the report ID and state exactly which parts apply. It should also state which parts do not apply. For example, a false-positive report about EDR heartbeat can help clear another EDR heartbeat, but it can also make a non-EDR beacon look more suspicious because the current process, destination, or user context does not match the benign pattern."
+      },
+      {
+        "heading": "Verdict",
+        "text": "False Positive. DEV-WS02 ran encoded PowerShell from an npm postinstall script. The decoded command installed Azure Functions tooling."
+      },
+      {
+        "heading": "Recommendations",
+        "text": "1. Document npm postinstall encoded PowerShell as a known FP pattern.\n2. Keep alerting when encoded PowerShell launches hidden windows or downloads payloads."
+      },
+      {
+        "heading": "Tags",
+        "text": "powershell, false-positive, encoded-command, npm, developer, 10.42.10.0/24"
+      }
+    ]
+  }
+]
