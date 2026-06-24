@@ -288,16 +288,17 @@
             <strong>{budget.retainedContextTokens}</strong>
             <span class="stat-label">
               retained context
-              <button type="button" class="info-dot" aria-label="What is retained context, and why isn't it exactly your input plus output?">i</button>
+              <button type="button" class="info-dot" aria-label="Why is retained context larger than just your latest input plus output?">i</button>
               <span class="info-pop" role="tooltip">
                 <strong>Retained context</strong> is the whole conversation the harness keeps and re-sends to the model every turn.
                 It’s stored as <em>structured turns</em> — each message tagged with who said it:
                 <code>user: …</code> and <code>assistant: …</code>.
                 <br /><br />
-                That’s why it’s a few tokens more than <em>your input</em> + <em>output</em>: those two count only the
-                words, while retained context also counts the <code>user:</code> / <code>assistant:</code> labels and the
-                line breaks that wrap them. The bar below tracks this number against the
-                {budget.maxRetainedContextTokens}-token budget — and it’s what grows until compaction fires.
+                That’s why retained context keeps growing and is usually <em>much larger</em> than your latest
+                <em>input</em> + <em>output</em>: it’s every earlier turn re-sent too, each wrapped with its
+                <code>user:</code> / <code>assistant:</code> label. Only on the very first turn is it close to a single
+                input + output (plus those few label and line-break tokens). The bar below tracks this number against
+                the {budget.maxRetainedContextTokens}-token budget — and it’s what grows until compaction fires.
               </span>
             </span>
           </div>

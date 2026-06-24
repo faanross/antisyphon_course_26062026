@@ -278,7 +278,7 @@
                 (different kinds of indicator tend to pull different GTI tools):
               </p>
               <div class="gd-egs">
-                <span class="gd-eg">Look up the IP 185.225.73.217 on VirusTotal. <em>(comes back quiet — a clean result is still a real answer)</em></span>
+                <span class="gd-eg">Look up the IP 185.225.73.217 on VirusTotal. <em>(a live lookup of the campaign's destination — read whatever the engines and community return)</em></span>
                 <span class="gd-eg">Is the file with hash 44d88612fea8a8f36de82e1278abb02f malicious? <em>(EICAR test file — a guaranteed hit, and 100% safe)</em></span>
               </div>
             </div>
@@ -551,7 +551,7 @@
             <ArrowRightIcon size={16} weight="bold" />
             <div class="scl-cat">
               <span class="scl-cat-label">tool catalog · every turn</span>
-              <span class="scl-srv">gti · 14 tools</span>
+              <span class="scl-srv">gti · 36 tools</span>
               <span class="scl-srv">edr · 22 tools</span>
               <span class="scl-srv">tickets · 9 tools</span>
               <span class="scl-grow">…grows with every server you add</span>
