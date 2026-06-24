@@ -56,7 +56,7 @@ Rule out benign causes by matching the observed evidence against each cause's sh
 
 # Output Contract
 
-Return a `DetectionFinding` with `compositeScore`, `dimensions`, `evidenceSummary`, `attackNarrative`, `uncertainty`, `benignFallbackRuledOut`, `mitreTechniques`, and `evidenceRefs` (the candidate IDs that fired plus their constituent event IDs). Every assertion must trace to a candidate field or a skill-derived observation — **no unsourced claims**.
+Return a `DetectionFinding` with `compositeScore`, `dimensions`, `evidenceSummary`, `attackNarrative`, `uncertainty`, `benignFallbackRuledOut`, `mitreTechniques`, and `evidenceRefs` (the candidate IDs that fired — their constituent events stay reachable through those candidates, so the finding does not inline them). Every assertion must trace to a candidate field or a skill-derived observation — **no unsourced claims**.
 
 # Anti-patterns — do not do
 

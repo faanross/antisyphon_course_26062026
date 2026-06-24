@@ -185,7 +185,7 @@
     uncertainty: string;
     benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];
     mitreTechniques: string[];
-    evidenceRefs: { candidateIds: string[]; eventIds: string[] };
+    evidenceRefs: { candidateIds: string[] };
     scope: { host: string };
   };
   type AssessmentFindingObject = {
@@ -385,7 +385,7 @@
           compositeScore: trigger.score,
           candidateId: trigger.id,
           triggerCandidate,
-          evidenceRefs: { candidateIds: evidence.related.map((candidate) => candidate.id), eventIds: trigger.eventIds },
+          evidenceRefs: { candidateIds: evidence.related.map((candidate) => candidate.id) },
           model: detectionModel,
         };
 
@@ -888,11 +888,10 @@
   <span class="c-key">"scope"</span>: &#123; <span class="c-key">"host"</span>: <span class="c-str">"DEV-WS03"</span> &#125;,         <span class="c-cm">// → the host the agent looks up context for</span>
   <span class="c-key">"attackNarrative"</span>: <span class="c-str">"the model's detection write-up…"</span>,  <span class="c-cm">// a typed field, not a blob</span>
   <span class="c-key">"evidenceRefs"</span>: &#123;
-    <span class="c-key">"candidateIds"</span>: [<span class="c-str">"TLS-001"</span>, <span class="c-str">"INTEL-001"</span>, <span class="c-str">"DT-001"</span>],  <span class="c-cm">// → pull supporting evidence</span>
-    <span class="c-key">"eventIds"</span>: [<span class="c-str">"EVT-SYSMON-EID1-001"</span>, <span class="c-str">"EVT-CONN-001"</span>]
+    <span class="c-key">"candidateIds"</span>: [<span class="c-str">"TLS-001"</span>, <span class="c-str">"INTEL-001"</span>, <span class="c-str">"DT-001"</span>]  <span class="c-cm">// → pull supporting evidence; raw events reachable through each candidate</span>
   &#125;
 &#125;</code></pre>
-          <p class="cv-note">The DetectionFinding is a <strong>typed object</strong> — its reasoning lives in named fields (<code>attackNarrative</code>, <code>evidenceSummary</code>), never one prose blob. The harness uses <code>candidateId</code> to re-load the candidate and <code>evidenceRefs.candidateIds</code> to pull its correlated evidence. The agent then looks up org context keyed off the finding's own <code>scope.host</code>, and the assessment runs over the finding, that retrieved context, and the injected compliance baseline.</p>
+          <p class="cv-note">The DetectionFinding is a <strong>typed object</strong> — its reasoning lives in named fields (<code>attackNarrative</code>, <code>evidenceSummary</code>), never one prose blob. The harness uses <code>candidateId</code> to re-load the candidate and <code>evidenceRefs.candidateIds</code> to pull its correlated evidence. The agent then looks up org context keyed off the finding's own <code>scope.host</code>, and the assessment runs over the finding, that retrieved context, and the injected compliance baseline. Note it references <code>candidateIds</code>, not a flat list of raw event IDs — the events stay reachable <em>through</em> each candidate, so the finding (fed verbatim to the assessment agent) stays lean instead of dragging dozens of event IDs into every downstream prompt.</p>
         </details>
 
         <!-- C · Why hand it off -->

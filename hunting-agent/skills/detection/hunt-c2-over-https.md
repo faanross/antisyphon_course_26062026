@@ -58,7 +58,7 @@ State what the evidence cannot establish. If only the beacon fired and every cor
 
 # Output
 
-Return a `DetectionFinding`: `compositeScore`, `dimensions`, `evidenceSummary`, `attackNarrative`, `uncertainty`, `benignFallbackRuledOut`, `mitreTechniques`, `evidenceRefs` (the candidate IDs that fired plus their constituent event IDs).
+Return a `DetectionFinding`: `compositeScore`, `dimensions`, `evidenceSummary`, `attackNarrative`, `uncertainty`, `benignFallbackRuledOut`, `mitreTechniques`, `evidenceRefs` (the candidate IDs that fired — their constituent events stay reachable through those candidates, so the finding does not inline them).
 
 # Do not
 

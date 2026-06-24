@@ -475,7 +475,7 @@ function buildDetectionUserPrompt(evidenceBundle: unknown): string {
     '  "uncertainty":      string — what is NOT confirmed + any alternative hypothesis',
     '  "benignFallbackRuledOut": array of { "fallback": string, "ruledOutBecause": string } — why this is not EDR / OS-update / M365 / backup / normal browsing',
     '  "mitreTechniques":  array of ATT&CK technique IDs you assert (basis cited in dimensions[].evidence)',
-    '  "evidenceRefs":     { "candidateIds": string[], "eventIds": string[] } — provenance back to the telemetry',
+    '  "evidenceRefs":     { "candidateIds": string[] } — the candidates that fired; their raw events stay reachable THROUGH each candidate, so the finding does not inline them',
     "",
     "Rules: every score and claim must trace to a field in the evidence bundle. Do NOT collapse the reasoning into one blob — each piece is its own named field. exfil_volume_anomaly = the data_transfer candidate's composite (0 if none fired on the same tuple); when present it is part of the composite and asserts T1041.",
     "",
@@ -503,7 +503,7 @@ type GatedFinding = {
   uncertainty: string;
   benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];
   mitreTechniques: string[];
-  evidenceRefs: { candidateIds: string[]; eventIds: string[] };
+  evidenceRefs: { candidateIds: string[] };
   scope: { host: string };
 };
 type GateResult = { pass: boolean; errors: string[]; finding: GatedFinding | null };
@@ -578,7 +578,6 @@ function gateDetectionFinding(rawText: string, skill: SkillDocument, trigger: Ca
     mitreTechniques: asArray(parsed.mitreTechniques).map(String),
     evidenceRefs: {
       candidateIds: asArray(evidenceRefs.candidateIds).map(String),
-      eventIds: asArray(evidenceRefs.eventIds).map(String),
     },
     scope: { host: asString(trigger.host) },
   };

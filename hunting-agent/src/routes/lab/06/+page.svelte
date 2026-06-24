@@ -109,7 +109,7 @@
     uncertainty: string;
     benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];
     mitreTechniques: string[];
-    evidenceRefs: { candidateIds: string[]; eventIds: string[] };
+    evidenceRefs: { candidateIds: string[] };
     scope: { host: string };
   };
 
@@ -165,7 +165,7 @@
   uncertainty: string;          // │ each in its own named field
   benignFallbackRuledOut: { fallback: string; ruledOutBecause: string }[];  // ┘
   mitreTechniques: string[];    // ATT&CK techniques asserted, with basis
-  evidenceRefs: { candidateIds: string[]; eventIds: string[] };  // back to the evidence
+  evidenceRefs: { candidateIds: string[] };  // the candidates it rests on — events reachable through them
   scope: { host: string };      // where it happened
 };`;
 
@@ -1083,7 +1083,7 @@ compositeScore = max(beacon, tls, intel, exfil)</code></pre>
               <tr><td class="fld"><code>uncertainty</code></td><td>What is <em>not</em> confirmed, plus alternative explanations.</td></tr>
               <tr><td class="fld"><code>benignFallbackRuledOut[]</code></td><td>The malicious-vs-benign work — <em>why</em> it isn't EDR, an update service, or ordinary browsing.</td></tr>
               <tr><td class="fld"><code>mitreTechniques[]</code></td><td>ATT&amp;CK techniques asserted, with their basis cited in <code>dimensions[].evidence</code>.</td></tr>
-              <tr><td class="fld"><code>evidenceRefs</code></td><td>Pointers back to the candidates and raw events the finding rests on.</td></tr>
+              <tr><td class="fld"><code>evidenceRefs</code></td><td>The candidates the finding rests on — the raw events are reachable <em>through</em> those candidates, so the finding stays lean.</td></tr>
               <tr><td class="fld"><code>scope</code></td><td>The host the activity is bound to.</td></tr>
             </tbody>
           </table>
