@@ -815,6 +815,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
         try {
           send({ type: "skill", skill: skillSummary(skill) });
+          send({ type: "tool-catalog", catalog: toolCatalog });
           for (const step of trace) send({ type: "trace", step });
           send({ type: "context", injected: injectedContext });
           send({ type: "evidence", evidenceBundle: displayEvidenceBundle });
