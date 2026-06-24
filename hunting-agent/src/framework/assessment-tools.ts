@@ -33,9 +33,9 @@ export interface AssessmentToolTrace {
 export const ASSESSMENT_TOOL_DEFINITIONS: readonly AssessmentToolDefinition[] = [
   {
     name: "get_asset_record",
-    purpose: "Fetch the Layer-1 asset record for a host or user named in the finding (role, criticality, blast radius, owner team).",
+    purpose: "Fetch the Layer-1 asset record for the host and/or user named in the finding (role, criticality, blast radius, owner team).",
     args: ["host?", "user?"],
-    returns: "Asset-record markdown for the named entity.",
+    returns: "Asset-record markdown for every entity named in the call — pass host and user together to get both in one call.",
   },
   {
     name: "get_incident_history",
@@ -110,26 +110,49 @@ export async function executeAssessmentTool(
   const startedAt = Date.now();
   try {
     let content = "";
-    let entityKey = "host";
+    let resolvedFrom = "";
+    let observationBody = "";
+    let resultCount = 1;
     if (call.tool === "get_asset_record") {
-      entityKey = pickEntityKey(call.args, ["host", "user"]) ?? "host";
-      const resolved = await resolveContextRequirement(
-        { id: "asset", mode: "resolve", path: "", entity: entityKey, layer: "layer_1_assets", reason: "asset record" },
-        entities,
+      // The finding can name both a host and a user, and the agent often asks for both in
+      // one call. Resolve EVERY entity key it requested (host, user) so a single call returns
+      // every record asked for — otherwise the first key would win and the rest would be
+      // silently dropped, forcing a redundant follow-up call for the same finding.
+      const requested = (["host", "user"] as const).filter(
+        (key) => typeof call.args[key] === "string" && (call.args[key] as string).trim() !== "" && Boolean(entities[key]),
       );
-      content = resolved.content;
+      const keys: readonly ("host" | "user")[] = requested.length > 0 ? requested : (["host"] as const);
+      const fullSections: string[] = [];
+      const shownSections: string[] = [];
+      const labels: string[] = [];
+      for (const key of keys) {
+        const resolved = await resolveContextRequirement(
+          { id: "asset", mode: "resolve", path: "", entity: key, layer: "layer_1_assets", reason: "asset record" },
+          entities,
+        );
+        if (resolved.content.trim() !== "") {
+          fullSections.push(resolved.content);
+          shownSections.push(truncate(resolved.content));
+          labels.push(`${key}=${entities[key] ?? "?"}`);
+        }
+      }
+      content = fullSections.join("\n\n");
+      observationBody = shownSections.join("\n\n");
+      resolvedFrom = labels.join(", ");
+      resultCount = Math.max(fullSections.length, 1);
     } else {
-      entityKey = pickEntityKey(call.args, ["host", "subnet"]) ?? "host";
+      const entityKey = pickEntityKey(call.args, ["host", "subnet"]) ?? "host";
       const resolved = await resolveContextRequirement(
         { id: "history", mode: "resolve", path: "", entity: entityKey, layer: "layer_5_incidents", suffix: "-history", reason: "incident history" },
         entities,
       );
       content = resolved.content;
+      observationBody = truncate(content);
+      resolvedFrom = `${entityKey}=${entities[entityKey] ?? "?"}`;
     }
-    const resolvedFrom = `${entityKey}=${entities[entityKey] ?? "?"}`;
-    const observation = `${resolvedFrom} retrieved (${content.length} chars):\n${truncate(content)}`;
+    const observation = `${resolvedFrom} retrieved (${content.length} chars):\n${observationBody}`;
     const trace = makeAssessmentTrace({
-      step, thought, tool: call.tool, args: call.args, status: "ok", resultCount: 1, elapsedMs: Date.now() - startedAt, observation,
+      step, thought, tool: call.tool, args: call.args, status: "ok", resultCount, elapsedMs: Date.now() - startedAt, observation,
     });
     return { trace, content };
   } catch (err) {
