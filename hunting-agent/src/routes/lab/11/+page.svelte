@@ -112,7 +112,7 @@
   <header class="hero">
     <span>Lab 11</span>
     <h1>Graph-Grounded Narrative</h1>
-    <p>Select graph context, combine it with detection findings, and synthesize an attack narrative that is grounded in explicit relationships.</p>
+    <p>Combine the detection findings with the shared entity graph, and synthesize an attack narrative grounded in explicit relationships.</p>
     {#if activeTab === "lab"}
       <button onclick={run} disabled={busy}>{busy ? "Running…" : "Run Narrative"}</button>
     {/if}
@@ -168,7 +168,7 @@
               </div>
               <p>
                 The <strong>Selected Graph Context</strong> panel shows the exact nodes and edges the
-                model was handed — the hosts, IPs, processes, and the relationships between them. This
+                model was handed — the hosts, users, IPs, processes, and the relationships between them. This
                 is the entire universe the narrative is allowed to draw from.
               </p>
             </div>
@@ -376,8 +376,8 @@
         <details class="cv-section" open>
           <summary class="cv-h3"><span class="cv-num">B</span> The guardrail: grounded, not free<span class="cv-chev" aria-hidden="true">▸</span></summary>
           <p class="cv-lead">
-            The findings and the graph are serialized into the prompt as plain text — this is exactly
-            what the model sees:
+            The findings and the graph are serialized into the prompt as plain text — close to
+            what the model sees (node ids are simplified here for readability):
           </p>
           <pre class="cv-code"><code><span class="c-key">findings:</span>
   - UPCA-001 via hunt-ai-tool-execution-anomaly  → true_positive
@@ -388,13 +388,13 @@
   - host: DEV-WS03 (host:dev-ws03)
   - process: powershell.exe (proc:ps)
   - process: svchost-health.exe (proc:implant)
-  - ip: 45.61.&#8230; (ip:45.61&#8230;)
+  - ip: 185.225.73.217 (ip:185.225.73.217)
 
 <span class="c-key">edges:</span>
   - UPCA-001 --FROM_PROCESS--> proc:ps
   - PSI-001  --FROM_PROCESS--> proc:ps
   - BEA-001  --FROM_PROCESS--> proc:implant
-  - BEA-001  --CONNECTS_TO--> ip:45.61&#8230;</code></pre>
+  - BEA-001  --CONNECTS_TO--> ip:185.225.73.217</code></pre>
           <p class="cv-note">Two rules turn this from free narration into grounded synthesis:</p>
           <div class="g11-rules">
             <span class="g11-rule"><ShieldCheckIcon size={14} weight="bold" /> only entities that exist as nodes</span>
@@ -436,12 +436,12 @@
           <pre class="cv-tree"><code><span class="tr-dir">hunting-agent/src/</span>
 │
 ├─ <span class="tr-dir">routes/lab/11/api/narrative/</span>
-│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← endpoint → graph + runInvestigation()</span>
+│  └─ <span class="tr-file">+server.ts</span>             <span class="tr-cm">← endpoint → fan-out findings → scoped graph → narrative</span>
 │
 └─ <span class="tr-dir">framework/</span>
    ├─ <span class="tr-file">narrative.ts</span>           <span class="tr-cm">← serialize graph + findings · grounded prompt · call</span>
-   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runInvestigation: findings + graph + narrative</span>
-   └─ <span class="tr-file">graph.ts</span>               <span class="tr-cm">← the shared entity graph (Lab 10)</span></code></pre>
+   ├─ <span class="tr-file">orchestrator.ts</span>        <span class="tr-cm">← runDetectionFanOut: the Lab 09 fan-out that produces the findings</span>
+   └─ <span class="tr-file">graph.ts</span>               <span class="tr-cm">← buildCampaignSubgraph: scope to the true-positive campaign</span></code></pre>
         </details>
 
         <!-- Callout -->
