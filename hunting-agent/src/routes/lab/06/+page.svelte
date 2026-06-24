@@ -381,6 +381,8 @@
     <div class="code-view">
       <div class="code-inner">
         <header class="cv-hero">
+          <span class="cv-eyebrow">Lab 06 · Walkthrough</span>
+          <h2>Turn a scoped candidate into a detection finding</h2>
           <p>
             Upstream, <strong>initiation</strong> has already run (we've simulated it), and the
             <strong>hypothesis</strong> it produced is waiting on the <strong>Lab</strong> tab. This
@@ -1881,7 +1883,15 @@ compositeScore = max(beacon, tls, intel, exfil)</code></pre>
   .code-view strong { color: #e8e8f0; font-weight: 700; }
   .code-view em { color: #bd93f9; font-style: normal; }
 
-  .cv-hero { animation: cvRise 0.5s ease both; }
+  .cv-hero {
+    margin-bottom: 1rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid rgba(98, 114, 164, 0.5);
+    border-radius: 8px;
+    background: rgba(33, 34, 44, 0.84);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+    animation: cvRise 0.5s ease both;
+  }
   .cv-eyebrow {
     display: inline-block;
     color: #bd93f9;
