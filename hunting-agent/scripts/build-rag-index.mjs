@@ -16,7 +16,7 @@ import "dotenv/config";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const BASE_URL = (process.env.EMBED_BASE_URL ?? "http://localhost:11434").replace(/\/+$/, "");
+const BASE_URL = (process.env.EMBED_BASE_URL ?? "http://127.0.0.1:11434").replace(/\/+$/, "");
 const MODEL = process.env.EMBED_MODEL ?? "nomic-embed-text";
 const DIMENSIONS = 768;
 

@@ -14,7 +14,7 @@
 // so it runs without a TS toolchain on any supported Node). Keep model / dimensions /
 // normalization in sync between the two.
 
-const DEFAULT_BASE_URL = "http://localhost:11434";
+const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_MODEL = "nomic-embed-text";
 
 // nomic-embed-text is fixed at 768 dimensions; the shipped vectors.bin is built to match.
