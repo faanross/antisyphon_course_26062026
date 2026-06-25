@@ -54,7 +54,10 @@ export async function loadSkill(filePath: string): Promise<SkillDocument> {
   const content = await readFile(fullPath, "utf8");
   const { metadata, frontmatter, body } = splitFrontmatter(content);
   return {
-    path: path.relative(process.cwd(), fullPath),
+    // Canonical forward-slash path on every OS. path.relative() emits backslashes on Windows,
+    // which silently breaks downstream filters comparing against "skills/<layer>/" prefixes
+    // (e.g. Lab 07's assessment-skill filter, which returned an empty list on Windows).
+    path: path.relative(process.cwd(), fullPath).replaceAll("\\", "/"),
     metadata,
     frontmatter,
     body,
