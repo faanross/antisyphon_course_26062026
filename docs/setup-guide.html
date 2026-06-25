@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>AntiSyphon Course — Setup Guide</title>
+<title>Agentic AI for Threat Hunting — Setup Guide</title>
 <style>
   :root {
     --bg: #07070a;
@@ -281,11 +281,10 @@
 <!-- ════════════ COVER ════════════ -->
 <div class="cover">
   <span class="eyebrow">AntiSyphon Course · 26 June 2026</span>
-  <h1>Build Your Own<br/>AI Security Agent<br/>Setup Guide</h1>
-  <p class="sub">Please complete setup <strong>before</strong> the course. It takes ~15 minutes. Stuck? Ask in Discord — and check the guided <strong>Troubleshooting</strong> in Section&nbsp;8.</p>
+  <h1>Agentic AI for<br/>Threat Hunting<br/>Setup Guide</h1>
+  <p class="sub">Please complete setup <strong>before</strong> the course. It takes 20–30 minutes. Stuck? Ask in Discord — and check the guided <strong>Troubleshooting</strong> in Section&nbsp;8.</p>
   <div class="meta">
-    <span class="pill y">8 hours · 14 labs</span>
-    <span class="pill">Bring a laptop</span>
+    <span class="pill y">8 hours · 12 labs</span>
     <span class="pill">macOS · Linux · Windows</span>
   </div>
 </div>
@@ -379,7 +378,7 @@
 CLAUDE_CODE_MODEL=sonnet
 <span class="c"># CLAUDE_CODE_MODEL=opus   # if your plan includes it</span></code></pre>
   <div class="callout"><span class="tag">If you later see "exited with code 1"</span><p>That's usually a one-time auth hiccup when the tool is run non-interactively. Run <code>claude setup-token</code> to mint a token for programmatic use, then retry. Full steps in <a href="#f-cc-exit1">Section&nbsp;8 → Fix CC-1</a>.</p></div>
-  <div class="callout"><span class="tag">Possible billing change — status in flux</span><p>Anthropic announced that from <strong>June&nbsp;15&nbsp;2026</strong>, <code>claude -p</code> / Agent SDK usage would move off your normal plan limits onto a separate monthly credit (one-time opt-in; Pro&nbsp;$20 / Max&nbsp;5x&nbsp;$100 / Max&nbsp;20x&nbsp;$200, metered at API rates). As of writing the rollout is <strong>unsettled</strong> — there are reports it may be paused. <strong>So: nothing to do up front.</strong> If <code>claude-code</code> works normally, you're on the existing behavior and can ignore this. If it suddenly stops or mentions a "credit," see <a href="#f-cc-credit">Fix CC-3</a>. (If the change does go live, <strong>Free-plan</strong> accounts can't run <code>claude-code</code> — use Part&nbsp;B local or Part&nbsp;C API key.)</p></div>
+  <div class="callout"><span class="tag">Possible billing change — currently delayed</span><p>Anthropic announced that from <strong>June&nbsp;15&nbsp;2026</strong>, <code>claude -p</code> / Agent SDK usage would move off your normal plan limits onto a separate monthly credit (one-time opt-in; Pro&nbsp;$20 / Max&nbsp;5x&nbsp;$100 / Max&nbsp;20x&nbsp;$200, metered at API rates). As of writing this rollout has been <strong>delayed indefinitely</strong>, so for this course you can use <code>claude-code</code> exactly as normal — <strong>nothing to do up front.</strong> If <code>claude-code</code> works normally, you're on the existing behavior and can ignore this. If it suddenly stops or mentions a "credit," see <a href="#f-cc-credit">Fix CC-3</a>. <strong>Taking this course at a later date?</strong> This may have changed — verify Anthropic's current plan/billing terms before relying on <code>claude-code</code>. (If the change does go live, <strong>Free-plan</strong> accounts can't run <code>claude-code</code> — use Part&nbsp;B local or Part&nbsp;C API key.)</p></div>
 
   <h4>A2 · Codex CLI (OpenAI / ChatGPT subscription)</h4>
   <div class="step-row"><div class="step-n">1</div><p>Install the <strong>Codex</strong> CLI (needs Node 22+, which Section&nbsp;2 set up): <code>npm install -g @openai/codex</code></p></div>
@@ -393,7 +392,7 @@ CODEX_MODEL=gpt-5.4
   <!-- ── PART B ── -->
   <h3 id="pb"><span class="part">B</span> Run a local model with Ollama</h3>
   <p><strong>Ollama</strong> (and LM Studio, llama.cpp, vLLM, LiteLLM) expose an <strong>OpenAI-compatible</strong> API. So you keep <code>LLM_PROVIDER=openai</code> and simply point the app at your local server with <code>OPENAI_BASE_URL</code>. No cloud, no key, no cost.</p>
-  <div class="step-row"><div class="step-n">1</div><p>Install Ollama from <a href="https://ollama.com">ollama.com</a> and make sure it's running (the desktop app runs the server automatically; or run <code>ollama serve</code>).</p></div>
+  <div class="step-row"><div class="step-n">1</div><p>Install Ollama from <a href="https://ollama.com">ollama.com</a> and make sure it's running (on Windows &amp; macOS the app runs the server automatically — no need to run <code>ollama serve</code>; if you do and see an error about the <em>port already being in use</em>, that just confirms it's already running. On headless Linux, run <code>ollama serve</code>).</p></div>
   <div class="step-row"><div class="step-n">2</div><p>Pull a capable <strong>instruct</strong> model — 7B or larger. Tiny models mangle the structured-output labs:</p></div>
   <pre><code><span class="p">$</span> ollama pull qwen2.5</code></pre>
   <div class="step-row"><div class="step-n">3</div><p>In <code>.env</code> set these four lines (comment out everything else):</p></div>
@@ -433,7 +432,7 @@ OPENAI_BASE_URL=http://localhost:11434/v1   <span class="c"># Ollama's OpenAI-co
 
   <div class="callout"><span class="tag">Model IDs change</span><p>Model names get updated over time. If a model ID is rejected, swap it for a current one from the provider's model list — the links are in the comments at the top of <code>.env.example</code>.</p></div>
 
-  <div class="callout"><span class="tag">Free vs paid</span><p>We're provider-agnostic — use whatever you have or prefer. Two honest notes: <code>gemini-2.5-flash</code> has a <strong>free</strong> tier, which is great for trying it, but the free tier is <strong>heavily rate-limited</strong> — during a full day of labs you'll likely hit <code>429</code>/<code>500</code>s and interruptions. If you'd rather work uninterrupted, a <strong>paid</strong> API key (any provider) is smoother: the entire course costs roughly <strong>$5–10 of tokens at most</strong>, even with a stronger model such as Claude Sonnet.</p></div>
+  <div class="callout"><span class="tag">Free vs paid</span><p>We're provider-agnostic — use whatever you have or prefer. Two honest notes: <code>gemini-2.5-flash</code> has a <strong>free</strong> tier, which is great for trying it, but the free tier is <strong>heavily rate-limited</strong> — during a full day of labs you'll likely hit <code>429</code>/<code>500</code>s and interruptions. If you'd rather work uninterrupted, a <strong>paid</strong> API key (any provider) is smoother: the entire course costs roughly <strong>$10–20 of tokens at most</strong>, even with a stronger model such as Claude Sonnet.</p></div>
 
   <h4>Example: getting a free Gemini key (Google AI Studio)</h4>
   <div class="step-row"><div class="step-n">1</div><p>Go to <a href="https://aistudio.google.com">aistudio.google.com</a> and sign in with a Google account.</p></div>
@@ -452,7 +451,7 @@ GEMINI_MODEL=gemini-2.5-flash
   <!-- ════════════ 3b — RAG EMBEDDINGS (Lab 08) ════════════ -->
   <h2 id="s3b"><span class="num">+</span> Install the embedding model (Lab 08)</h2>
   <p class="lead">Lab&nbsp;08 (RAG) turns text into vectors with a <strong>real local embedding model</strong>, and you need it <strong>no matter which model path (A / B / C) you picked above</strong>. The embedding model is separate from the chat model — it only produces vectors, and it always runs locally through Ollama. It's part of the course, not an extra.</p>
-  <div class="step-row"><div class="step-n">1</div><p>Install <strong>Ollama</strong> from <a href="https://ollama.com">ollama.com</a> and make sure it's running (the desktop app starts the server automatically; or run <code>ollama serve</code>). <em>If you chose Path&nbsp;B above you already have it — just do step&nbsp;2.</em></p></div>
+  <div class="step-row"><div class="step-n">1</div><p>Install <strong>Ollama</strong> from <a href="https://ollama.com">ollama.com</a> and make sure it's running (on Windows &amp; macOS the app runs the server automatically — no need to run <code>ollama serve</code>; if you do and see an error about the <em>port already being in use</em>, that just confirms it's already running. On headless Linux, run <code>ollama serve</code>). <em>If you chose Path&nbsp;B above you already have it — just do step&nbsp;2.</em></p></div>
   <div class="step-row"><div class="step-n">2</div><p>Pull the embedding model once (~275&nbsp;MB):</p></div>
   <pre><code><span class="p">$</span> ollama pull nomic-embed-text</code></pre>
   <div class="step-row"><div class="step-n">3</div><p><strong>Running Ollama on this machine (most people):</strong> nothing to set — the app already uses <code>http://localhost:11434</code> and <code>nomic-embed-text</code> by default. (Those keys are in <code>.env.example</code> if you'd rather make them explicit.)</p></div>
@@ -461,7 +460,11 @@ GEMINI_MODEL=gemini-2.5-flash
 EMBED_MODEL=nomic-embed-text</code></pre>
   <div class="callout warn"><span class="tag">LAN requirement</span><p>Same as the local-model path above: the machine running Ollama must listen on all interfaces — start it with <code>OLLAMA_HOST=0.0.0.0 ollama serve</code> — and allow port <code>11434</code> through its firewall. Pull the embedding model on <em>that</em> host (<code>ollama pull nomic-embed-text</code>), not on your laptop.</p></div>
   <div class="step-row"><div class="step-n">4</div><p>Quick check that it answers (swap in your host if it's on the LAN):</p></div>
-  <pre><code><span class="p">$</span> curl http://localhost:11434/api/embeddings -d '{"model":"nomic-embed-text","prompt":"hello"}'</code></pre>
+  <pre><code><span class="c"># macOS / Linux</span>
+<span class="p">$</span> curl http://localhost:11434/api/embeddings -d '{"model":"nomic-embed-text","prompt":"hello"}'
+
+<span class="c"># Windows PowerShell — there `curl` is an alias for Invoke-WebRequest, so use this instead</span>
+<span class="p">$</span> Invoke-RestMethod -Uri http://localhost:11434/api/embeddings -Method Post -Body '{"model":"nomic-embed-text","prompt":"hello"}' -ContentType 'application/json'</code></pre>
   <div class="callout"><span class="tag">Already built</span><p>The lab's vector index (<code>data/rag/vectors.bin</code>) ships prebuilt, so you don't generate anything up front — you only need Ollama running so your <em>queries</em> can be embedded at search time. (If you ever change the corpus, rebuild the index with <code>npm run rag:build</code>.)</p></div>
 
   <!-- ════════════ 4 — GTI / MCP PREREQS ════════════ -->
@@ -663,7 +666,7 @@ EMBED_MODEL=nomic-embed-text</code></pre>
   <div class="fix" id="f-ollama-conn">
     <h4>Fix LOC-1 — Can't reach the local model (connection refused)</h4>
     <p class="sym">ECONNREFUSED / connection refused / no response</p>
-    <div class="step-row"><div class="step-n">1</div><p>Make sure the model server is actually running — open the Ollama app, or run <code>ollama serve</code>. Test it: <code>curl http://localhost:11434/v1/models</code> should return JSON.</p></div>
+    <div class="step-row"><div class="step-n">1</div><p>Make sure the model server is actually running — open the Ollama app (Windows/macOS auto-start it; on Linux run <code>ollama serve</code>). Test it: <code>curl http://localhost:11434/v1/models</code> should return JSON <em>(PowerShell: <code>Invoke-RestMethod http://localhost:11434/v1/models</code>)</em>.</p></div>
     <div class="step-row"><div class="step-n">2</div><p>Check your <code>.env</code>: <code>LLM_PROVIDER=openai</code> and <code>OPENAI_BASE_URL</code> points at the right host. Local: <code>http://localhost:11434/v1</code>. Another box: that machine's LAN IP.</p></div>
     <div class="step-row"><div class="step-n">3</div><p>Using a model on another machine? It must bind all interfaces (<code>OLLAMA_HOST=0.0.0.0 ollama serve</code>) and allow port <code>11434</code> through its firewall. Confirm the model name in <code>OPENAI_MODEL</code> matches one you <code>ollama pull</code>ed.</p></div>
   </div>
@@ -685,7 +688,7 @@ EMBED_MODEL=nomic-embed-text</code></pre>
   <div class="fix" id="f-rate">
     <h4>Fix API-2 — Gemini free tier: frequent <code>429</code> / <code>500</code> interruptions</h4>
     <p class="sym">The free tier is heavily rate-limited</p>
-    <p>Expected on the free tier during a full day of labs. Either wait a moment and retry, or switch to a paid key (any provider) for smooth, uninterrupted runs — the whole course is roughly <strong>$5–10 of tokens</strong>. Update <code>.env</code> and restart.</p>
+    <p>Expected on the free tier during a full day of labs. Either wait a moment and retry, or switch to a paid key (any provider) for smooth, uninterrupted runs — the whole course is roughly <strong>$10–20 of tokens</strong>. Update <code>.env</code> and restart.</p>
   </div>
 
   <h3>8.7 · Fixes — Lab 05 (GTI / MCP)</h3>
@@ -746,7 +749,7 @@ EMBED_MODEL=nomic-embed-text</code></pre>
   <div class="callout tip"><span class="tag">Remember</span><p>The detailed, per-lab instructions live <em>inside the app</em> — each lab opens on an <strong>Instructions</strong> tab. This guide only gets you to the front door.</p></div>
 
   <div class="docfoot">
-    <span>AntiSyphon — Build Your Own AI Security Agent · Course · 26 June 2026</span>
+    <span>AntiSyphon — Agentic AI for Threat Hunting · Course · 26 June 2026</span>
     <span>Questions? Ask in Discord before the course.</span>
   </div>
 
