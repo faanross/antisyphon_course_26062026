@@ -118,8 +118,26 @@ export async function reduceFindingsToTriage(
   onPrompt?: (prompts: { systemPrompt: string; userPrompt: string }) => void,
 ): Promise<string> {
   if (findings.length === 0) return "No findings to synthesize — every worker failed or was dropped.";
+
+  // Each finding links to its candidate by candidate_id, and the candidate carries the structured
+  // entity keys (host / process / process_guid / destination). Surface those keys on every finding
+  // line so the synthesizer can correlate findings that share an entity — e.g. a beacon and a
+  // process-anomaly on the SAME process_guid — instead of having to recover the link from free
+  // prose, which silently loses it whenever a worker's narrative happens to omit the process.
+  const candidatesById = new Map((await loadCandidates()).map((c) => [c.candidate_id, c]));
+  const entityKeys = (candidateId: string): string => {
+    const c = candidatesById.get(candidateId);
+    if (!c) return "";
+    const parts: string[] = [];
+    if (c.host) parts.push(`host=${c.host}`);
+    if (c.process_name) parts.push(`proc=${c.process_name}`);
+    if (typeof c.process_guid === "string" && c.process_guid) parts.push(`guid=${c.process_guid}`);
+    if (c.dest_ip) parts.push(`dst=${c.dest_ip}`);
+    return parts.length ? ` | ${parts.join(" ")}` : "";
+  };
+
   const summary = findings
-    .map((f) => `- ${f.candidateId} [${f.skillName}] verdict=${f.verdict} score=${f.compositeScore.toFixed(2)} :: ${f.evidenceSummary}`)
+    .map((f) => `- ${f.candidateId} [${f.skillName}] verdict=${f.verdict} score=${f.compositeScore.toFixed(2)}${entityKeys(f.candidateId)} :: ${f.evidenceSummary}`)
     .join("\n");
   const userPrompt = `Findings from ${findings.length} parallel workers:\n\n${summary}`;
 
@@ -127,7 +145,7 @@ export async function reduceFindingsToTriage(
   // enabled (user) — with the collected findings shown as a placeholder, not dumped again.
   onPrompt?.({
     systemPrompt: FAN_IN_REDUCE_PROMPT,
-    userPrompt: `Findings from ${findings.length} parallel workers:\n\n[ the ${findings.length} collected findings are injected here — one line each: candidate id · skill · verdict · score · evidence summary ]`,
+    userPrompt: `Findings from ${findings.length} parallel workers:\n\n[ the ${findings.length} collected findings are injected here — one line each: candidate id · skill · verdict · score · entity keys (host · process · guid · dest) · evidence summary ]`,
   });
 
   const provider = getProvider();
