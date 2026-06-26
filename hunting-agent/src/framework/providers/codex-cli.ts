@@ -95,26 +95,32 @@ export function createCodexCliProvider(
         stderr = `${stderr}${chunk.toString()}`.slice(-4000);
       });
 
-      const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
+      // Idle watchdog: fail a stuck CLI call instead of leaving the browser stream open forever.
+      // The timer resets on every stdout line, so a slow but still-moving call is allowed through.
+      const idleTimeoutMs = Number(process.env.LLM_CALL_TIMEOUT_MS ?? "120000");
+      let timedOut = false;
+      let watchdog: ReturnType<typeof setTimeout> | undefined;
+      const pokeWatchdog = () => {
+        if (watchdog) clearTimeout(watchdog);
+        watchdog = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGKILL");
+        }, idleTimeoutMs);
+      };
 
-      for await (const line of rl) {
-        if (!line.trim()) continue;
-        try {
-          const ev = JSON.parse(line);
-          if (
-            ev.type === "item.completed" &&
-            ev.item?.type === "agent_message" &&
-            ev.item?.text
-          ) {
-            yield* streamFinalTextForDisplay(ev.item.text);
-          }
-        } catch {
-          // skip malformed lines
-        }
-      }
-
-      await new Promise<void>((resolve, reject) => {
+      // Register process settlement before consuming stdout. A short Codex response can close
+      // before the stdout iterator finishes; if we attach this listener afterwards, the adapter
+      // can miss the close event and await forever.
+      const settled = new Promise<void>((resolve, reject) => {
         child.on("close", (code) => {
+          if (timedOut) {
+            reject(
+              new Error(
+                `Codex CLI call stalled (no output for ${Math.round(idleTimeoutMs / 1000)}s) and was terminated. Set LLM_CALL_TIMEOUT_MS to adjust.`,
+              ),
+            );
+            return;
+          }
           if (code === 0) resolve();
           else {
             const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
@@ -123,6 +129,33 @@ export function createCodexCliProvider(
         });
         child.on("error", reject);
       });
+      settled.catch(() => {});
+
+      const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
+
+      pokeWatchdog();
+      try {
+        for await (const line of rl) {
+          pokeWatchdog();
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line);
+            if (
+              ev.type === "item.completed" &&
+              ev.item?.type === "agent_message" &&
+              ev.item?.text
+            ) {
+              yield* streamFinalTextForDisplay(ev.item.text);
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
+
+        await settled;
+      } finally {
+        if (watchdog) clearTimeout(watchdog);
+      }
     },
   };
 }
