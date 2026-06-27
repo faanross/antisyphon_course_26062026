@@ -4,6 +4,26 @@ import type { LLMProvider, LLMResult } from "./types.js";
 
 const DEFAULT_DISPLAY_CHUNK_DELAY_MS = 5;
 
+function resolveCliBinary(binary: string): string {
+  return process.platform === "win32" && !/\.(cmd|exe|bat)$/i.test(binary)
+    ? `${binary}.cmd`
+    : binary;
+}
+
+function quoteCmdArg(arg: string): string {
+  return /[\s"&|<>^]/.test(arg) ? `"${arg.replace(/"/g, '\\"')}"` : arg;
+}
+
+function resolveSpawn(binary: string, args: string[]): { command: string; args: string[] } {
+  if (process.platform !== "win32") return { command: binary, args };
+
+  const commandLine = [resolveCliBinary(binary), ...args].map(quoteCmdArg).join(" ");
+  return {
+    command: process.env.ComSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", commandLine],
+  };
+}
+
 function chunkTextForDisplay(text: string): string[] {
   return text.match(/\S+\s*/g) ?? [];
 }
@@ -58,9 +78,7 @@ export function createCodexCliProvider(
       // Pass the prompt via stdin, not argv: Windows caps the command line at
       // ~32K chars, and tool-heavy prompts (e.g. Lab 05's decide step) exceed it.
       // `codex exec` reads instructions from stdin when no positional prompt is given.
-      const child = spawn(
-        binary,
-        [
+      const resolved = resolveSpawn(binary, [
           "exec",
           "--json",
           "--ignore-user-config",
@@ -79,9 +97,10 @@ export function createCodexCliProvider(
           "shell_snapshot",
           "--model",
           model,
-        ],
-        { stdio: ["pipe", "pipe", "pipe"] },
-      );
+      ]);
+      const child = spawn(resolved.command, resolved.args, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
       // Swallow pipe-level errors: if the subprocess dies early, writing its stdin emits EPIPE as
       // an unhandled 'error' event that would crash the whole dev server. The real outcome is still
       // reported via the 'close'/'error' handlers below. (Mirrors the claude-code provider.)
@@ -94,6 +113,18 @@ export function createCodexCliProvider(
       child.stderr.on("data", (chunk) => {
         stderr = `${stderr}${chunk.toString()}`.slice(-4000);
       });
+
+      const settled = new Promise<void>((resolve, reject) => {
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else {
+            const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
+            reject(new Error(`Codex CLI exited with code ${code}${detail}`));
+          }
+        });
+        child.on("error", reject);
+      });
+      settled.catch(() => {});
 
       const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
 
@@ -113,16 +144,7 @@ export function createCodexCliProvider(
         }
       }
 
-      await new Promise<void>((resolve, reject) => {
-        child.on("close", (code) => {
-          if (code === 0) resolve();
-          else {
-            const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
-            reject(new Error(`Codex CLI exited with code ${code}${detail}`));
-          }
-        });
-        child.on("error", reject);
-      });
+      await settled;
     },
   };
 }

@@ -2,6 +2,26 @@ import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { LLMProvider, LLMResult } from "./types.js";
 
+function resolveCliBinary(binary: string): string {
+  return process.platform === "win32" && !/\.(cmd|exe|bat)$/i.test(binary)
+    ? `${binary}.cmd`
+    : binary;
+}
+
+function quoteCmdArg(arg: string): string {
+  return /[\s"&|<>^]/.test(arg) ? `"${arg.replace(/"/g, '\\"')}"` : arg;
+}
+
+function resolveSpawn(binary: string, args: string[]): { command: string; args: string[] } {
+  if (process.platform !== "win32") return { command: binary, args };
+
+  const commandLine = [resolveCliBinary(binary), ...args].map(quoteCmdArg).join(" ");
+  return {
+    command: process.env.ComSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", commandLine],
+  };
+}
+
 export function createClaudeCodeProvider(
   binary: string,
   model: string,
@@ -52,7 +72,8 @@ export function createClaudeCodeProvider(
 
       // Pass the prompt via stdin, not argv: Windows caps the command line at
       // ~32K chars, and tool-heavy prompts (e.g. Lab 05's decide step) exceed it.
-      const child = spawn(binary, args, {
+      const resolved = resolveSpawn(binary, args);
+      const child = spawn(resolved.command, resolved.args, {
         stdio: ["pipe", "pipe", "pipe"],
         // Detection/assessment/narrative are structured-extraction + rubric tasks, not open-ended
         // reasoning. Sonnet's adaptive extended thinking adds ~75s per call here and is never shown
