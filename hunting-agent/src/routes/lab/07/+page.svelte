@@ -751,6 +751,13 @@
           The severity skill has the org-wide compliance baseline injected; the behavioral-context skill
           injects nothing and relies entirely on the tool-fetched asset record and incident history.
         </p>
+        <p class="panel-intro">
+          <strong>Why inject one but fetch the other?</strong> The compliance baseline is identical for every
+          finding, and every assessment needs it — there's nothing to <em>select</em>, so injecting it is free
+          and guarantees the grounding. Asset and incident records differ per host/user and there can be
+          thousands of them; <em>which</em> ones you need depends on the finding. That's the selection problem
+          tools exist for. <strong>Inject the invariant, fetch the variable.</strong>
+        </p>
 
         {#if injectedContext.length}
           <div class="injected-note">
@@ -1000,6 +1007,19 @@
             </li>
           </ol>
         </details>
+
+        <!-- Callout · lab → prod scaling -->
+        <aside class="cv-callout">
+          <BuildingsIcon size={22} weight="duotone" />
+          <p>
+            <strong>One <code>.md</code> per host is a teaching stand-in.</strong> In production you wouldn't
+            hand-author a file per host — <code>get_asset_record</code> is just an <em>interface</em>. Behind it,
+            the same tool runs a <strong>keyed lookup against your real system of record</strong> — a CMDB,
+            identity provider, EDR inventory, or a knowledge graph — and renders the handful of fields the model
+            needs. It stays an exact lookup by entity, not a search, so it scales to thousands of hosts by
+            fetching only the one record the finding points at.
+          </p>
+        </aside>
 
         <!-- B · What the model is given -->
         <details class="cv-section" open>
