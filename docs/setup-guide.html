@@ -369,6 +369,7 @@
   <!-- ── PART A ── -->
   <h3 id="pa"><span class="part">A</span> Use a CLI you already subscribe to</h3>
   <p>If you already pay for <strong>Claude</strong> or <strong>ChatGPT</strong> and have its command-line tool installed and signed in, the app drives that tool for you. There is <strong>no API key in <code>.env</code></strong>, and you pay nothing beyond the subscription you already have. This is the simplest path for existing subscribers.</p>
+  <div class="callout"><span class="tag">Headless / SSH-only box?</span><p>The subscription sign-ins assume a desktop browser, so on a GUI-less or remote/SSH-only machine they're fiddly (<code>claude</code>'s <code>/login</code> especially). The smoothest no-browser path there is an <strong>API-key</strong> provider — see <strong>Part&nbsp;C</strong>. (For Codex, <code>codex login --device-auth</code> gives a paste-a-code flow.)</p></div>
 
   <h4>A1 · Claude Code (Anthropic subscription)</h4>
   <div class="step-row"><div class="step-n">1</div><p>Install the CLI (needs Node, which Section&nbsp;2 set up): <code>npm install -g @anthropic-ai/claude-code</code></p></div>
@@ -387,6 +388,7 @@ CLAUDE_CODE_MODEL=sonnet
   <pre><code>LLM_PROVIDER=codex-cli
 CODEX_MODEL=gpt-5.4
 <span class="c"># CODEX_MODEL=gpt-5.4-mini</span></code></pre>
+  <div class="callout warn"><span class="tag">Run Codex once before the app</span><p>Launch <code>codex</code> in your terminal first. If it offers to <strong>self-update</strong>, let it finish (or skip) there — an update triggered <em>while a lab is running</em> stalls the spawned process and the agent stops responding. If a Codex lab goes silent later, this is the usual cause → <a href="#f-codex-update">Fix CC-4</a>.</p></div>
   <div class="callout tip"><span class="tag">How to tell it's ready</span><p>Before touching the app, make sure the bare CLI works in your terminal: <code>claude --print "hi"</code> (Claude Code) or a quick <code>codex</code> run (Codex). If the CLI answers, the app will too. The app simply runs <code>claude</code> / <code>codex</code> for you, so they must be on your <code>PATH</code> and signed in.</p></div>
 
   <!-- ── PART B ── -->
@@ -542,6 +544,7 @@ EMBED_MODEL=nomic-embed-text</code></pre>
     <tr><td><code>claude-code</code>: <em>"Claude Code exited with code 1"</em></td><td class="go"><a href="#f-cc-exit1">→ Fix CC-1</a></td></tr>
     <tr><td><code>spawn claude ENOENT</code> / <code>spawn codex ENOENT</code> (may crash the server → <em>"NetworkError when attempting to fetch resource"</em>)</td><td class="go"><a href="#f-cc-enoent">→ Fix CC-2</a></td></tr>
     <tr><td><code>claude-code</code>: requests suddenly stop / "credit" or quota errors (<strong>only if the Agent SDK credit change is live</strong>)</td><td class="go"><a href="#f-cc-credit">→ Fix CC-3</a></td></tr>
+    <tr><td><code>codex-cli</code>: a lab hangs / never responds (often after a Codex self-update)</td><td class="go"><a href="#f-codex-update">→ Fix CC-4</a></td></tr>
   </table>
 
   <h4>Path B — Local / Ollama</h4>
@@ -645,11 +648,11 @@ EMBED_MODEL=nomic-embed-text</code></pre>
 
   <div class="fix" id="f-cc-enoent">
     <h4>Fix CC-2 — <code>spawn claude ENOENT</code> / <code>spawn codex ENOENT</code></h4>
-    <p class="sym">The CLI isn't on the PATH of the terminal running the server (may crash it → browser shows "NetworkError when attempting to fetch resource")</p>
-    <p>The app launches <code>claude</code> / <code>codex</code> by name, so it must be installed and on the <code>PATH</code> of the terminal that started <code>npm run dev</code>.</p>
-    <div class="step-row"><div class="step-n">1</div><p>Stop the server. In a <strong>fresh</strong> terminal run <code>claude --version</code> (or <code>codex --version</code>).</p></div>
-    <div class="step-row"><div class="step-n">2</div><p>Not recognized? Install it (Claude Code: <code>npm install -g @anthropic-ai/claude-code</code>; Codex: <code>npm install -g @openai/codex</code>), then close and reopen the terminal.</p></div>
-    <div class="step-row"><div class="step-n">3</div><p>Sign in (<code>claude</code> → <code>/login</code>; or run <code>codex</code> → <strong>Sign in with ChatGPT</strong>). Then start <code>npm run dev</code> <strong>from that same terminal</strong> — the server inherits its PATH.</p></div>
+    <p class="sym">Same error, two different causes (may crash the server → browser shows "NetworkError when attempting to fetch resource")</p>
+    <p>Tell them apart first — in the <strong>same</strong> terminal you start <code>npm run dev</code> from, run <code>where claude</code> (or <code>where codex</code>; macOS/Linux: <code>which</code>):</p>
+    <div class="step-row"><div class="step-n">A</div><p><strong>"Could not find files…"</strong> → it's genuinely not on that terminal's PATH (the server only sees the PATH of the shell it was launched from). Install it (<code>npm install -g @anthropic-ai/claude-code</code> or <code>@openai/codex</code>), then <strong>open a brand-new terminal</strong> — Windows only refreshes PATH for new shells, so one opened before the install won't see it. Sign in (<code>claude</code> → <code>/login</code>, or <code>codex</code> → Sign in with ChatGPT), confirm <code>where claude</code> finds it, and start <code>npm run dev</code> from <em>that</em> terminal. Still missing? Sign out of Windows and back in for a full PATH refresh.</p></div>
+    <div class="step-row"><div class="step-n">B</div><p><strong>It prints a path</strong> (e.g. <code>…\claude.cmd</code>) → it <em>is</em> on PATH, but Node couldn't launch the <code>.cmd</code> shim directly (Windows installs the CLIs as <code>.cmd</code>, and <code>spawn</code> does no PATHEXT resolution). The app handles this for you now — it routes <code>.cmd</code> through <code>cmd.exe</code> — so just make sure you're on the latest: <code>git pull</code>, then restart.</p></div>
+    <div class="callout"><span class="tag">Instant sidestep (either cause)</span><p>Switch to an <strong>API-key</strong> provider — <code>LLM_PROVIDER=gemini</code> (free key) / <code>anthropic</code> / <code>openai</code> in <code>.env</code> — and restart. API providers make HTTP calls with <strong>no subprocess</strong>, so they dodge both causes. (Switching <code>claude</code>↔<code>codex</code> does <em>not</em> help — both are <code>.cmd</code> shims.)</p></div>
   </div>
 
   <div class="fix" id="f-cc-credit">
@@ -659,6 +662,13 @@ EMBED_MODEL=nomic-embed-text</code></pre>
     <div class="step-row"><div class="step-n">2</div><p><strong>Claim the credit (one-time).</strong> Open your Claude account and opt in to the Agent SDK monthly credit (eligible users were emailed instructions). Until you claim it, headless <code>claude -p</code> may have no allowance to draw on.</p></div>
     <div class="step-row"><div class="step-n">3</div><p>Mind the cap: Pro <strong>$20</strong>/mo, Max&nbsp;5x <strong>$100</strong>, Max&nbsp;20x <strong>$200</strong> — metered at API rates, reset monthly. Tool-heavy labs (esp. Lab&nbsp;05) spend it. When it's gone, requests <strong>stop</strong> until next cycle — unless you've enabled paid usage credits, in which case they bill at standard API rates. To avoid watching a meter, switch <code>.env</code> to a local model (Path&nbsp;B) or an API key (Path&nbsp;C).</p></div>
     <p>Official details: <a href="https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan">Anthropic — Use the Claude Agent SDK with your Claude plan</a>.</p>
+  </div>
+
+  <div class="fix" id="f-codex-update">
+    <h4>Fix CC-4 — Codex lab hangs / stops responding</h4>
+    <p class="sym">On <code>codex-cli</code> a lab spins forever or the agent never answers — often right after Codex decided to update itself</p>
+    <div class="step-row"><div class="step-n">1</div><p>Stop the dev server. Run <code>codex</code> directly in your terminal and let any <strong>self-update</strong> finish (or skip it). An update kicked off while the app has already spawned <code>codex</code> blocks the call, so the lab never gets a response.</p></div>
+    <div class="step-row"><div class="step-n">2</div><p>Once <code>codex</code> runs cleanly on its own, restart <code>npm run dev</code> and retry the lab.</p></div>
   </div>
 
   <h3>8.5 · Fixes — Path B (local / Ollama)</h3>
