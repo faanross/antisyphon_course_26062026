@@ -2,9 +2,7 @@ import type { RequestHandler } from "./$types";
 import { runRagInvestigation } from "../../../../framework/demo.js";
 import { EmbeddingUnavailableError } from "../../../../framework/embeddings.js";
 
-// NOTE: this route lives under /api/lab07/ for historical reasons but is owned and
-// used EXCLUSIVELY by Lab 08 (src/routes/lab/08/+page.svelte). Lab 07's own page does
-// not call it. Do not remove it as part of any "Lab 07 routes" cleanup.
+// The RAG query endpoint for Lab 08 (src/routes/lab/08/+page.svelte).
 //
 // Streams the RAG pipeline as NDJSON so Lab 08 can show each stage as it happens:
 //   embed -> retrieved -> context -> model-start -> token… -> done   (or: error)

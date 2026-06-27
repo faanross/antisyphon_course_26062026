@@ -3,7 +3,7 @@ import type { LLMProvider } from "./providers/types.js";
 import { addAnalysis, addInput } from "./state.js";
 import type { Candidate } from "./loaders.js";
 import type { PipelineState } from "./types.js";
-import { buildRagContext, queryPriorInvestigations, type RagHit } from "./rag.js";
+import { buildRagContext, embedQuery, queryPriorInvestigations, type RagHit } from "./rag.js";
 import { embedConfig, EMBED_DIMENSIONS } from "./embeddings.js";
 import {
   executeAgentToolCall,
@@ -798,7 +798,7 @@ export async function processChatMemoryTurnStreaming(
 
 // The staged RAG pipeline, emitted as events so Lab 08 can teach each step as it happens.
 export type RagStreamEvent =
-  | { type: "embed"; query: string; model: string; dimensions: number }
+  | { type: "embed"; query: string; model: string; dimensions: number; preview: number[] }
   | { type: "retrieved"; hits: RagHit[] }
   | { type: "context"; context: string }
   | { type: "model-start" }
@@ -817,10 +817,18 @@ export async function runRagInvestigation(
   const emit = (event: RagStreamEvent) => onEvent?.(event);
 
   // 1 · Embed — the query becomes a vector (throws EmbeddingUnavailableError if Ollama is down).
-  emit({ type: "embed", query, model: embedConfig().model, dimensions: EMBED_DIMENSIONS });
+  // Embed once here so the stream can show the query's REAL first dims, then reuse it for retrieval.
+  const queryVector = await embedQuery(query);
+  emit({
+    type: "embed",
+    query,
+    model: embedConfig().model,
+    dimensions: EMBED_DIMENSIONS,
+    preview: queryVector.slice(0, 3).map((v) => Number(v.toFixed(4))),
+  });
 
-  // 2 · Retrieve — cosine similarity over the corpus, top-5 nearest chunks.
-  const hits = await queryPriorInvestigations(query, 5);
+  // 2 · Retrieve — cosine similarity over the corpus, top-5 nearest chunks (reusing the vector above).
+  const hits = await queryPriorInvestigations(query, 5, queryVector);
   emit({ type: "retrieved", hits });
 
   // 3 · Augment — assemble the retrieved text into the prompt the model will see.
