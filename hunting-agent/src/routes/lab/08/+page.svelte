@@ -34,6 +34,7 @@
   const STAGE_ORDER: Stage[] = ["idle", "embedding", "retrieving", "augmenting", "generating", "done"];
   let stage = $state<Stage>("idle");
   let embedModel = $state("");
+  let queryVecPreview = $state<number[]>([]);
   let hits = $state<Hit[]>([]);
   let contextText = $state("");
   let synthesis = $state("");
@@ -50,9 +51,10 @@
     contextText = "";
     synthesis = "";
     synthModel = "";
+    queryVecPreview = [];
     stage = "embedding";
     try {
-      const response = await fetch("/api/lab07/query", {
+      const response = await fetch("/api/lab08/query", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query: value }),
@@ -72,7 +74,7 @@
         for (const line of lines) {
           if (!line.trim()) continue;
           const ev = JSON.parse(line);
-          if (ev.type === "embed") { embedModel = ev.model; stage = "retrieving"; }
+          if (ev.type === "embed") { embedModel = ev.model; queryVecPreview = ev.preview ?? []; stage = "retrieving"; }
           else if (ev.type === "retrieved") { hits = ev.hits; stage = "augmenting"; }
           else if (ev.type === "context") { contextText = ev.context; stage = "generating"; }
           else if (ev.type === "model-start") { stage = "generating"; }
@@ -251,7 +253,7 @@
           <div class="embed-viz">
             <code class="q">"{query}"</code>
             <ArrowRightIcon size={16} weight="bold" />
-            <span class="vec">[ 0.02, -0.14, 0.08, … ] · 768 dims</span>
+            <span class="vec">[ {queryVecPreview.length ? queryVecPreview.join(", ") + ", …" : "…"} ] · 768 dims</span>
           </div>
         </li>
 
@@ -441,7 +443,7 @@
 │  └─ <span class="tr-file">store-meta.json</span>          <span class="tr-cm">← model, dimensions, chunk counts</span>
 │
 └─ <span class="tr-dir">src/</span>
-   ├─ <span class="tr-dir">routes/api/lab07/query/</span>
+   ├─ <span class="tr-dir">routes/api/lab08/query/</span>
    │  └─ <span class="tr-file">+server.ts</span>           <span class="tr-cm">← endpoint → runRagInvestigation()</span>
    └─ <span class="tr-dir">framework/</span>
       ├─ <span class="tr-file">demo.ts</span>              <span class="tr-cm">← runRagInvestigation(): embed → retrieve → augment → stream</span>

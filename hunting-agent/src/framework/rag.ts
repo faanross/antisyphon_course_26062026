@@ -57,9 +57,16 @@ export async function loadRagStore(root = "data/rag"): Promise<{
   return { chunks, meta, vectors };
 }
 
-export async function queryPriorInvestigations(query: string, k = 5): Promise<RagHit[]> {
+// Embed a query string into a vector (the "query" task-prefix variant). Exposed so a caller that
+// also wants to SHOW the vector (e.g. Lab 08's embed-stage preview) can embed once and reuse it.
+export async function embedQuery(query: string): Promise<number[]> {
+  return embedText(query, "query");
+}
+
+// Pass `precomputed` to reuse a vector you already embedded and skip a second embed call.
+export async function queryPriorInvestigations(query: string, k = 5, precomputed?: number[]): Promise<RagHit[]> {
   const { chunks, meta, vectors } = await loadRagStore();
-  const queryVector = await embedText(query, "query");
+  const queryVector = precomputed ?? (await embedText(query, "query"));
   if (queryVector.length !== meta.dimensions) {
     throw new Error(
       `Query embedding has ${queryVector.length} dims but the index expects ${meta.dimensions}. ` +
