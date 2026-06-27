@@ -141,6 +141,17 @@
           </p>
         </header>
 
+        <aside class="cv-callout">
+          <ShieldCheckIcon size={22} weight="duotone" />
+          <p>
+            <strong>Notice what's not here: assessment.</strong> This lab isolates one idea —
+            graph-grounded narrative — so it runs detection&nbsp;→&nbsp;graph&nbsp;→&nbsp;narrative and skips the
+            severity / behavioral-context step (Lab&nbsp;07) on purpose. It isn't dropped:
+            <strong>Lab&nbsp;12</strong> threads the full pipeline together — detection → assessment → graph →
+            narrative → report.
+          </p>
+        </aside>
+
         <ol class="flow">
           <!-- Step 1 -->
           <li class="flow-step" style="--d: 0ms">

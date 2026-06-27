@@ -270,10 +270,13 @@
           <ArrowsInIcon size={22} weight="duotone" />
           <p>
             <strong>This is map-reduce — and where it goes next.</strong> The reduce here is a
-            <em>transient</em> batch synthesis: read N findings, emit one triage, with no shared state
-            between them. <strong>Lab 10</strong> makes that synthesis <em>durable and connected</em> —
-            findings that touch the same host, user, or domain become linked nodes in a knowledge graph —
-            and <strong>Lab 11</strong> turns that graph into a campaign narrative.
+            <em>transient</em> batch synthesis: read N findings, emit one triage, no shared state. It works at
+            this scale, but a graph wins on two fronts. <strong>Reliability —</strong> here the <em>model</em>
+            still has to notice that two findings share a host or process, and it can miss it; in a graph the
+            join is <em>structural</em> (same entity → same node, computed not reasoned). <strong>Scale —</strong>
+            reduce injects <em>every</em> finding into one prompt, fine for 8 but impossible for hundreds; a graph
+            is build-once, query-many — write findings in as you go, then pull only the related sub-graph.
+            <strong>Lab 10</strong> builds that graph; <strong>Lab 11</strong> turns it into a campaign narrative.
           </p>
         </aside>
       </div>
